@@ -1,0 +1,63 @@
+{
+    "swagger": "2.0",
+    "info": {
+        "title": "beego Test API",
+        "description": "beego has a very cool tools to autogenerate documents for your API",
+        "version": "1.0.0",
+        "termsOfService": "http://beego.me/",
+        "contact": {
+            "email": "astaxie@gmail.com"
+        },
+        "license": {
+            "name": "Url http://www.apache.org/licenses/LICENSE-2.0.html"
+        }
+    },
+    "basePath": "/v1/deploy",
+    "paths": {
+        "/program/logs": {
+            "get": {
+                "tags": [
+                    "program"
+                ],
+                "description": "日志",
+                "operationId": "ProgramController.",
+                "responses": {
+                    "200": {
+                        "description": "{string}"
+                    },
+                    "500": {}
+                }
+            }
+        },
+        "/program/version": {
+            "get": {
+                "tags": [
+                    "program"
+                ],
+                "description": "当前版本",
+                "operationId": "ProgramController.",
+                "responses": {
+                    "200": {
+                        "description": "{string}"
+                    },
+                    "500": {}
+                }
+            }
+        },
+        "/test/devmode": {
+            "get": {
+                "tags": [
+                    "test"
+                ],
+                "description": "查看当前是否处于开发模式",
+                "operationId": "TestController.模式",
+                "responses": {
+                    "201": {
+                        "description": "{bool}"
+                    },
+                    "500": {}
+                }
+            }
+        }
+    }
+}
