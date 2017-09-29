@@ -6,6 +6,13 @@ import (
 
 func init() {
 
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:AppController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:AppController"],
+		beego.ControllerComments{
+			Method: "NewApp",
+			Router: `/`,
+			AllowHTTPMethods: []string{"Post"},
+			Params: nil})
+
 	beego.GlobalControllerRouter["ufleet-deploy/controllers:ProgramController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:ProgramController"],
 		beego.ControllerComments{
 			Method: "GetVersion",

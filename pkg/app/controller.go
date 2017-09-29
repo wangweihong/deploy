@@ -3,6 +3,7 @@ package app
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"sync"
 	"ufleet-deploy/pkg/backend"
 	"ufleet-deploy/pkg/log"
@@ -85,6 +86,20 @@ func (sm *AppMananger) NewApp(groupName, workspaceName, appName string, desc str
 	}
 	//加锁
 	//
+	var stack App
+	stack.Name = appName
+	stack.Group = groupName
+	stack.Workspace = workspaceName
+
+	err = storer.Create(groupName, workspaceName, appName, stack)
+	if err != nil {
+		return log.DebugPrint(err)
+	}
+
+	if len(strings.TrimSpace(desc)) == 0 {
+		return nil
+	} else {
+	}
 	return nil
 
 }

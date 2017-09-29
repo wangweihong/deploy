@@ -5,12 +5,14 @@ import (
 	"os"
 	"ufleet-deploy/pkg/app"
 	"ufleet-deploy/pkg/backend"
+	"ufleet-deploy/pkg/cluster"
 	"ufleet-deploy/pkg/kv"
 	"ufleet-deploy/pkg/log"
 )
 
 const (
-	etcdHostEnvKey = "ETCDHOST"
+	etcdHostEnvKey    = "ETCDHOST"
+	clusterHostEnvKey = "CLUSTERHOST"
 )
 
 func init() {
@@ -21,6 +23,8 @@ func init() {
 	log.DebugPrint("init app controller")
 	app.Init()
 
+	initCluster()
+
 }
 
 func initKV() {
@@ -29,4 +33,13 @@ func initKV() {
 		panic(fmt.Sprintf("must provide Environment \"%v\"", etcdHostEnvKey))
 	}
 	kv.Init(etcdHost)
+}
+
+func initCluster() {
+	clusterHost := os.Getenv(clusterHostEnvKey)
+	if len(clusterHost) == 0 {
+		panic(fmt.Sprintf("must provide Environment \"%v\"", clusterHostEnvKey))
+	}
+
+	cluster.Init(clusterHost)
 }

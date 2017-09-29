@@ -2,6 +2,7 @@ package backend
 
 import (
 	"encoding/json"
+	"fmt"
 	"sync"
 	"time"
 	"ufleet-deploy/pkg/kv"
@@ -10,13 +11,15 @@ import (
 	"github.com/astaxie/beego"
 )
 
+//
 //{"action":"get","node":{"key":"/ufleet/cluster/workspace","dir":true,"nodes":[{"key":"/ufleet/cluster/workspace/namespace","value":"{\"c_cpu_min\": 0.001, \"c_mem_default\": 512, \"pod_mem_max\": 2048, \"group\": \"Group\", \"name\": \"namespace\", \"mem\": 18.336, \"pod_mem_min\": 2, \"c_cpu_max\": 0.6, \"datetime\": \"2017-08-08 09:34:31\", \"cluster_name\": \"JGHSUIGYAIUGHKJ\", \"creater\": \"admin\", \"c_mem_max\": 1024, \"c_mem_min\": 1, \"pod_cpu_min\": 0.001, \"pod_cpu_max\": 0.6, \"c_cpu_default\": 0.1, \"cpu\": 9.6}","modifiedIndex":301,"createdIndex":301}],"modifiedIndex":301,"createdIndex":301}}
 const (
 	externalWorkspaceKey = "/ufleet/cluster/workspace"
 )
 
 var (
-	workspaceNoticers = make(map[string]struct{})
+	//
+	workspaceNoticers = make(map[string]chan WorkspaceEvent)
 	workspaceLock     = sync.Mutex{}
 	workspaceBE       = NewBackendHandler()
 )
@@ -24,6 +27,21 @@ var (
 type Workspace struct {
 	Group     string `json:"group"`
 	Workspace string `json:"name"`
+}
+
+func RegisterWorkspaceNoticer(kind string) (chan WorkspaceEvent, error) {
+	workspaceLock.Lock()
+	defer workspaceLock.Unlock()
+
+	_, ok := workspaceNoticers[kind]
+	if ok {
+		return nil, fmt.Errorf("noticer %v has registered", kind)
+	}
+
+	ch := make(chan WorkspaceEvent)
+	workspaceNoticers[kind] = ch
+	return ch, nil
+
 }
 
 //必须在GroupTuner后面执行
@@ -99,21 +117,6 @@ func GetExternalWorkspaceList() (map[string][]string, error) {
 	return gws, nil
 }
 
-/*
-func RegisterWorkspaceNoticer(kind string) error {
-	regLock.Lock()
-	defer regLock.Unlock()
-
-	if _, ok := workspaceNoticers[kind]; ok {
-		return fmt.Errorf("noticer \"%v\" has registered", kind)
-	}
-
-	workspaceNoticers[name] = struct{}{}
-	return nil
-
-}
-*/
-
 type WorkspaceEvent struct {
 	Action    string
 	Group     string
@@ -166,14 +169,6 @@ func watchWorkspaceChange() error {
 				continue
 			}
 
-			/*
-				log.DebugPrint("recieve workspce event %v", res.Node.Key)
-				log.DebugPrint("recieve workspce value %v", res.Node.Value)
-				if res.PrevNode != nil {
-					log.DebugPrint("recieve workspce value %v", res.PrevNode.Value)
-				}
-			*/
-
 			var action string
 			var value string
 			switch res.Action {
@@ -184,10 +179,9 @@ func watchWorkspaceChange() error {
 
 			case "delete":
 				action = res.Action
-
 				value = res.PrevNode.Value
-
 			}
+
 			var w Workspace
 			err := json.Unmarshal([]byte(value), &w)
 			if err != nil {
@@ -199,20 +193,21 @@ func watchWorkspaceChange() error {
 			event.Group = w.Group
 			event.Workspace = w.Workspace
 
-			//			log.DebugPrint("group: %v,workspace: %v", event.Group, event.Workspace)
-			/*
-
-				for k, _ := range workspaceNoticers {
-					go func(c chan WorkspaceEvent, we WorkspaceEvent) {
-						handleWorkspaceEvent(kind, we.Group, we.Workspace, we.Action)
-					}(k, event)
-				}
-			*/
+			log.DebugPrint("recieve workspace event %v/%v/%v", event.Group, event.Workspace, event.Action)
 			for _, k := range resources {
 				go func(kind string, we WorkspaceEvent) {
 					handleWorkspaceEvent(kind, we.Group, we.Workspace, we.Action)
 				}(k, event)
 			}
+
+			for v, k := range workspaceNoticers {
+				log.DebugPrint(v)
+				go func(c chan WorkspaceEvent, we WorkspaceEvent) {
+					c <- we
+				}(k, event)
+			}
+
+			//需要通知cluster进行相应的处理
 		}
 	}()
 

@@ -28,14 +28,7 @@ func Init() {
 		if err != nil {
 			panic(err.Error())
 		}
-
 	}
-	/*
-		err = watchRegistyEvent()
-		if err != nil {
-			panic(err.Error())
-		}
-	*/
 
 	err = watchExternalGroupChange()
 	if err != nil {
