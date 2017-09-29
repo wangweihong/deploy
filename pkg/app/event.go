@@ -14,6 +14,8 @@ const (
 )
 
 //获得后端监听的事件
+//如果组被删除,说明组其中的工作区/资源,以及相应k8s资源都已经被删除,直接删除组即可
+//如果工作区删除,说明其中的资源对应的k8s资源已经被清除.直接删除即可
 func EventHandler(e backend.ResourceEvent) {
 	sm.Locker.Lock()
 	defer sm.Locker.Unlock()

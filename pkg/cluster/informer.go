@@ -3,7 +3,10 @@ package cluster
 import (
 	"fmt"
 	"ufleet-deploy/pkg/log"
+	"ufleet-deploy/pkg/sign"
 
+	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/informers"
 	appinformers "k8s.io/client-go/informers/apps/v1beta1"
 	batchinformers "k8s.io/client-go/informers/batch/v1"
@@ -63,11 +66,46 @@ func (c *ResourceController) Run(stopCh chan struct{}) error {
 	return nil
 }
 
-func ingoreNs(ns string) bool {
-	if ns == "kube-system" {
-		return true
+func (c *ResourceController) locateResourceGW(ns string) *Workspace {
+	wg, ok := c.Workspaces[ns]
+	if !ok {
+		return nil
 	}
-	return false
+	return &wg
+}
+
+func (c *ResourceController) generateEventFromObj(obj interface{}, action ActionType) (*Event, error) {
+	runobj := obj.(runtime.Object)
+	accessor := meta.NewAccessor()
+	ns, err := accessor.Namespace(runobj)
+	if err != nil {
+		return nil, fmt.Errorf("<cluster ResourceController> Get object Namespace fail :%v", err)
+	}
+	wg := c.locateResourceGW(ns)
+	if wg == nil {
+		return nil, nil
+	}
+	name, err := accessor.Name(runobj)
+	if err != nil {
+		return nil, fmt.Errorf("<cluster ResourceController> Get object name fail :%v", err)
+	}
+
+	annotations, err := accessor.Annotations(runobj)
+	if err != nil {
+		return nil, fmt.Errorf("<cluster ResourceController> Get object Annotations fail :%v", err)
+	}
+
+	var e Event
+	e.Action = action
+	e.Group = wg.Group
+	e.Workspace = wg.Name
+	e.Name = name
+
+	_, ok := annotations[sign.SignFromUfleetKey]
+	if ok {
+		e.FromUfleet = true
+	}
+	return &e, nil
 }
 
 //所有由ufleet主动创建的资源上都添加特定的标志,表明是ufleet主动创建
@@ -80,98 +118,129 @@ func ingoreNs(ns string) bool {
 
 //在一开始resync时,会触发create事件
 //周期性resync时,会触发Update事件
+//调用者要tongue
 func (c *ResourceController) resourceAdd(obj interface{}) {
-	switch r := obj.(type) {
+	ep, err := c.generateEventFromObj(obj, ActionCreate)
+	if err != nil {
+		log.ErrorPrint(err)
+		return
+	}
+	//忽略我们不关心的namespace的资源
+	if ep == nil {
+		return
+	}
+
+	e := *ep
+
+	switch obj.(type) {
 	case *corev1.Pod:
-		if ingoreNs(r.Namespace) {
-			return
-		}
-
-		log.DebugPrint("PodADD %v/%v", r.Namespace, r.Name)
-
+		PodEventChan <- e
 	case *corev1.Service:
-		if ingoreNs(r.Namespace) {
-			return
-		}
+		ServiceEventChan <- e
 	case *corev1.ConfigMap:
-		if ingoreNs(r.Namespace) {
-			return
-		}
+		ConfigMapEventChan <- e
 	case *corev1.Endpoints:
-		if ingoreNs(r.Namespace) {
-			return
-		}
+		EndpointEventChan <- e
 	case *corev1.ServiceAccount:
-		if ingoreNs(r.Namespace) {
-			return
-		}
+		ServiceAccountEventChan <- e
 	case *corev1.Secret:
-		if ingoreNs(r.Namespace) {
-			return
-		}
+		SecretEventChan <- e
 	case *extensionsv1beta1.Deployment:
-		if ingoreNs(r.Namespace) {
-			return
-		}
+		DeploymentEventChan <- e
 	case *extensionsv1beta1.DaemonSet:
-		if ingoreNs(r.Namespace) {
-			return
-		}
+		DaemonSetEventChan <- e
 	case *extensionsv1beta1.Ingress:
-		if ingoreNs(r.Namespace) {
-			return
-		}
+		IngressEventChan <- e
 	case *appv1beta1.StatefulSet:
-		if ingoreNs(r.Namespace) {
-			return
-		}
+		StatefulSetEventChan <- e
 	case *batchv1.Job:
-		if ingoreNs(r.Namespace) {
-			return
-		}
+		JobEventChan <- e
 	case *batchv2alpha1.CronJob:
-		if ingoreNs(r.Namespace) {
-			return
-		}
-
+		CronJobEventChan <- e
 	}
 
 }
 
 func (c *ResourceController) resourceUpdate(obj, new interface{}) {
+	ep, err := c.generateEventFromObj(obj, ActionUpdate)
+	if err != nil {
+		log.ErrorPrint(err)
+		return
+	}
+	//忽略我们不关心的namespace的资源
+	if ep == nil {
+		return
+	}
+	e := *ep
+
 	switch obj.(type) {
 	case *corev1.Pod:
+		PodEventChan <- e
 	case *corev1.Service:
+		ServiceEventChan <- e
 	case *corev1.ConfigMap:
+		ConfigMapEventChan <- e
 	case *corev1.Endpoints:
+		EndpointEventChan <- e
 	case *corev1.ServiceAccount:
+		ServiceAccountEventChan <- e
 	case *corev1.Secret:
+		SecretEventChan <- e
 	case *extensionsv1beta1.Deployment:
+		DeploymentEventChan <- e
 	case *extensionsv1beta1.DaemonSet:
+		DaemonSetEventChan <- e
 	case *extensionsv1beta1.Ingress:
+		IngressEventChan <- e
 	case *appv1beta1.StatefulSet:
+		StatefulSetEventChan <- e
 	case *batchv1.Job:
+		JobEventChan <- e
 	case *batchv2alpha1.CronJob:
-
+		CronJobEventChan <- e
 	}
+
 }
 
 func (c *ResourceController) resourceDelete(obj interface{}) {
+	ep, err := c.generateEventFromObj(obj, ActionDelete)
+	if err != nil {
+		log.ErrorPrint(err)
+		return
+	}
+	//忽略我们不关心的namespace的资源
+	if ep == nil {
+		return
+	}
+
+	e := *ep
 	switch obj.(type) {
 	case *corev1.Pod:
+		PodEventChan <- e
 	case *corev1.Service:
+		ServiceEventChan <- e
 	case *corev1.ConfigMap:
+		ConfigMapEventChan <- e
 	case *corev1.Endpoints:
+		EndpointEventChan <- e
 	case *corev1.ServiceAccount:
+		ServiceAccountEventChan <- e
 	case *corev1.Secret:
+		SecretEventChan <- e
 	case *extensionsv1beta1.Deployment:
+		DeploymentEventChan <- e
 	case *extensionsv1beta1.DaemonSet:
+		DaemonSetEventChan <- e
 	case *extensionsv1beta1.Ingress:
+		IngressEventChan <- e
 	case *appv1beta1.StatefulSet:
+		StatefulSetEventChan <- e
 	case *batchv1.Job:
+		JobEventChan <- e
 	case *batchv2alpha1.CronJob:
-
+		CronJobEventChan <- e
 	}
+
 }
 
 func NewResourceController(informerFactory informers.SharedInformerFactory, ws map[string]Workspace) *ResourceController {
