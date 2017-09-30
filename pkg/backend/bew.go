@@ -21,7 +21,7 @@ const (
 	etcdSecretKey         = etcdUfleetKey + "/" + ResourceSecrets
 	etcdConfigMapKey      = etcdUfleetKey + "/" + ResourceConfigMaps
 	etcdEndpointKey       = etcdUfleetKey + "/" + ResourceEndpoints
-	etcdServiceAccountKey = etcdUfleetKey + "/" + ResourceEndpoints
+	etcdServiceAccountKey = etcdUfleetKey + "/" + ResourceServiceAccounts
 	etcdDeploymentKey     = etcdUfleetKey + "/" + ResourceDeployments
 	etcdDaemonSetKey      = etcdUfleetKey + "/" + ResourceDaemonSets
 	etcdIngressKey        = etcdUfleetKey + "/" + ResourceIngresss
@@ -38,7 +38,7 @@ const (
 	ResourceSecrets         = "secrets"
 	ResourceConfigMaps      = "configMaps"
 	ResourceEndpoints       = "endpoints"
-	ResourceServiceAccounts = "serviceAccounts"
+	ResourceServiceAccounts = "serviceaccounts"
 	ResourceDeployments     = "deployments"
 	ResourceDaemonSets      = "daemonsets"
 	ResourceIngresss        = "ingresss"

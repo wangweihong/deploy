@@ -15,5 +15,7 @@ func Init() {
 		panic(err.Error())
 	}
 
+	backend.RegisterEventHandler(backendKind, EventHandler)
+
 	go HandleClusterResourceEvent()
 }

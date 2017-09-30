@@ -145,11 +145,11 @@ func (p *ServiceAccountManager) Create(groupName, workspaceName string, data int
 func (p *ServiceAccountManager) delete(groupName, workspaceName, serviceaccountName string) error {
 	group, ok := p.Groups[groupName]
 	if !ok {
-		return ErrGroupNotFound
+		return fmt.Errorf("%v: group\\%v", ErrGroupNotFound, groupName)
 	}
 	workspace, ok := group.Workspaces[workspaceName]
 	if !ok {
-		return ErrWorkspaceNotFound
+		return fmt.Errorf("%v: group\\%v,workspace\\%v", ErrWorkspaceNotFound, groupName, workspaceName)
 	}
 
 	delete(workspace.ServiceAccounts, serviceaccountName)
