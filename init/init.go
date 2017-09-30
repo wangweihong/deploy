@@ -8,6 +8,7 @@ import (
 	"ufleet-deploy/pkg/cluster"
 	"ufleet-deploy/pkg/kv"
 	"ufleet-deploy/pkg/log"
+	"ufleet-deploy/pkg/pod"
 )
 
 const (
@@ -22,7 +23,9 @@ func init() {
 	backend.Init()
 	log.DebugPrint("init app controller")
 	app.Init()
-
+	log.DebugPrint("init pod controller")
+	pod.Init()
+	log.DebugPrint("init cluster controller")
 	initCluster()
 
 }

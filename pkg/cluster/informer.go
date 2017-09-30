@@ -83,8 +83,10 @@ func (c *ResourceController) generateEventFromObj(obj interface{}, action Action
 	}
 	wg := c.locateResourceGW(ns)
 	if wg == nil {
+		//		log.DebugPrint("ignore workspace %v dont care", ns)
 		return nil, nil
 	}
+
 	name, err := accessor.Name(runobj)
 	if err != nil {
 		return nil, fmt.Errorf("<cluster ResourceController> Get object name fail :%v", err)
@@ -131,7 +133,7 @@ func (c *ResourceController) resourceAdd(obj interface{}) {
 	}
 
 	e := *ep
-
+	log.DebugPrint(e)
 	switch obj.(type) {
 	case *corev1.Pod:
 		PodEventChan <- e

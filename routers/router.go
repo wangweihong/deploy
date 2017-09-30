@@ -25,6 +25,11 @@ func init() {
 				&controllers.ProgramController{},
 			),
 		),
+		beego.NSNamespace("/pod",
+			beego.NSInclude(
+				&controllers.PodController{},
+			),
+		),
 	)
 	beego.AddNamespace(ns)
 }

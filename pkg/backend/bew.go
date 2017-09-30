@@ -24,7 +24,9 @@ const (
 	etcdEndpointKey       = etcdUfleetKey + "/" + ResourceEndpoints
 	etcdServiceAccountKey = etcdUfleetKey + "/" + ResourceEndpoints
 	etcdVolumeKey         = etcdUfleetKey + "/" + ResourceVolumes
+	etcdPodKey            = etcdUfleetKey + "/" + ResourcePods
 
+	ResourcePods     = "pods"
 	ResourceApps     = "apps"
 	ResourceServices = "services"
 	ResourceJobs     = "jobs"
@@ -46,6 +48,7 @@ const (
 var (
 	resources = []string{
 		ResourceApps,
+		ResourcePods,
 		//		ResourceServices,
 		//		ResourceJobs,
 		//		ResourceTasks,
@@ -71,6 +74,7 @@ var (
 		ResourceEndpoints:       etcdEndpointKey,
 		ResourceServiceAccounts: etcdServiceAccountKey,
 		ResourceVolumes:         etcdVolumeKey,
+		ResourcePods:            etcdPodKey,
 		//		ResourceWorkspaces:      etcdWorkspaceKey,
 	}
 )
