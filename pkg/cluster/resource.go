@@ -2,8 +2,10 @@ package cluster
 
 import (
 	"fmt"
+	"time"
 	"ufleet-deploy/pkg/log"
 
+	"k8s.io/apimachinery/pkg/labels"
 	corev1 "k8s.io/client-go/pkg/api/v1"
 	appv1beta1 "k8s.io/client-go/pkg/apis/apps/v1beta1"
 	batchv1 "k8s.io/client-go/pkg/apis/batch/v1"
@@ -23,6 +25,7 @@ type PodHandler interface {
 	Get(namespace string, name string) (*corev1.Pod, error)
 	Delete(namespace string, name string) error
 	Create(namespace string, pod *corev1.Pod) error
+	Log(namespace, podName string, containerName string, opt LogOption) (string, error)
 }
 
 func NewPodHandler(group, workspace string) (PodHandler, error) {
@@ -50,6 +53,45 @@ func (h *podHandler) Create(namespace string, pod *corev1.Pod) error {
 func (h *podHandler) Delete(namespace, podName string) error {
 	return h.clientset.CoreV1().Pods(namespace).Delete(podName, nil)
 }
+
+type LogOption struct {
+	DisplayTailLine int64
+	Timestamps      bool
+	SinceSeconds    int64
+}
+
+func (h *podHandler) Log(namespace, podName string, containerName string, opt LogOption) (string, error) {
+	corev1Opt := corev1.PodLogOptions{
+		TailLines:    &opt.DisplayTailLine,
+		Timestamps:   opt.Timestamps,
+		SinceSeconds: &opt.SinceSeconds,
+	}
+
+	req := h.clientset.CoreV1().Pods(namespace).GetLogs(podName, &corev1Opt)
+	bc, err := req.Do().Raw()
+	if err != nil {
+		return "", err
+	}
+
+	return string(bc), nil
+}
+
+/*
+func (h *podHandler) Event(namespace, podName string) (string, []corev1.Event, error) {
+	pod, err := h.clientset.Pods(namespace).Get(podName, meta_v1.GetOptions{})
+	selector := h.clientset.CoreV1().Events(namespace).GetFieldSelector(&podName,&namespace,nil,nil)
+	options := corev1.ListOptions{FieldSelector: selector.String())
+	if err2!=nil {
+		return "", nil, err2
+	}
+
+	//获取不到Pod,但有Pod事件
+	sort.Sort(SortableEvents(events.Items))
+	if err != nil {
+		return "", events.Items,nil
+	}
+}
+*/
 
 /* ----------------- Service ----------------------*/
 
@@ -227,6 +269,8 @@ type DeploymentHandler interface {
 	Get(namespace string, name string) (*extensionsv1beta1.Deployment, error)
 	Create(namespace string, d *extensionsv1beta1.Deployment) error
 	Delete(namespace string, name string) error
+	Scale(namespace, name string, num int32) error
+	GetPods(namespace, name string) ([]*corev1.Pod, error)
 }
 
 func NewDeploymentHandler(group, workspace string) (DeploymentHandler, error) {
@@ -253,6 +297,59 @@ func (h *deploymentHandler) Create(namespace string, deployment *extensionsv1bet
 
 func (h *deploymentHandler) Delete(namespace, deploymentName string) error {
 	return h.clientset.ExtensionsV1beta1().Deployments(namespace).Delete(deploymentName, nil)
+}
+
+func (h *deploymentHandler) Scale(namespace, name string, num int32) error {
+	d, err := h.informerController.deploymentInformer.Lister().Deployments(namespace).Get(name)
+	if err != nil {
+		return err
+	}
+
+	d.Spec.Replicas = &num
+	d.ResourceVersion = ""
+	_, err = h.clientset.ExtensionsV1beta1().Deployments(namespace).Update(d)
+	if err != nil {
+		return err
+	}
+
+	//扩容时,可能出现资源不足,导致创建失败;检测如果因为资源不足创建失败,则报错
+	time.Sleep(500 * time.Microsecond)
+	for {
+		//
+		//		d, err := h.clientset.ExtensionsV1beta1().Deployments(namespace).Get(name, meta_v1.GetOptions{})
+		d, err := h.informerController.deploymentInformer.Lister().Deployments(namespace).Get(name)
+		if err != nil {
+			return err
+		}
+		if *d.Spec.Replicas > d.Status.Replicas {
+			for _, v := range d.Status.Conditions {
+				if v.Type == extensionsv1beta1.DeploymentReplicaFailure {
+					if v.Status == corev1.ConditionTrue {
+						return fmt.Errorf(v.Message)
+					}
+				}
+			}
+		} else {
+			return nil
+		}
+	}
+}
+
+func (h *deploymentHandler) GetPods(namespace, name string) ([]*corev1.Pod, error) {
+	d, err := h.informerController.deploymentInformer.Lister().Deployments(namespace).Get(name)
+	if err != nil {
+		return nil, nil
+	}
+	rsSelector := d.Spec.Selector.MatchLabels
+	selector := labels.Set(rsSelector).AsSelector()
+	//opts := corev1.ListOptions{LabelSelector: selector.String()}
+	//po, err := h.clientset.CoreV1().Pods(namespace).List(opts)
+	pos, err := h.informerController.podInformer.Lister().List(selector)
+	if err != nil {
+		return nil, err
+	}
+
+	return pos, nil
 }
 
 /*----------------- DaemonSet -----------------*/
@@ -422,4 +519,20 @@ func (h *jobHandler) Create(namespace string, job *batchv1.Job) error {
 
 func (h *jobHandler) Delete(namespace, jobName string) error {
 	return h.clientset.BatchV1().Jobs(namespace).Delete(jobName, nil)
+}
+
+/*  helpers */
+
+type SortableEvents []corev1.Event
+
+func (list SortableEvents) Len() int {
+	return len(list)
+}
+
+func (list SortableEvents) Swap(i, j int) {
+	list[i], list[j] = list[j], list[i]
+}
+
+func (list SortableEvents) Less(i, j int) bool {
+	return list[i].LastTimestamp.Time.Before(list[j].LastTimestamp.Time)
 }
