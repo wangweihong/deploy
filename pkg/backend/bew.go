@@ -13,30 +13,38 @@ import (
 const (
 	etcdUfleetKey = "/ufleet/deploy/v1"
 
-	etcdAppKey     = etcdUfleetKey + "/" + ResourceApps
-	etcdServiceKey = etcdUfleetKey + "/" + ResourceServices
-	etcdSecretKey  = etcdUfleetKey + "/" + ResourceSecrets
-	etcdTaskKey    = etcdUfleetKey + "/" + ResourceTasks
-	etcdJobKey     = etcdUfleetKey + "/" + ResourceJobs
 	//	etcdGroupKey          = etcdUfleetKey + "/" + ResourceGroups
 	//	etcdWorkspaceKey      = etcdUfleetKey + "/" + ResourceWorkspaces
+	etcdAppKey            = etcdUfleetKey + "/" + ResourceApps
+	etcdPodKey            = etcdUfleetKey + "/" + ResourcePods
+	etcdServiceKey        = etcdUfleetKey + "/" + ResourceServices
+	etcdSecretKey         = etcdUfleetKey + "/" + ResourceSecrets
 	etcdConfigMapKey      = etcdUfleetKey + "/" + ResourceConfigMaps
 	etcdEndpointKey       = etcdUfleetKey + "/" + ResourceEndpoints
 	etcdServiceAccountKey = etcdUfleetKey + "/" + ResourceEndpoints
+	etcdDeploymentKey     = etcdUfleetKey + "/" + ResourceDeployments
+	etcdDaemonSetKey      = etcdUfleetKey + "/" + ResourceDaemonSets
+	etcdIngressKey        = etcdUfleetKey + "/" + ResourceIngresss
+	etcdStatefulSetKey    = etcdUfleetKey + "/" + ResourceStatefulSets
+	etcdCronJobKey        = etcdUfleetKey + "/" + ResourceCronJobs
+	etcdJobKey            = etcdUfleetKey + "/" + ResourceJobs
 	etcdVolumeKey         = etcdUfleetKey + "/" + ResourceVolumes
-	etcdPodKey            = etcdUfleetKey + "/" + ResourcePods
 
-	ResourcePods     = "pods"
-	ResourceApps     = "apps"
-	ResourceServices = "services"
-	ResourceJobs     = "jobs"
-	ResourceTasks    = "tasks"
 	//	ResourceGroups          = "groups"
 	//	ResourceWorkspaces      = "workspaces"
+	ResourceApps            = "apps"
+	ResourcePods            = "pods"
+	ResourceServices        = "services"
 	ResourceSecrets         = "secrets"
 	ResourceConfigMaps      = "configMaps"
 	ResourceEndpoints       = "endpoints"
 	ResourceServiceAccounts = "serviceAccounts"
+	ResourceDeployments     = "deployments"
+	ResourceDaemonSets      = "daemonsets"
+	ResourceIngresss        = "ingresss"
+	ResourceStatefulSets    = "statefulset"
+	ResourceJobs            = "jobs"
+	ResourceCronJobs        = "cronjobs"
 	ResourceVolumes         = "volumes"
 
 	ActionDelete = "delete"
@@ -49,33 +57,41 @@ var (
 	resources = []string{
 		ResourceApps,
 		ResourcePods,
-		//		ResourceServices,
-		//		ResourceJobs,
-		//		ResourceTasks,
+		ResourceServices,
+		ResourceSecrets,
+		ResourceConfigMaps,
+		ResourceServiceAccounts,
+		ResourceEndpoints,
+		ResourceDeployments,
+		ResourceDaemonSets,
+		ResourceIngresss,
+		ResourceStatefulSets,
+		ResourceJobs,
+		ResourceCronJobs,
 		//		ResourceGroups,
 		//		ResourceWorkspaces,
-		//		ResourceSecrets,
-		//		ResourceConfigMaps,
-		//		ResourceEndpoints,
-		//	ResourceServiceAccounts,
 		//	ResourceVolumes,
 	}
 	eventParseFail   = fmt.Errorf("can not parse event")
 	eventKindInvalid = fmt.Errorf("invalid event kind")
 
 	resourceToBackendkey = map[string]string{
-		ResourceApps:     etcdAppKey,
-		ResourceServices: etcdServiceKey,
-		ResourceSecrets:  etcdSecretKey,
-		ResourceTasks:    etcdTaskKey,
-		ResourceJobs:     etcdJobKey,
 		//		ResourceGroups:          etcdGroupKey,
+		//		ResourceWorkspaces:      etcdWorkspaceKey,
+		ResourceApps:            etcdAppKey,
+		ResourcePods:            etcdPodKey,
+		ResourceServices:        etcdServiceKey,
+		ResourceSecrets:         etcdSecretKey,
 		ResourceConfigMaps:      etcdConfigMapKey,
 		ResourceEndpoints:       etcdEndpointKey,
 		ResourceServiceAccounts: etcdServiceAccountKey,
+		ResourceDeployments:     etcdDeploymentKey,
+		ResourceDaemonSets:      etcdDaemonSetKey,
+		ResourceIngresss:        etcdIngressKey,
+		ResourceStatefulSets:    etcdStatefulSetKey,
+		ResourceCronJobs:        etcdCronJobKey,
+		ResourceJobs:            etcdJobKey,
 		ResourceVolumes:         etcdVolumeKey,
-		ResourcePods:            etcdPodKey,
-		//		ResourceWorkspaces:      etcdWorkspaceKey,
 	}
 )
 var (

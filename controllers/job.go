@@ -1,23 +1,23 @@
 package controllers
 
 import (
-	pk "ufleet-deploy/pkg/resource/pod"
+	pk "ufleet-deploy/pkg/resource/job"
 )
 
-type PodController struct {
+type JobController struct {
 	baseController
 }
 
-// ListPods
-// @Title Pod
-// @Description   Pod
+// ListJobs
+// @Title Job
+// @Description   Job
 // @Param Token header string true 'Token'
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
 // @Success 201 {string} create success!
 // @Failure 500
 // @router /group/:group/workspace/:workspace [Get]
-func (this *PodController) ListPods() {
+func (this *JobController) ListJobs() {
 
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
@@ -27,11 +27,11 @@ func (this *PodController) ListPods() {
 		this.errReturn(err, 500)
 		return
 	}
-	pods := make([]pk.Pod, 0)
+	jobs := make([]pk.Job, 0)
 	for _, v := range pis {
 		t := v.Info()
-		pods = append(pods, *t)
+		jobs = append(jobs, *t)
 	}
 
-	this.normalReturn(pods)
+	this.normalReturn(jobs)
 }

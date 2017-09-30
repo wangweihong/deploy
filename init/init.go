@@ -8,7 +8,18 @@ import (
 	"ufleet-deploy/pkg/cluster"
 	"ufleet-deploy/pkg/kv"
 	"ufleet-deploy/pkg/log"
-	"ufleet-deploy/pkg/pod"
+	"ufleet-deploy/pkg/resource/configmap"
+	"ufleet-deploy/pkg/resource/cronjob"
+	"ufleet-deploy/pkg/resource/daemonset"
+	"ufleet-deploy/pkg/resource/deployment"
+	"ufleet-deploy/pkg/resource/endpoint"
+	"ufleet-deploy/pkg/resource/ingress"
+	"ufleet-deploy/pkg/resource/job"
+	"ufleet-deploy/pkg/resource/pod"
+	"ufleet-deploy/pkg/resource/secret"
+	"ufleet-deploy/pkg/resource/service"
+	"ufleet-deploy/pkg/resource/serviceaccount"
+	"ufleet-deploy/pkg/resource/statefulset"
 )
 
 const (
@@ -25,6 +36,22 @@ func init() {
 	app.Init()
 	log.DebugPrint("init pod controller")
 	pod.Init()
+
+	service.Init()
+
+	secret.Init()
+	configmap.Init()
+	serviceaccount.Init()
+	endpoint.Init()
+	deployment.Init()
+	daemonset.Init()
+	ingress.Init()
+	statefulset.Init()
+	job.Init()
+	cronjob.Init()
+
+	//需要在pod/service等resource后初始化
+	//因为初始化就构建k8s的对象到内存中
 	log.DebugPrint("init cluster controller")
 	initCluster()
 

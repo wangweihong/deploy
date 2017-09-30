@@ -21,13 +21,66 @@ func init() {
 			),
 		),
 		beego.NSNamespace("/program",
-			beego.NSInclude(
-				&controllers.ProgramController{},
-			),
+			beego.NSInclude(&controllers.ProgramController{}),
 		),
 		beego.NSNamespace("/pod",
 			beego.NSInclude(
 				&controllers.PodController{},
+			),
+		),
+		beego.NSNamespace("/service",
+			beego.NSInclude(
+				&controllers.ServiceController{},
+			),
+		),
+		beego.NSNamespace("/secret",
+			beego.NSInclude(
+				&controllers.SecretController{},
+			),
+		),
+		beego.NSNamespace("/configap",
+			beego.NSInclude(
+				&controllers.ConfigMapController{},
+			),
+		),
+		beego.NSNamespace("/serviceaccount",
+			beego.NSInclude(
+				&controllers.ServiceAccountController{},
+			),
+		),
+		beego.NSNamespace("/endpoint",
+			beego.NSInclude(
+				&controllers.EndpointController{},
+			),
+		),
+		beego.NSNamespace("/deployment",
+			beego.NSInclude(
+				&controllers.DeploymentController{},
+			),
+		),
+		beego.NSNamespace("/daemonset",
+			beego.NSInclude(
+				&controllers.DaemonSetController{},
+			),
+		),
+		beego.NSNamespace("/ingress",
+			beego.NSInclude(
+				&controllers.IngressController{},
+			),
+		),
+		beego.NSNamespace("/statefulset",
+			beego.NSInclude(
+				&controllers.StatefulSetController{},
+			),
+		),
+		beego.NSNamespace("/job",
+			beego.NSInclude(
+				&controllers.JobController{},
+			),
+		),
+		beego.NSNamespace("/cronjob",
+			beego.NSInclude(
+				&controllers.CronJobController{},
 			),
 		),
 	)

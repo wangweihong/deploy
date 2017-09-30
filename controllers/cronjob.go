@@ -1,23 +1,23 @@
 package controllers
 
 import (
-	pk "ufleet-deploy/pkg/resource/pod"
+	pk "ufleet-deploy/pkg/resource/cronjob"
 )
 
-type PodController struct {
+type CronJobController struct {
 	baseController
 }
 
-// ListPods
-// @Title Pod
-// @Description   Pod
+// ListCronJobs
+// @Title CronJob
+// @Description   CronJob
 // @Param Token header string true 'Token'
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
 // @Success 201 {string} create success!
 // @Failure 500
 // @router /group/:group/workspace/:workspace [Get]
-func (this *PodController) ListPods() {
+func (this *CronJobController) ListCronJobs() {
 
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
@@ -27,11 +27,11 @@ func (this *PodController) ListPods() {
 		this.errReturn(err, 500)
 		return
 	}
-	pods := make([]pk.Pod, 0)
+	cronjobs := make([]pk.CronJob, 0)
 	for _, v := range pis {
 		t := v.Info()
-		pods = append(pods, *t)
+		cronjobs = append(cronjobs, *t)
 	}
 
-	this.normalReturn(pods)
+	this.normalReturn(cronjobs)
 }
