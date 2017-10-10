@@ -75,6 +75,13 @@ func (c *ResourceController) locateResourceGW(ns string) *Workspace {
 }
 
 func (c *ResourceController) generateEventFromObj(obj interface{}, action ActionType) (*Event, error) {
+	/*
+		switch e := obj.(type) {
+		case *corev1.Pod:
+			log.DebugPrint("kind:", e.Kind)
+		}
+	*/
+
 	runobj := obj.(runtime.Object)
 	accessor := meta.NewAccessor()
 	ns, err := accessor.Namespace(runobj)

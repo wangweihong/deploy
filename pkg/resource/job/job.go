@@ -8,6 +8,7 @@ import (
 	"ufleet-deploy/pkg/cluster"
 	"ufleet-deploy/pkg/log"
 
+	corev1 "k8s.io/client-go/pkg/api/v1"
 	batchv1 "k8s.io/client-go/pkg/apis/batch/v1"
 )
 
@@ -31,10 +32,13 @@ type JobController interface {
 	Delete(group, workspace, job string, opt DeleteOption) error
 	Get(group, workspace, job string) (JobInterface, error)
 	List(group, workspace string) ([]JobInterface, error)
+	ListGroup(group string) ([]JobInterface, error)
 }
 
 type JobInterface interface {
 	Info() *Job
+	GetRuntime() (*Runtime, error)
+	//	Runtime()
 }
 
 type JobManager struct {
@@ -50,8 +54,9 @@ type JobWorkspace struct {
 	Jobs map[string]Job `json:"jobs"`
 }
 
-type JobRuntime struct {
-	*batchv1.Job
+type Runtime struct {
+	Job  *batchv1.Job
+	Pods []*corev1.Pod
 }
 
 //TODO:是否可以添加一个特定的只存于内存的标记位
@@ -65,13 +70,11 @@ type Job struct {
 	AppStack   string `json:"app"`
 	User       string `json:"user"`
 	Cluster    string `json:"cluster"`
-	memoryOnly bool
+	memoryOnly bool   //用于判定pod是否由k8s自动创建
 }
 
-type GetOptions struct {
-}
+type GetOptions struct{}
 type DeleteOption struct{}
-
 type CreateOptions struct {
 	//	MemoryOnly bool    //只在内存中创建,不创建k8s资源/也不保存在etcd中.由k8s daemonset/job等主动创建的资源.
 	//废弃,直接通过JobManager来调用
@@ -104,6 +107,25 @@ func (p *JobManager) Get(group, workspace, jobName string) (JobInterface, error)
 	p.locker.Lock()
 	defer p.locker.Unlock()
 	return p.get(group, workspace, jobName)
+}
+
+func (p *JobManager) ListGroup(groupName string) ([]JobInterface, error) {
+	p.locker.Lock()
+	defer p.locker.Unlock()
+
+	group, ok := p.Groups[groupName]
+	if !ok {
+		return nil, fmt.Errorf("%v:%v", ErrGroupNotFound, groupName)
+	}
+
+	pis := make([]JobInterface, 0)
+	for _, v := range group.Workspaces {
+		for k := range v.Jobs {
+			t := v.Jobs[k]
+			pis = append(pis, &t)
+		}
+	}
+	return pis, nil
 }
 
 func (p *JobManager) List(groupName, workspaceName string) ([]JobInterface, error) {
@@ -177,15 +199,35 @@ func (p *JobManager) Delete(group, workspace, jobName string, opt DeleteOption) 
 		if err != nil {
 			return log.DebugPrint(err)
 		}
-		//TODO:ufleet创建的数据
 		return nil
+		//TODO:ufleet创建的数据
 	} else {
 		return nil
 	}
 }
 
-func (job *Job) Info() *Job {
-	return job
+func (j *Job) Info() *Job {
+	return j
+}
+
+func (j *Job) GetRuntime() (*Runtime, error) {
+	ph, err := cluster.NewJobHandler(j.Group, j.Workspace)
+	if err != nil {
+		return nil, log.DebugPrint(err)
+	}
+	job, err := ph.Get(j.Workspace, j.Name)
+	if err != nil {
+		return nil, log.DebugPrint(err)
+	}
+
+	pods, err := ph.GetPods(j.Workspace, j.Name)
+	if err != nil {
+		return nil, log.DebugPrint(err)
+	}
+	var runtime Runtime
+	runtime.Pods = pods
+	runtime.Job = job
+	return &runtime, nil
 }
 
 func InitJobController(be backend.BackendHandler) (JobController, error) {

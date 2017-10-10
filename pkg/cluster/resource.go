@@ -5,6 +5,7 @@ import (
 	"time"
 	"ufleet-deploy/pkg/log"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	corev1 "k8s.io/client-go/pkg/api/v1"
 	appv1beta1 "k8s.io/client-go/pkg/apis/apps/v1beta1"
@@ -17,12 +18,16 @@ var (
 	ErrResourceNotFound = fmt.Errorf("resource not found")
 )
 
+type GetOptions struct {
+	Direct bool
+}
+
 //Get从Informer中获取
 //Delete/Create则调用k8s相应的接口
 
 /* ----------------- Pod ----------------------*/
 type PodHandler interface {
-	Get(namespace string, name string) (*corev1.Pod, error)
+	Get(namespace string, name string, opt GetOptions) (*corev1.Pod, error)
 	Delete(namespace string, name string) error
 	Create(namespace string, pod *corev1.Pod) error
 	Log(namespace, podName string, containerName string, opt LogOption) (string, error)
@@ -41,7 +46,22 @@ type podHandler struct {
 	*Cluster
 }
 
-func (h *podHandler) Get(namespace, name string) (*corev1.Pod, error) {
+func (h *podHandler) GetFromClientSet(namespace, name string) (*corev1.Pod, error) {
+	//	return h.informerController.podInformer.Lister().Pods(namespace).Get(name)
+	return h.clientset.CoreV1().Pods(namespace).Get(name, metav1.GetOptions{})
+}
+
+func (h *podHandler) Get(namespace, name string, opt GetOptions) (*corev1.Pod, error) {
+	if opt.Direct {
+		pod, err := h.clientset.CoreV1().Pods(namespace).Get(name, metav1.GetOptions{})
+		if err != nil {
+			return nil, err
+		}
+		log.DebugPrint(pod.TypeMeta)
+		log.DebugPrint(pod.ObjectMeta)
+		log.DebugPrint(pod.APIVersion)
+		return pod, nil
+	}
 	return h.informerController.podInformer.Lister().Pods(namespace).Get(name)
 }
 
@@ -493,6 +513,7 @@ type JobHandler interface {
 	Get(namespace, name string) (*batchv1.Job, error)
 	Create(namespace string, job *batchv1.Job) error
 	Delete(namespace string, name string) error
+	GetPods(Namespace, name string) ([]*corev1.Pod, error)
 }
 
 func NewJobHandler(group, workspace string) (JobHandler, error) {
@@ -518,7 +539,48 @@ func (h *jobHandler) Create(namespace string, job *batchv1.Job) error {
 }
 
 func (h *jobHandler) Delete(namespace, jobName string) error {
-	return h.clientset.BatchV1().Jobs(namespace).Delete(jobName, nil)
+	job, err := h.Get(namespace, jobName)
+	if err != nil {
+		return err
+	}
+	err = h.clientset.BatchV1().Jobs(namespace).Delete(jobName, nil)
+	if err != nil {
+		return err
+	}
+
+	selector, err := metav1.LabelSelectorAsSelector(job.Spec.Selector)
+	if err != nil {
+		err2 := fmt.Errorf("clean job pod %v fail for %v,please clean them by using kubectl command", jobName, err)
+		return err2
+	}
+	opt := metav1.ListOptions{LabelSelector: selector.String()}
+	err = h.clientset.Pods(namespace).DeleteCollection(nil, opt)
+	if err != nil {
+		err2 := fmt.Errorf("clean job pod %v fail for %v,please clean them by using kubectl command", jobName, err)
+		return err2
+	}
+
+	return nil
+}
+
+func (h *jobHandler) GetPods(namespace, jobName string) ([]*corev1.Pod, error) {
+	job, err := h.informerController.jobInformer.Lister().Jobs(namespace).Get(jobName)
+	if err != nil {
+		return nil, err
+	}
+
+	selector, err := metav1.LabelSelectorAsSelector(job.Spec.Selector)
+	if err != nil {
+		return nil, err
+	}
+
+	pods, err := h.informerController.podInformer.Lister().Pods(namespace).List(selector)
+	if err != nil {
+		return nil, err
+	}
+
+	return pods, nil
+
 }
 
 /*  helpers */
