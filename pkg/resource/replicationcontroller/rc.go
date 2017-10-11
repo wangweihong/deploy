@@ -232,52 +232,55 @@ func (j *ReplicationController) GetRuntime() (*Runtime, error) {
 }
 
 type Status struct {
-	Name        string   `json:"name"`
-	User        string   `json:"user"`
-	Workspace   string   `json:"workspace"`
-	Group       string   `json:"group"`
-	Images      []string `json:"images"`
-	Containers  []string `json:"containers"`
-	PodNum      int      `json:"podnum"`
-	ClusterIP   string   `json:"clusterip"`
-	CompleteNum int      `json:"completenum"`
-	ParamNum    int      `json:"paramnum"`
-	Succeeded   int      `json:"succeeded"`
-	Failed      int      `json:"failed"`
-	CreateTime  int64    `json:"createtime"`
-	StartTime   int64    `json:"starttime"`
-	Reason      string   `json:"reason"`
+	Name        string            `json:"name"`
+	User        string            `json:"user"`
+	Workspace   string            `json:"workspace"`
+	Group       string            `json:"group"`
+	Images      []string          `json:"images"`
+	Containers  []string          `json:"containers"`
+	PodNum      int               `json:"podnum"`
+	ClusterIP   string            `json:"clusterip"`
+	CreateTime  int64             `json:"createtime"`
+	Replicas    int32             `json:"replicas"`
+	Labels      map[string]string `json:"labels"`
+	Annotatiosn map[string]string `json:"annotations"`
+	Selectors   map[string]string `json:"selectors"`
+	Reason      string            `json:"reason"`
 	//	Pods       []string `json:"pods"`
 	PodStatus []pk.Status `json:"podstatus"`
+	corev1.ReplicationControllerStatus
 }
 
 //不包含PodStatus的信息
 func K8sReplicationControllerToReplicationControllerStatus(replicationcontroller *corev1.ReplicationController) *Status {
-	var js Status
+	js := Status{ReplicationControllerStatus: replicationcontroller.Status}
 	js.Name = replicationcontroller.Name
 	js.Images = make([]string, 0)
 	js.PodStatus = make([]pk.Status, 0)
 	js.CreateTime = replicationcontroller.CreationTimestamp.Unix()
-	/*
-		if replicationcontroller.Spec.Parallelism != nil {
-			js.ParamNum = int(*replicationcontroller.Spec.Parallelism)
-		}
-		if replicationcontroller.Spec.Completions != nil {
-			js.CompleteNum = int(*replicationcontroller.Spec.Completions)
-		}
+	if replicationcontroller.Spec.Replicas != nil {
+		js.Replicas = *replicationcontroller.Spec.Replicas
+	}
 
-		if replicationcontroller.Status.StartTime != nil {
-			js.StartTime = replicationcontroller.Status.StartTime.Unix()
-		}
+	js.Labels = make(map[string]string)
+	if replicationcontroller.Labels != nil {
+		js.Labels = replicationcontroller.Labels
+	}
 
-		js.Succeeded = int(replicationcontroller.Status.Succeeded)
-		js.Failed = int(replicationcontroller.Status.Failed)
+	js.Annotatiosn = make(map[string]string)
+	if replicationcontroller.Annotations != nil {
+		js.Labels = replicationcontroller.Annotations
+	}
 
-		for _, v := range replicationcontroller.Spec.Template.Spec.Containers {
-			js.Containers = append(js.Containers, v.Name)
-			js.Images = append(js.Images, v.Image)
-		}
-	*/
+	js.Selectors = make(map[string]string)
+	if replicationcontroller.Spec.Selector != nil {
+		js.Selectors = replicationcontroller.Spec.Selector
+	}
+
+	for _, v := range replicationcontroller.Spec.Template.Spec.Containers {
+		js.Containers = append(js.Containers, v.Name)
+		js.Images = append(js.Images, v.Image)
+	}
 	return &js
 
 }
