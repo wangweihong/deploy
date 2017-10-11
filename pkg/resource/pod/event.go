@@ -66,9 +66,12 @@ func HandleClusterResourceEvent() {
 					return
 				}
 
-				_, ok = workspace.Pods[e.Name]
+				x, ok := workspace.Pods[e.Name]
 				if ok {
-					log.ErrorPrint("handle cluster pod create event fail: pod\"%v\" has exist", e.Name)
+					//如果是主动创建的,写入etcd数据时会写入到内存中.
+					if x.memoryOnly {
+						log.ErrorPrint("handle cluster pod create event fail: pod\"%v\" has exist", e.Name)
+					}
 					return
 				}
 
@@ -130,11 +133,10 @@ func EventHandler(e backend.ResourceEvent) {
 				return
 			}
 
-			//这是一个app事件
 			if e.Resource != nil {
-				workspace, ok := group.Workspaces[e.Group]
+				workspace, ok := group.Workspaces[*e.Workspace]
 				if !ok {
-					log.ErrorPrint("workspace %v not found", e.Workspace)
+					log.ErrorPrint("workspace %v not found", workspace)
 					return
 				}
 				delete(workspace.Pods, *e.Resource)

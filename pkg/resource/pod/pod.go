@@ -5,11 +5,15 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"time"
 	"ufleet-deploy/pkg/backend"
 	"ufleet-deploy/pkg/cluster"
 	"ufleet-deploy/pkg/log"
 	"ufleet-deploy/pkg/resource/util"
 	cadvisor "ufleet-deploy/util/cadvisor"
+
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	//"k8s.io/apis/pkg/api/errors"
 
 	corev1 "k8s.io/client-go/pkg/api/v1"
 )
@@ -30,7 +34,7 @@ var (
 )
 
 type PodController interface {
-	Create(group, workspace string, data interface{}, opt CreateOptions) error
+	Create(group, workspace string, data []byte, opt CreateOptions) error
 	Delete(group, workspace, pod string, opt DeleteOption) error
 	Get(group, workspace, pod string) (PodInterface, error)
 	List(group, workspace string) ([]PodInterface, error)
@@ -166,10 +170,58 @@ func (p *PodManager) ListGroup(groupName string) ([]PodInterface, error) {
 	return pis, nil
 }
 
-func (p *PodManager) Create(groupName, workspaceName string, data interface{}, opt CreateOptions) error {
+func (p *PodManager) Create(groupName, workspaceName string, data []byte, opt CreateOptions) error {
 
 	p.locker.Lock()
 	defer p.locker.Unlock()
+	ph, err := cluster.NewPodHandler(groupName, workspaceName)
+	if err != nil {
+		return log.DebugPrint(err)
+	}
+
+	exts, err := util.ParseJsonOrYaml(data)
+	if err != nil {
+		return log.DebugPrint(err)
+	}
+
+	if len(exts) != 1 {
+		return log.DebugPrint("must offer one  pod json/yaml data")
+	}
+
+	var pod corev1.Pod
+	err = json.Unmarshal(exts[0].Raw, &pod)
+	if err != nil {
+		return log.DebugPrint(err)
+	}
+
+	if pod.Kind != "Pod" {
+		return log.DebugPrint("must offer one  pod json/yaml data")
+	}
+
+	var cp Pod
+	cp.CreateTime = time.Now().Unix()
+	cp.Name = pod.Name
+	cp.Workspace = workspaceName
+	cp.Group = groupName
+	if opt.App != nil {
+		cp.AppStack = *opt.App
+	}
+	cp.User = opt.User
+	//因为pod创建时,触发informer,所以优先创建etcd
+	be := backend.NewBackendHandler()
+	err = be.CreateResource(backendKind, groupName, workspaceName, cp.Name, cp)
+	if err != nil {
+		return log.DebugPrint(err)
+	}
+
+	err = ph.Create(workspaceName, &pod)
+	if err != nil {
+		err2 := be.DeleteResource(backendKind, groupName, workspaceName, cp.Name)
+		if err2 != nil {
+			log.ErrorPrint(err2)
+		}
+		return log.DebugPrint(err)
+	}
 
 	return nil
 
@@ -193,6 +245,10 @@ func (p *PodManager) delete(groupName, workspaceName, podName string) error {
 }
 
 func (p *PodManager) Delete(group, workspace, podName string, opt DeleteOption) error {
+	ph, err := cluster.NewPodHandler(group, workspace)
+	if err != nil {
+		return log.DebugPrint(err)
+	}
 	p.locker.Lock()
 	defer p.locker.Unlock()
 	pod, err := p.get(group, workspace, podName)
@@ -201,10 +257,6 @@ func (p *PodManager) Delete(group, workspace, podName string, opt DeleteOption) 
 	}
 
 	if pod.memoryOnly {
-		ph, err := cluster.NewPodHandler(group, workspace)
-		if err != nil {
-			return log.DebugPrint(err)
-		}
 
 		//触发集群控制器来删除内存中的数据
 		err = ph.Delete(workspace, podName)
@@ -214,6 +266,17 @@ func (p *PodManager) Delete(group, workspace, podName string, opt DeleteOption) 
 		//TODO:ufleet创建的数据
 		return nil
 	} else {
+		be := backend.NewBackendHandler()
+		err := be.DeleteResource(backendKind, group, workspace, podName)
+		if err != nil {
+			return log.DebugPrint(err)
+		}
+		err = ph.Delete(workspace, podName)
+		if err != nil {
+			if !apierrors.IsNotFound(err) {
+				return log.DebugPrint(err)
+			}
+		}
 		return nil
 	}
 }
