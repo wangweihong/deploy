@@ -43,6 +43,11 @@ func init() {
 				&controllers.ConfigMapController{},
 			),
 		),
+		beego.NSNamespace("/replicationcontroller",
+			beego.NSInclude(
+				&controllers.ReplicationControllerController{},
+			),
+		),
 		beego.NSNamespace("/serviceaccount",
 			beego.NSInclude(
 				&controllers.ServiceAccountController{},
