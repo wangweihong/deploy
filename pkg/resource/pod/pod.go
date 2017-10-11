@@ -3,11 +3,13 @@ package pod
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"sync"
 	"ufleet-deploy/pkg/backend"
 	"ufleet-deploy/pkg/cluster"
 	"ufleet-deploy/pkg/log"
 	"ufleet-deploy/pkg/resource/util"
+	cadvisor "ufleet-deploy/util/cadvisor"
 
 	corev1 "k8s.io/client-go/pkg/api/v1"
 )
@@ -40,6 +42,8 @@ type PodInterface interface {
 	GetRuntime() (*Runtime, error)
 	GetStatus() (*Status, error)
 	GetTemplate() (string, error)
+	Log(c string) (string, error)
+	Stat(c string) ([]ContainerStat, error)
 }
 
 type PodManager struct {
@@ -251,14 +255,90 @@ type ContainerStatus struct {
 }
 
 type Status struct {
-	Name              string            `json:"name"`
+	Name string `json:"name"`
+	//TODO:修正pod的状态
 	Phase             string            `json:"phase"`
 	IP                string            `json:"ip"`
 	HostIP            string            `json:"hostip"`
 	StartTime         int64             `json:"starttime"`
 	Running           int               `json:"running"`
 	Total             int               `json:"total"`
+	Restarts          int               `json:"restarts"`
+	Labels            map[string]string `json:"labels"`
+	RestartPolicy     string            `json:"restartpolicy"`
 	ContainerStatuses []ContainerStatus `json:"containerstatuses"`
+	ContainerSpecs    []ContainerSpec   `json:"containerspec"`
+}
+
+type PodSpec struct {
+	ContainerSpecs []ContainerSpec `json:"containerspecs"`
+}
+
+//因为omitempty,会出现部分字段丢失
+type ContainerSpec struct {
+	Name                     string                          `json:"name"`
+	Image                    string                          `json:"image"`
+	Command                  []string                        `json:"command"`
+	Args                     []string                        `json:"args"`
+	WorkingDir               string                          `json:"workingDir"`
+	Ports                    []corev1.ContainerPort          `json:"ports"`
+	EnvFrom                  []corev1.EnvFromSource          `json:"envFrom"`
+	Env                      []corev1.EnvVar                 `json:"env"`
+	Resources                corev1.ResourceRequirements     `json:"resources"`
+	VolumeMounts             []corev1.VolumeMount            `json:"volumeMounts"`
+	LivenessProbe            *corev1.Probe                   `json:"livenessProbe"`
+	ReadinessProbe           *corev1.Probe                   `json:"readinessProbe"`
+	Lifecycle                *corev1.Lifecycle               `json:"lifecycle"`
+	TerminationMessagePath   string                          `json:"terminationMessagePath"`
+	TerminationMessagePolicy corev1.TerminationMessagePolicy `json:"terminationMessagePolicy"`
+	ImagePullPolicy          corev1.PullPolicy               `json:"imagePullPolicy"`
+	SecurityContext          *corev1.SecurityContext         `json:"securityContext"`
+	StdinOnce                bool                            `json:"stdinOnce"`
+	Stdin                    bool                            `json:"stdin"`
+	TTY                      bool                            `json:"tty"`
+}
+
+func k8sContainerSpecTran(cspec *corev1.Container) *ContainerSpec {
+	cs := new(ContainerSpec)
+	cs.Command = make([]string, 0)
+	cs.Args = make([]string, 0)
+	cs.Ports = make([]corev1.ContainerPort, 0)
+	cs.EnvFrom = make([]corev1.EnvFromSource, 0)
+	cs.Env = make([]corev1.EnvVar, 0)
+	cs.VolumeMounts = make([]corev1.VolumeMount, 0)
+
+	cs.Name = cspec.Name
+	cs.Image = cspec.Image
+	if len(cspec.Command) != 0 {
+		cs.Command = cspec.Command
+	}
+	if len(cspec.Args) != 0 {
+		cs.Args = cspec.Args
+	}
+	cs.WorkingDir = cspec.WorkingDir
+	cs.Ports = cspec.Ports
+	if len(cspec.EnvFrom) != 0 {
+		cs.EnvFrom = cspec.EnvFrom
+	}
+	if len(cspec.Env) != 0 {
+		cs.Env = cspec.Env
+	}
+	cs.Resources = cspec.Resources
+	if len(cspec.VolumeMounts) != 0 {
+		cs.VolumeMounts = cspec.VolumeMounts
+	}
+	cs.LivenessProbe = cspec.LivenessProbe
+	cs.ReadinessProbe = cspec.ReadinessProbe
+	cs.Lifecycle = cspec.Lifecycle
+	cs.TerminationMessagePath = cspec.TerminationMessagePath
+	cs.TerminationMessagePolicy = cspec.TerminationMessagePolicy
+	cs.ImagePullPolicy = cspec.ImagePullPolicy
+	cs.SecurityContext = cspec.SecurityContext
+	cs.StdinOnce = cspec.StdinOnce
+	cs.Stdin = cspec.Stdin
+	cs.TTY = cspec.TTY
+	return cs
+
 }
 
 func V1PodToPodStatus(pod corev1.Pod) *Status {
@@ -269,14 +349,30 @@ func V1PodToPodStatus(pod corev1.Pod) *Status {
 	s.IP = ps.PodIP
 	s.Total = len(pod.Spec.Containers)
 	s.HostIP = ps.HostIP
+	s.Labels = make(map[string]string)
+	if len(pod.Labels) != 0 {
+		s.Labels = pod.Labels
+	}
+	s.RestartPolicy = string(pod.Spec.RestartPolicy)
+
 	if ps.StartTime != nil {
 		s.StartTime = ps.StartTime.Unix()
+	}
+	for _, v := range pod.Spec.Containers {
+		cs := k8sContainerSpecTran(&v)
+		s.ContainerSpecs = append(s.ContainerSpecs, *cs)
+
 	}
 
 	for _, v := range ps.ContainerStatuses {
 		s.ContainerStatuses = append(s.ContainerStatuses, ContainerStatus{v})
 		if v.Ready {
 			s.Running += 1
+		}
+
+		//显示最大的重启次数
+		if s.Restarts < int(v.RestartCount) {
+			s.Restarts = int(v.RestartCount)
 		}
 	}
 	return &s
@@ -301,9 +397,9 @@ func (p *Pod) GetTemplate() (string, error) {
 		if err != nil {
 			return "", log.DebugPrint(err)
 		}
-		pod := runtime.Pod
-		log.DebugPrint(pod.Kind)
-		log.DebugPrint(pod.APIVersion)
+		//pod := runtime.Pod
+		//		log.DebugPrint(pod.Kind)
+		//		log.DebugPrint(pod.APIVersion)
 
 		t, err := util.GetYamlTemplateFromObject(runtime.Pod)
 		if err != nil {
@@ -313,6 +409,94 @@ func (p *Pod) GetTemplate() (string, error) {
 		return *t, nil
 	}
 }
+
+func (p *Pod) Log(containerName string) (string, error) {
+	ph, err := cluster.NewPodHandler(p.Group, p.Workspace)
+	if err != nil {
+		return "", log.DebugPrint(err)
+	}
+
+	opt := cluster.LogOption{
+		DisplayTailLine: 10000,
+	}
+	logs, err := ph.Log(p.Workspace, p.Name, containerName, opt)
+	if err != nil {
+		return "", log.DebugPrint(err)
+	}
+	return logs, nil
+
+}
+
+type ContainerStat struct {
+	cadvisor.ContainerStat
+}
+
+func (p *Pod) Stat(containerName string) ([]ContainerStat, error) {
+	/*
+		ph, err := cluster.NewPodHandler(p.Group, p.Workspace)
+		if err != nil {
+			return "", log.DebugPrint(err)
+		}
+
+		opt := cluster.LogOption{
+			DisplayTailLine: 10000,
+		}
+		logs, err := ph.Log(p.Workspace, p.Name, containerName, opt)
+		if err != nil {
+			return "", log.DebugPrint(err)
+		}
+		return logs, nil
+	*/
+	runtime, err := p.GetRuntime()
+	if err != nil {
+		return nil, err
+	}
+
+	var containerID string
+
+	for _, v := range runtime.Pod.Status.ContainerStatuses {
+		if v.Name == containerName {
+			containerID = v.ContainerID
+		}
+	}
+
+	if len(containerID) == 0 {
+		return nil, fmt.Errorf("container not found")
+	}
+
+	dockerPrefix := "docker://"
+	if !strings.HasPrefix(containerID, dockerPrefix) {
+		return nil, fmt.Errorf("only support docker container")
+	}
+
+	id := strings.TrimPrefix(containerID, dockerPrefix)
+	cadvisorID := "/docker/" + id
+
+	cadvisorPort := "4194"
+	url := "http://" + runtime.Pod.Status.HostIP + ":" + cadvisorPort + "/"
+
+	manager, err := cadvisor.NewManager(url)
+	if err != nil {
+		return nil, err
+	}
+	cstats, err := manager.GetContainerStats(cadvisorID)
+	if err != nil {
+		return nil, err
+	}
+
+	stats := make([]ContainerStat, 0)
+	for _, v := range cstats {
+		cs := ContainerStat{v}
+		stats = append(stats, cs)
+
+	}
+	return stats, nil
+}
+
+/*
+func (p *Pod) GetSpec() ([]ContainerSpec, error) {
+}
+*/
 
 func InitPodController(be backend.BackendHandler) (PodController, error) {
 	rm = &PodManager{}

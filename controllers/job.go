@@ -7,80 +7,8 @@ import (
 	pk "ufleet-deploy/pkg/resource/pod"
 )
 
-type JobState struct {
-	Name        string   `json:"name"`
-	User        string   `json:"user"`
-	Workspace   string   `json:"workspace"`
-	Group       string   `json:"group"`
-	Images      []string `json:"images"`
-	Containers  []string `json:"containers"`
-	PodNum      int      `json:"podnum"`
-	ClusterIP   string   `json:"clusterip"`
-	CompleteNum int      `json:"completenum"`
-	ParamNum    int      `json:"paramnum"`
-	Succeeded   int      `json:"succeeded"`
-	Failed      int      `json:"failed"`
-	CreateTime  int64    `json:"createtime"`
-	StartTime   int64    `json:"starttime"`
-	Reason      string   `json:"reason"`
-	//	Pods       []string `json:"pods"`
-	PodStatus []pk.Status `json:"podstatus"`
-}
-
 type JobController struct {
 	baseController
-}
-
-func GetJobState(ji jk.JobInterface) JobState {
-	var js JobState
-	job := ji.Info()
-	js.Name = job.Name
-	js.User = job.User
-	js.Workspace = job.Workspace
-	js.Group = job.Group
-
-	runtime, err := ji.GetRuntime()
-	if err != nil {
-		js.Reason = err.Error()
-		return js
-	}
-
-	js.CreateTime = runtime.Job.CreationTimestamp.Unix()
-	if runtime.Job.Spec.Parallelism != nil {
-		js.ParamNum = int(*runtime.Job.Spec.Parallelism)
-	}
-	if runtime.Job.Spec.Completions != nil {
-		js.CompleteNum = int(*runtime.Job.Spec.Completions)
-	}
-
-	if runtime.Job.Status.StartTime != nil {
-		js.StartTime = runtime.Job.Status.StartTime.Unix()
-	}
-
-	js.Succeeded = int(runtime.Job.Status.Succeeded)
-	js.Failed = int(runtime.Job.Status.Failed)
-
-	for _, v := range runtime.Job.Spec.Template.Spec.Containers {
-		js.Containers = append(js.Containers, v.Name)
-	}
-
-	js.PodNum = len(runtime.Pods)
-	if js.PodNum != 0 {
-		pod := runtime.Pods[0]
-		js.ClusterIP = pod.Status.HostIP
-		for _, v := range pod.Spec.Containers {
-			js.Images = append(js.Images, v.Image)
-		}
-	}
-
-	for _, v := range runtime.Pods {
-		ps := pk.V1PodToPodStatus(*v)
-		js.PodStatus = append(js.PodStatus, *ps)
-
-	}
-
-	return js
-
 }
 
 // ListJobs
@@ -103,11 +31,25 @@ func (this *JobController) ListGroupJobs() {
 		return
 	}
 	//jobs := make([]jk.Job, 0)
-	jss := make([]JobState, 0)
+	jss := make([]jk.Status, 0)
 
 	for _, v := range pis {
-		js := GetJobState(v)
-		jss = append(jss, js)
+		js := &jk.Status{}
+		var err error
+		js, err = v.GetStatus()
+		if err != nil {
+			job := v.Info()
+			js.Name = job.Name
+			js.User = job.User
+			js.Workspace = job.Workspace
+			js.Group = job.Group
+			js.Reason = err.Error()
+			js.PodStatus = make([]pk.Status, 0)
+			jss = append(jss, *js)
+			continue
+		}
+
+		jss = append(jss, *js)
 	}
 
 	this.normalReturn(jss)
@@ -147,11 +89,24 @@ func (this *JobController) ListGroupsJobs() {
 		pis = append(pis, tmp...)
 	}
 	//jobs := make([]jk.Job, 0)
-	jss := make([]JobState, 0)
-
+	jss := make([]jk.Status, 0)
 	for _, v := range pis {
-		js := GetJobState(v)
-		jss = append(jss, js)
+		js := &jk.Status{}
+		var err error
+		js, err = v.GetStatus()
+		if err != nil {
+			job := v.Info()
+			js.Name = job.Name
+			js.User = job.User
+			js.Workspace = job.Workspace
+			js.Group = job.Group
+			js.Reason = err.Error()
+			js.PodStatus = make([]pk.Status, 0)
+			jss = append(jss, *js)
+			continue
+		}
+
+		jss = append(jss, *js)
 	}
 
 	this.normalReturn(jss)

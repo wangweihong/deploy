@@ -2,6 +2,7 @@ package cluster
 
 import (
 	"fmt"
+	"sort"
 	"time"
 	"ufleet-deploy/pkg/log"
 
@@ -57,9 +58,9 @@ func (h *podHandler) Get(namespace, name string, opt GetOptions) (*corev1.Pod, e
 		if err != nil {
 			return nil, err
 		}
-		log.DebugPrint(pod.TypeMeta)
-		log.DebugPrint(pod.ObjectMeta)
-		log.DebugPrint(pod.APIVersion)
+		//	log.DebugPrint(pod.TypeMeta)
+		//	log.DebugPrint(pod.ObjectMeta)
+		//	log.DebugPrint(pod.APIVersion)
 		return pod, nil
 	}
 	return h.informerController.podInformer.Lister().Pods(namespace).Get(name)
@@ -82,6 +83,7 @@ type LogOption struct {
 
 func (h *podHandler) Log(namespace, podName string, containerName string, opt LogOption) (string, error) {
 	corev1Opt := corev1.PodLogOptions{
+		Container:    containerName,
 		TailLines:    &opt.DisplayTailLine,
 		Timestamps:   opt.Timestamps,
 		SinceSeconds: &opt.SinceSeconds,
@@ -480,6 +482,7 @@ type CronJobHandler interface {
 	Get(namespace, name string) (*batchv2alpha1.CronJob, error)
 	Create(namespace string, cj *batchv2alpha1.CronJob) error
 	Delete(namespace string, name string) error
+	GetJobs(namespace, name string) ([]*batchv1.Job, error)
 }
 
 func NewCronJobHandler(group, workspace string) (CronJobHandler, error) {
@@ -488,11 +491,12 @@ func NewCronJobHandler(group, workspace string) (CronJobHandler, error) {
 		return nil, log.DebugPrint(err)
 	}
 
-	return &cronjobHandler{Cluster: Cluster}, nil
+	return &cronjobHandler{Cluster: Cluster, Group: group}, nil
 }
 
 type cronjobHandler struct {
 	*Cluster
+	Group string
 }
 
 func (h *cronjobHandler) Get(namespace, name string) (*batchv2alpha1.CronJob, error) {
@@ -505,7 +509,54 @@ func (h *cronjobHandler) Create(namespace string, cronjob *batchv2alpha1.CronJob
 }
 
 func (h *cronjobHandler) Delete(namespace, cronjobName string) error {
-	return h.clientset.BatchV2alpha1().CronJobs(namespace).Delete(cronjobName, nil)
+	jobs, err := h.GetJobs(namespace, cronjobName)
+	if err != nil {
+		return err
+	}
+	for _, v := range jobs {
+		log.DebugPrint(v.Name)
+	}
+
+	err = h.clientset.BatchV2alpha1().CronJobs(namespace).Delete(cronjobName, nil)
+	if err != nil {
+		return err
+	}
+	if len(jobs) != 0 {
+		jh, err := NewJobHandler(h.Group, namespace)
+		if err != nil {
+			return err
+		}
+		for _, v := range jobs {
+			err := jh.Delete(namespace, v.Name)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (h *cronjobHandler) GetJobs(namespace, cronjobName string) ([]*batchv1.Job, error) {
+	cj, err := h.Get(namespace, cronjobName)
+	if err != nil {
+		return nil, err
+	}
+
+	jobs := make([]*batchv1.Job, 0)
+	//不存在标签的cronjob,无法获取其相关的Pod
+	if len(cj.Spec.JobTemplate.Labels) != 0 {
+		//	log.DebugPrint(cj.Spec.JobTemplate.Labels)
+		//	selector, err := metav1.LabelSelectorAsSelector(job.Spec.Selector)
+		//selector := fields.SelectorFromSet(cj.Spec.JobTemplate.Labels)
+		selector := labels.SelectorFromSet(cj.Spec.JobTemplate.Labels)
+		var err error
+		jobs, err = h.informerController.jobInformer.Lister().Jobs(namespace).List(selector)
+		if err != nil {
+			return nil, err
+		}
+	}
+	sort.Sort(SortableJobs(jobs))
+	return jobs, nil
 }
 
 /* ------------------------- Job ---------------------*/
@@ -597,4 +648,21 @@ func (list SortableEvents) Swap(i, j int) {
 
 func (list SortableEvents) Less(i, j int) bool {
 	return list[i].LastTimestamp.Time.Before(list[j].LastTimestamp.Time)
+}
+
+/*job*/
+
+type SortableJobs []*batchv1.Job
+
+func (list SortableJobs) Len() int {
+	return len(list)
+}
+
+func (list SortableJobs) Swap(i, j int) {
+	list[i], list[j] = list[j], list[i]
+}
+
+//按距离当前的创建时间进行排序
+func (list SortableJobs) Less(i, j int) bool {
+	return list[i].CreationTimestamp.Time.After(list[j].CreationTimestamp.Time)
 }

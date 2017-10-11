@@ -7,6 +7,7 @@ import (
 	"ufleet-deploy/pkg/backend"
 	"ufleet-deploy/pkg/cluster"
 	"ufleet-deploy/pkg/log"
+	pk "ufleet-deploy/pkg/resource/pod"
 
 	corev1 "k8s.io/client-go/pkg/api/v1"
 	batchv1 "k8s.io/client-go/pkg/apis/batch/v1"
@@ -38,6 +39,7 @@ type JobController interface {
 type JobInterface interface {
 	Info() *Job
 	GetRuntime() (*Runtime, error)
+	GetStatus() (*Status, error)
 	//	Runtime()
 }
 
@@ -228,6 +230,80 @@ func (j *Job) GetRuntime() (*Runtime, error) {
 	runtime.Pods = pods
 	runtime.Job = job
 	return &runtime, nil
+}
+
+type Status struct {
+	Name        string   `json:"name"`
+	User        string   `json:"user"`
+	Workspace   string   `json:"workspace"`
+	Group       string   `json:"group"`
+	Images      []string `json:"images"`
+	Containers  []string `json:"containers"`
+	PodNum      int      `json:"podnum"`
+	ClusterIP   string   `json:"clusterip"`
+	CompleteNum int      `json:"completenum"`
+	ParamNum    int      `json:"paramnum"`
+	Succeeded   int      `json:"succeeded"`
+	Failed      int      `json:"failed"`
+	CreateTime  int64    `json:"createtime"`
+	StartTime   int64    `json:"starttime"`
+	Reason      string   `json:"reason"`
+	//	Pods       []string `json:"pods"`
+	PodStatus []pk.Status `json:"podstatus"`
+}
+
+//不包含PodStatus的信息
+func K8sJobToJobStatus(job *batchv1.Job) *Status {
+	var js Status
+	js.Name = job.Name
+	js.Images = make([]string, 0)
+	js.PodStatus = make([]pk.Status, 0)
+	js.CreateTime = job.CreationTimestamp.Unix()
+	if job.Spec.Parallelism != nil {
+		js.ParamNum = int(*job.Spec.Parallelism)
+	}
+	if job.Spec.Completions != nil {
+		js.CompleteNum = int(*job.Spec.Completions)
+	}
+
+	if job.Status.StartTime != nil {
+		js.StartTime = job.Status.StartTime.Unix()
+	}
+
+	js.Succeeded = int(job.Status.Succeeded)
+	js.Failed = int(job.Status.Failed)
+
+	for _, v := range job.Spec.Template.Spec.Containers {
+		js.Containers = append(js.Containers, v.Name)
+		js.Images = append(js.Images, v.Image)
+	}
+	return &js
+
+}
+
+func (j *Job) GetStatus() (*Status, error) {
+	runtime, err := j.GetRuntime()
+	if err != nil {
+		return nil, err
+	}
+
+	js := K8sJobToJobStatus(runtime.Job)
+	js.PodNum = len(runtime.Pods)
+	if js.PodNum != 0 {
+		pod := runtime.Pods[0]
+		js.ClusterIP = pod.Status.HostIP
+	}
+	info := j.Info()
+	js.User = info.User
+	js.Group = info.Group
+	js.Workspace = info.Workspace
+
+	for _, v := range runtime.Pods {
+		ps := pk.V1PodToPodStatus(*v)
+		js.PodStatus = append(js.PodStatus, *ps)
+	}
+
+	return js, nil
 }
 
 func InitJobController(be backend.BackendHandler) (JobController, error) {

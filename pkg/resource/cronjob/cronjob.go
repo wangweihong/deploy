@@ -7,7 +7,10 @@ import (
 	"ufleet-deploy/pkg/backend"
 	"ufleet-deploy/pkg/cluster"
 	"ufleet-deploy/pkg/log"
+	jk "ufleet-deploy/pkg/resource/job"
+	"ufleet-deploy/pkg/resource/util"
 
+	batchv1 "k8s.io/client-go/pkg/apis/batch/v1"
 	batchv2alpha1 "k8s.io/client-go/pkg/apis/batch/v2alpha1"
 )
 
@@ -31,10 +34,14 @@ type CronJobController interface {
 	Delete(group, workspace, cronjob string, opt DeleteOption) error
 	Get(group, workspace, cronjob string) (CronJobInterface, error)
 	List(group, workspace string) ([]CronJobInterface, error)
+	ListGroup(group string) ([]CronJobInterface, error)
 }
 
 type CronJobInterface interface {
 	Info() *CronJob
+	GetRuntime() (*Runtime, error)
+	GetStatus() (*Status, error)
+	GetTemplate() (string, error)
 }
 
 type CronJobManager struct {
@@ -50,8 +57,9 @@ type CronJobWorkspace struct {
 	CronJobs map[string]CronJob `json:"cronjobs"`
 }
 
-type CronJobRuntime struct {
-	*batchv2alpha1.CronJob
+type Runtime struct {
+	CronJob *batchv2alpha1.CronJob
+	Jobs    []*batchv1.Job
 }
 
 //TODO:是否可以添加一个特定的只存于内存的标记位
@@ -65,6 +73,7 @@ type CronJob struct {
 	AppStack   string `json:"app"`
 	User       string `json:"user"`
 	Cluster    string `json:"cluster"`
+	Template   string `json:"template"`
 	memoryOnly bool
 }
 
@@ -132,6 +141,29 @@ func (p *CronJobManager) List(groupName, workspaceName string) ([]CronJobInterfa
 	return pis, nil
 }
 
+func (p *CronJobManager) ListGroup(groupName string) ([]CronJobInterface, error) {
+
+	p.locker.Lock()
+	defer p.locker.Unlock()
+
+	group, ok := p.Groups[groupName]
+	if !ok {
+		return nil, fmt.Errorf("%v:%v", ErrGroupNotFound, groupName)
+	}
+
+	pis := make([]CronJobInterface, 0)
+
+	//不能够直接使用k,v来赋值,会出现值都是同一个的问题
+	for _, v := range group.Workspaces {
+		for k := range v.CronJobs {
+			t := v.CronJobs[k]
+			pis = append(pis, &t)
+		}
+	}
+
+	return pis, nil
+}
+
 func (p *CronJobManager) Create(groupName, workspaceName string, data interface{}, opt CreateOptions) error {
 
 	p.locker.Lock()
@@ -186,6 +218,109 @@ func (p *CronJobManager) Delete(group, workspace, cronjobName string, opt Delete
 
 func (cronjob *CronJob) Info() *CronJob {
 	return cronjob
+}
+
+func (p *CronJob) GetRuntime() (*Runtime, error) {
+	ph, err := cluster.NewCronJobHandler(p.Group, p.Workspace)
+	if err != nil {
+		return nil, err
+	}
+
+	cj, err := ph.Get(p.Workspace, p.Name)
+	if err != nil {
+		return nil, err
+	}
+	jobs, err := ph.GetJobs(p.Workspace, p.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Runtime{CronJob: cj, Jobs: jobs}, nil
+}
+
+func (p *CronJob) GetTemplate() (string, error) {
+	if !p.memoryOnly {
+		return p.Template, nil
+	} else {
+		runtime, err := p.GetRuntime()
+		if err != nil {
+			return "", log.DebugPrint(err)
+		}
+
+		t, err := util.GetYamlTemplateFromObject(runtime.CronJob)
+		if err != nil {
+			return "", log.DebugPrint(err)
+		}
+
+		return *t, nil
+	}
+}
+
+type Status struct {
+	Name             string      `json:"name"`
+	User             string      `json:"user"`
+	Workspace        string      `json:"workspace"`
+	Group            string      `json:"group"`
+	Total            int         `json:"total"`
+	Active           int         `json:"active"`
+	LastScheduleTime int64       `json:"lastscheduletime"`
+	Period           string      `json:"period"`
+	JobStatus        []jk.Status `json:"jobstatuses"`
+	Reason           string      `json:"reason"`
+}
+
+/*
+func K8sCronJobToStatus(job *batchv2alpha1.CronJob) *Status {
+	var js Status
+	js.Name = job.Name
+	js.Period = job.Spec.Schedule
+	if job.Status.LastScheduleTime != nil {
+		js.LastScheduleTime = job.Status.LastScheduleTime
+	}
+
+}
+*/
+
+func (p *CronJob) GetStatus() (*Status, error) {
+	var s Status
+	runtime, err := p.GetRuntime()
+	if err != nil {
+		return nil, err
+	}
+	info := p.Info()
+
+	s.Name = info.Name
+	s.User = info.User
+	s.Group = info.Group
+	s.Workspace = info.Workspace
+
+	s.Period = runtime.CronJob.Spec.Schedule
+	rs := runtime.CronJob.Status
+	if rs.LastScheduleTime != nil {
+		s.LastScheduleTime = rs.LastScheduleTime.Unix()
+	}
+
+	s.Total = len(runtime.Jobs)
+	s.Active = len(rs.Active)
+
+	s.JobStatus = make([]jk.Status, 0)
+	for _, v := range runtime.Jobs {
+		//		js := jk.K8sJobToJobStatus(v)
+		//		s.JobStatus = append(s.JobStatus, *js)
+
+		ji, err := jk.Controller.Get(info.Group, info.Workspace, v.Name)
+		if err != nil {
+			s.Reason = err.Error()
+			return nil, err
+		}
+		js, err := ji.GetStatus()
+		if err != nil {
+			return nil, err
+		}
+		s.JobStatus = append(s.JobStatus, *js)
+
+	}
+	return &s, nil
 }
 
 func InitCronJobController(be backend.BackendHandler) (CronJobController, error) {

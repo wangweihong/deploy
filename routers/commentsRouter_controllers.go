@@ -20,10 +20,52 @@ func init() {
 			AllowHTTPMethods: []string{"Get"},
 			Params: nil})
 
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:ConfigMapController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:ConfigMapController"],
+		beego.ControllerComments{
+			Method: "ListGroupConfigMaps",
+			Router: `/groups`,
+			AllowHTTPMethods: []string{"Post"},
+			Params: nil})
+
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:ConfigMapController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:ConfigMapController"],
+		beego.ControllerComments{
+			Method: "DeleteConfigMap",
+			Router: `/:configmap/group/:group/workspace/:workspace`,
+			AllowHTTPMethods: []string{"Delete"},
+			Params: nil})
+
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:ConfigMapController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:ConfigMapController"],
+		beego.ControllerComments{
+			Method: "GetConfigMapTemplate",
+			Router: `/:configmap/group/:group/workspace/:workspace/template`,
+			AllowHTTPMethods: []string{"Get"},
+			Params: nil})
+
 	beego.GlobalControllerRouter["ufleet-deploy/controllers:CronJobController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:CronJobController"],
 		beego.ControllerComments{
 			Method: "ListCronJobs",
 			Router: `/group/:group/workspace/:workspace`,
+			AllowHTTPMethods: []string{"Get"},
+			Params: nil})
+
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:CronJobController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:CronJobController"],
+		beego.ControllerComments{
+			Method: "ListGroupCronJobs",
+			Router: `/groups`,
+			AllowHTTPMethods: []string{"Post"},
+			Params: nil})
+
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:CronJobController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:CronJobController"],
+		beego.ControllerComments{
+			Method: "DeleteCronJob",
+			Router: `/:cronjob/group/:group/workspace/:workspace`,
+			AllowHTTPMethods: []string{"Delete"},
+			Params: nil})
+
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:CronJobController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:CronJobController"],
+		beego.ControllerComments{
+			Method: "GetCronJobTemplate",
+			Router: `/:cronjob/group/:group/workspace/:workspace/template`,
 			AllowHTTPMethods: []string{"Get"},
 			Params: nil})
 
@@ -85,6 +127,13 @@ func init() {
 
 	beego.GlobalControllerRouter["ufleet-deploy/controllers:PodController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:PodController"],
 		beego.ControllerComments{
+			Method: "GetPod",
+			Router: `/:pod/group/:group/workspace/:workspace`,
+			AllowHTTPMethods: []string{"Get"},
+			Params: nil})
+
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:PodController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:PodController"],
+		beego.ControllerComments{
 			Method: "ListGroupPods",
 			Router: `/groups`,
 			AllowHTTPMethods: []string{"Post"},
@@ -101,6 +150,27 @@ func init() {
 		beego.ControllerComments{
 			Method: "GetPodTemplate",
 			Router: `/:pod/group/:group/workspace/:workspace/template`,
+			AllowHTTPMethods: []string{"Get"},
+			Params: nil})
+
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:PodController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:PodController"],
+		beego.ControllerComments{
+			Method: "GetPodContainers",
+			Router: `/:pod/group/:group/workspace/:workspace/containers`,
+			AllowHTTPMethods: []string{"Get"},
+			Params: nil})
+
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:PodController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:PodController"],
+		beego.ControllerComments{
+			Method: "GetPodLog",
+			Router: `/:pod/group/:group/workspace/:workspace/container/:container/log`,
+			AllowHTTPMethods: []string{"Get"},
+			Params: nil})
+
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:PodController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:PodController"],
+		beego.ControllerComments{
+			Method: "GetPodStat",
+			Router: `/:pod/group/:group/workspace/:workspace/container/:container/stat`,
 			AllowHTTPMethods: []string{"Get"},
 			Params: nil})
 
@@ -125,6 +195,27 @@ func init() {
 			AllowHTTPMethods: []string{"Get"},
 			Params: nil})
 
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:SecretController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:SecretController"],
+		beego.ControllerComments{
+			Method: "ListGroupSecrets",
+			Router: `/groups`,
+			AllowHTTPMethods: []string{"Post"},
+			Params: nil})
+
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:SecretController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:SecretController"],
+		beego.ControllerComments{
+			Method: "DeleteSecret",
+			Router: `/:secret/group/:group/workspace/:workspace`,
+			AllowHTTPMethods: []string{"Delete"},
+			Params: nil})
+
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:SecretController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:SecretController"],
+		beego.ControllerComments{
+			Method: "GetSecretTemplate",
+			Router: `/:secret/group/:group/workspace/:workspace/template`,
+			AllowHTTPMethods: []string{"Get"},
+			Params: nil})
+
 	beego.GlobalControllerRouter["ufleet-deploy/controllers:ServiceAccountController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:ServiceAccountController"],
 		beego.ControllerComments{
 			Method: "ListServiceAccounts",
@@ -132,10 +223,52 @@ func init() {
 			AllowHTTPMethods: []string{"Get"},
 			Params: nil})
 
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:ServiceAccountController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:ServiceAccountController"],
+		beego.ControllerComments{
+			Method: "ListGroupServiceAccounts",
+			Router: `/groups`,
+			AllowHTTPMethods: []string{"Post"},
+			Params: nil})
+
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:ServiceAccountController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:ServiceAccountController"],
+		beego.ControllerComments{
+			Method: "DeleteServiceAccount",
+			Router: `/:serviceaccount/group/:group/workspace/:workspace`,
+			AllowHTTPMethods: []string{"Delete"},
+			Params: nil})
+
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:ServiceAccountController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:ServiceAccountController"],
+		beego.ControllerComments{
+			Method: "GetServiceAccountTemplate",
+			Router: `/:serviceaccount/group/:group/workspace/:workspace/template`,
+			AllowHTTPMethods: []string{"Get"},
+			Params: nil})
+
 	beego.GlobalControllerRouter["ufleet-deploy/controllers:ServiceController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:ServiceController"],
 		beego.ControllerComments{
 			Method: "ListServices",
 			Router: `/group/:group/workspace/:workspace`,
+			AllowHTTPMethods: []string{"Get"},
+			Params: nil})
+
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:ServiceController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:ServiceController"],
+		beego.ControllerComments{
+			Method: "ListGroupServices",
+			Router: `/groups`,
+			AllowHTTPMethods: []string{"Post"},
+			Params: nil})
+
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:ServiceController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:ServiceController"],
+		beego.ControllerComments{
+			Method: "DeleteService",
+			Router: `/:service/group/:group/workspace/:workspace`,
+			AllowHTTPMethods: []string{"Delete"},
+			Params: nil})
+
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:ServiceController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:ServiceController"],
+		beego.ControllerComments{
+			Method: "GetServiceTemplate",
+			Router: `/:service/group/:group/workspace/:workspace/template`,
 			AllowHTTPMethods: []string{"Get"},
 			Params: nil})
 

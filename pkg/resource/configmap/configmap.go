@@ -7,6 +7,7 @@ import (
 	"ufleet-deploy/pkg/backend"
 	"ufleet-deploy/pkg/cluster"
 	"ufleet-deploy/pkg/log"
+	"ufleet-deploy/pkg/resource/util"
 
 	corev1 "k8s.io/client-go/pkg/api/v1"
 )
@@ -31,10 +32,13 @@ type ConfigMapController interface {
 	Delete(group, workspace, configmap string, opt DeleteOption) error
 	Get(group, workspace, configmap string) (ConfigMapInterface, error)
 	List(group, workspace string) ([]ConfigMapInterface, error)
+	ListGroup(group string) ([]ConfigMapInterface, error)
 }
 
 type ConfigMapInterface interface {
 	Info() *ConfigMap
+	GetRuntime() (*Runtime, error)
+	GetTemplate() (string, error)
 }
 
 type ConfigMapManager struct {
@@ -50,7 +54,7 @@ type ConfigMapWorkspace struct {
 	ConfigMaps map[string]ConfigMap `json:"configmaps"`
 }
 
-type ConfigMapRuntime struct {
+type Runtime struct {
 	*corev1.ConfigMap
 }
 
@@ -65,6 +69,7 @@ type ConfigMap struct {
 	AppStack   string `json:"app"`
 	User       string `json:"user"`
 	Cluster    string `json:"cluster"`
+	Template   string `json:"template"`
 	memoryOnly bool
 }
 
@@ -132,6 +137,29 @@ func (p *ConfigMapManager) List(groupName, workspaceName string) ([]ConfigMapInt
 	return pis, nil
 }
 
+func (p *ConfigMapManager) ListGroup(groupName string) ([]ConfigMapInterface, error) {
+
+	p.locker.Lock()
+	defer p.locker.Unlock()
+
+	group, ok := p.Groups[groupName]
+	if !ok {
+		return nil, fmt.Errorf("%v:%v", ErrGroupNotFound, groupName)
+	}
+
+	pis := make([]ConfigMapInterface, 0)
+
+	//不能够直接使用k,v来赋值,会出现值都是同一个的问题
+	for _, v := range group.Workspaces {
+		for k := range v.ConfigMaps {
+			t := v.ConfigMaps[k]
+			pis = append(pis, &t)
+		}
+	}
+
+	return pis, nil
+}
+
 func (p *ConfigMapManager) Create(groupName, workspaceName string, data interface{}, opt CreateOptions) error {
 
 	p.locker.Lock()
@@ -186,6 +214,36 @@ func (p *ConfigMapManager) Delete(group, workspace, configmapName string, opt De
 
 func (configmap *ConfigMap) Info() *ConfigMap {
 	return configmap
+}
+
+func (s *ConfigMap) GetRuntime() (*Runtime, error) {
+	ph, err := cluster.NewConfigMapHandler(s.Group, s.Workspace)
+	if err != nil {
+		return nil, err
+	}
+
+	svc, err := ph.Get(s.Workspace, s.Name)
+	if err != nil {
+		return nil, err
+	}
+	return &Runtime{ConfigMap: svc}, nil
+}
+
+func (s *ConfigMap) GetTemplate() (string, error) {
+	if !s.memoryOnly {
+		return s.Template, nil
+	} else {
+		runtime, err := s.GetRuntime()
+		if err != nil {
+			return "", err
+		}
+		t, err := util.GetYamlTemplateFromObject(runtime.ConfigMap)
+		if err != nil {
+			return "", log.DebugPrint(err)
+		}
+		return *t, nil
+
+	}
 }
 
 func InitConfigMapController(be backend.BackendHandler) (ConfigMapController, error) {

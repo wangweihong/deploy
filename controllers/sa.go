@@ -1,11 +1,21 @@
 package controllers
 
 import (
+	"encoding/json"
+	"fmt"
 	pk "ufleet-deploy/pkg/resource/serviceaccount"
 )
 
 type ServiceAccountController struct {
 	baseController
+}
+
+type ServiceAccountState struct {
+	Name       string `json:"name"`
+	Group      string `json:"group"`
+	Workspace  string `json:"workspace"`
+	User       string `json:"user"`
+	CreateTime int64  `json:"createtime"`
 }
 
 // ListServiceAccounts
@@ -34,4 +44,106 @@ func (this *ServiceAccountController) ListServiceAccounts() {
 	}
 
 	this.normalReturn(serviceaccounts)
+}
+
+// ListGroupsServiceAccounts
+// @Title ServiceAccount
+// @Description   ServiceAccount
+// @Param Token header string true 'Token'
+// @Param body body string true "组数组"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /groups [Post]
+func (this *ServiceAccountController) ListGroupServiceAccounts() {
+
+	groups := make([]string, 0)
+	if this.Ctx.Input.RequestBody == nil {
+		err := fmt.Errorf("must commit groups name")
+		this.errReturn(err, 500)
+		return
+	}
+
+	err := json.Unmarshal(this.Ctx.Input.RequestBody, &groups)
+	if err != nil {
+		err = fmt.Errorf("try to unmarshal data \"%v\" fail for %v", string(this.Ctx.Input.RequestBody), err)
+		this.errReturn(err, 500)
+		return
+	}
+
+	pis := make([]pk.ServiceAccountInterface, 0)
+
+	for _, v := range groups {
+		tmp, err := pk.Controller.ListGroup(v)
+		if err != nil {
+			this.errReturn(err, 500)
+			return
+		}
+		pis = append(pis, tmp...)
+	}
+	pss := make([]ServiceAccountState, 0)
+	for _, v := range pis {
+		var ps ServiceAccountState
+		ps.Name = v.Info().Name
+		ps.Group = v.Info().Group
+		ps.Workspace = v.Info().Workspace
+		ps.User = v.Info().User
+	}
+
+	this.normalReturn(pss)
+}
+
+// DeleteServiceAccount
+// @Title ServiceAccount
+// @Description   ServiceAccount
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Param workspace path string true "工作区"
+// @Param serviceaccount path string true "容器组"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /:serviceaccount/group/:group/workspace/:workspace [Delete]
+func (this *ServiceAccountController) DeleteServiceAccount() {
+
+	group := this.Ctx.Input.Param(":group")
+	workspace := this.Ctx.Input.Param(":workspace")
+	serviceaccount := this.Ctx.Input.Param(":serviceaccount")
+
+	err := pk.Controller.Delete(group, workspace, serviceaccount, pk.DeleteOption{})
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+
+	this.normalReturn("ok")
+}
+
+// GetServiceAccountTemplate
+// @Title ServiceAccount
+// @Description   ServiceAccount
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Param workspace path string true "工作区"
+// @Param serviceaccount path string true "容器组"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /:serviceaccount/group/:group/workspace/:workspace/template [Get]
+func (this *ServiceAccountController) GetServiceAccountTemplate() {
+
+	group := this.Ctx.Input.Param(":group")
+	workspace := this.Ctx.Input.Param(":workspace")
+	serviceaccount := this.Ctx.Input.Param(":serviceaccount")
+
+	pi, err := pk.Controller.Get(group, workspace, serviceaccount)
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+
+	t, err := pi.GetTemplate()
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+
+	this.normalReturn(t)
 }

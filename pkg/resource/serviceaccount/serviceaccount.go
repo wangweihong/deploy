@@ -7,6 +7,7 @@ import (
 	"ufleet-deploy/pkg/backend"
 	"ufleet-deploy/pkg/cluster"
 	"ufleet-deploy/pkg/log"
+	"ufleet-deploy/pkg/resource/util"
 
 	corev1 "k8s.io/client-go/pkg/api/v1"
 )
@@ -31,10 +32,13 @@ type ServiceAccountController interface {
 	Delete(group, workspace, serviceaccount string, opt DeleteOption) error
 	Get(group, workspace, serviceaccount string) (ServiceAccountInterface, error)
 	List(group, workspace string) ([]ServiceAccountInterface, error)
+	ListGroup(group string) ([]ServiceAccountInterface, error)
 }
 
 type ServiceAccountInterface interface {
 	Info() *ServiceAccount
+	GetRuntime() (*Runtime, error)
+	GetTemplate() (string, error)
 }
 
 type ServiceAccountManager struct {
@@ -50,7 +54,7 @@ type ServiceAccountWorkspace struct {
 	ServiceAccounts map[string]ServiceAccount `json:"serviceaccounts"`
 }
 
-type ServiceAccountRuntime struct {
+type Runtime struct {
 	*corev1.ServiceAccount
 }
 
@@ -65,6 +69,7 @@ type ServiceAccount struct {
 	AppStack   string `json:"app"`
 	User       string `json:"user"`
 	Cluster    string `json:"cluster"`
+	Template   string `json:"template"`
 	memoryOnly bool
 }
 
@@ -131,6 +136,28 @@ func (p *ServiceAccountManager) List(groupName, workspaceName string) ([]Service
 
 	return pis, nil
 }
+func (p *ServiceAccountManager) ListGroup(groupName string) ([]ServiceAccountInterface, error) {
+
+	p.locker.Lock()
+	defer p.locker.Unlock()
+
+	group, ok := p.Groups[groupName]
+	if !ok {
+		return nil, fmt.Errorf("%v:%v", ErrGroupNotFound, groupName)
+	}
+
+	pis := make([]ServiceAccountInterface, 0)
+
+	//不能够直接使用k,v来赋值,会出现值都是同一个的问题
+	for _, v := range group.Workspaces {
+		for k := range v.ServiceAccounts {
+			t := v.ServiceAccounts[k]
+			pis = append(pis, &t)
+		}
+	}
+
+	return pis, nil
+}
 
 func (p *ServiceAccountManager) Create(groupName, workspaceName string, data interface{}, opt CreateOptions) error {
 
@@ -186,6 +213,36 @@ func (p *ServiceAccountManager) Delete(group, workspace, serviceaccountName stri
 
 func (serviceaccount *ServiceAccount) Info() *ServiceAccount {
 	return serviceaccount
+}
+
+func (s *ServiceAccount) GetRuntime() (*Runtime, error) {
+	ph, err := cluster.NewServiceAccountHandler(s.Group, s.Workspace)
+	if err != nil {
+		return nil, err
+	}
+
+	svc, err := ph.Get(s.Workspace, s.Name)
+	if err != nil {
+		return nil, err
+	}
+	return &Runtime{ServiceAccount: svc}, nil
+}
+
+func (s *ServiceAccount) GetTemplate() (string, error) {
+	if !s.memoryOnly {
+		return s.Template, nil
+	} else {
+		runtime, err := s.GetRuntime()
+		if err != nil {
+			return "", err
+		}
+		t, err := util.GetYamlTemplateFromObject(runtime.ServiceAccount)
+		if err != nil {
+			return "", log.DebugPrint(err)
+		}
+		return *t, nil
+
+	}
 }
 
 func InitServiceAccountController(be backend.BackendHandler) (ServiceAccountController, error) {

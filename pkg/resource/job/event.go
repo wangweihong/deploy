@@ -78,6 +78,7 @@ func HandleClusterResourceEvent() {
 				p.Workspace = e.Workspace
 				p.Group = e.Group
 				p.User = clusterJobCreater
+
 				workspace.Jobs[e.Name] = p
 
 				group.Workspaces[e.Workspace] = workspace

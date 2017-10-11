@@ -7,6 +7,7 @@ import (
 	"ufleet-deploy/pkg/backend"
 	"ufleet-deploy/pkg/cluster"
 	"ufleet-deploy/pkg/log"
+	"ufleet-deploy/pkg/resource/util"
 
 	corev1 "k8s.io/client-go/pkg/api/v1"
 )
@@ -31,10 +32,13 @@ type SecretController interface {
 	Delete(group, workspace, secret string, opt DeleteOption) error
 	Get(group, workspace, secret string) (SecretInterface, error)
 	List(group, workspace string) ([]SecretInterface, error)
+	ListGroup(group string) ([]SecretInterface, error)
 }
 
 type SecretInterface interface {
 	Info() *Secret
+	GetRuntime() (*Runtime, error)
+	GetTemplate() (string, error)
 }
 
 type SecretManager struct {
@@ -50,7 +54,7 @@ type SecretWorkspace struct {
 	Secrets map[string]Secret `json:"secrets"`
 }
 
-type SecretRuntime struct {
+type Runtime struct {
 	*corev1.Secret
 }
 
@@ -65,6 +69,7 @@ type Secret struct {
 	AppStack   string `json:"app"`
 	User       string `json:"user"`
 	Cluster    string `json:"cluster"`
+	Template   string `json:"template"`
 	memoryOnly bool
 }
 
@@ -132,6 +137,29 @@ func (p *SecretManager) List(groupName, workspaceName string) ([]SecretInterface
 	return pis, nil
 }
 
+func (p *SecretManager) ListGroup(groupName string) ([]SecretInterface, error) {
+
+	p.locker.Lock()
+	defer p.locker.Unlock()
+
+	group, ok := p.Groups[groupName]
+	if !ok {
+		return nil, fmt.Errorf("%v:%v", ErrGroupNotFound, groupName)
+	}
+
+	pis := make([]SecretInterface, 0)
+
+	//不能够直接使用k,v来赋值,会出现值都是同一个的问题
+	for _, v := range group.Workspaces {
+		for k := range v.Secrets {
+			t := v.Secrets[k]
+			pis = append(pis, &t)
+		}
+	}
+
+	return pis, nil
+}
+
 func (p *SecretManager) Create(groupName, workspaceName string, data interface{}, opt CreateOptions) error {
 
 	p.locker.Lock()
@@ -186,6 +214,36 @@ func (p *SecretManager) Delete(group, workspace, secretName string, opt DeleteOp
 
 func (secret *Secret) Info() *Secret {
 	return secret
+}
+
+func (s *Secret) GetRuntime() (*Runtime, error) {
+	ph, err := cluster.NewSecretHandler(s.Group, s.Workspace)
+	if err != nil {
+		return nil, err
+	}
+
+	svc, err := ph.Get(s.Workspace, s.Name)
+	if err != nil {
+		return nil, err
+	}
+	return &Runtime{Secret: svc}, nil
+}
+
+func (s *Secret) GetTemplate() (string, error) {
+	if !s.memoryOnly {
+		return s.Template, nil
+	} else {
+		runtime, err := s.GetRuntime()
+		if err != nil {
+			return "", err
+		}
+		t, err := util.GetYamlTemplateFromObject(runtime.Secret)
+		if err != nil {
+			return "", log.DebugPrint(err)
+		}
+		return *t, nil
+
+	}
 }
 
 func InitSecretController(be backend.BackendHandler) (SecretController, error) {

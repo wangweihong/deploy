@@ -7,6 +7,7 @@ import (
 	"ufleet-deploy/pkg/backend"
 	"ufleet-deploy/pkg/cluster"
 	"ufleet-deploy/pkg/log"
+	"ufleet-deploy/pkg/resource/util"
 
 	corev1 "k8s.io/client-go/pkg/api/v1"
 )
@@ -31,10 +32,13 @@ type ServiceController interface {
 	Delete(group, workspace, service string, opt DeleteOption) error
 	Get(group, workspace, service string) (ServiceInterface, error)
 	List(group, workspace string) ([]ServiceInterface, error)
+	ListGroup(group string) ([]ServiceInterface, error)
 }
 
 type ServiceInterface interface {
 	Info() *Service
+	GetRuntime() (*Runtime, error)
+	GetTemplate() (string, error)
 }
 
 type ServiceManager struct {
@@ -50,7 +54,7 @@ type ServiceWorkspace struct {
 	Services map[string]Service `json:"services"`
 }
 
-type ServiceRuntime struct {
+type Runtime struct {
 	*corev1.Service
 }
 
@@ -65,6 +69,7 @@ type Service struct {
 	AppStack   string `json:"app"`
 	User       string `json:"user"`
 	Cluster    string `json:"cluster"`
+	Template   string `json:"template"`
 	memoryOnly bool
 }
 
@@ -132,6 +137,29 @@ func (p *ServiceManager) List(groupName, workspaceName string) ([]ServiceInterfa
 	return pis, nil
 }
 
+func (p *ServiceManager) ListGroup(groupName string) ([]ServiceInterface, error) {
+
+	p.locker.Lock()
+	defer p.locker.Unlock()
+
+	group, ok := p.Groups[groupName]
+	if !ok {
+		return nil, fmt.Errorf("%v:%v", ErrGroupNotFound, groupName)
+	}
+
+	pis := make([]ServiceInterface, 0)
+
+	//不能够直接使用k,v来赋值,会出现值都是同一个的问题
+	for _, v := range group.Workspaces {
+		for k := range v.Services {
+			t := v.Services[k]
+			pis = append(pis, &t)
+		}
+	}
+
+	return pis, nil
+}
+
 func (p *ServiceManager) Create(groupName, workspaceName string, data interface{}, opt CreateOptions) error {
 
 	p.locker.Lock()
@@ -184,8 +212,38 @@ func (p *ServiceManager) Delete(group, workspace, serviceName string, opt Delete
 	}
 }
 
-func (service *Service) Info() *Service {
-	return service
+func (s *Service) Info() *Service {
+	return s
+}
+
+func (s *Service) GetRuntime() (*Runtime, error) {
+	ph, err := cluster.NewServiceHandler(s.Group, s.Workspace)
+	if err != nil {
+		return nil, err
+	}
+
+	svc, err := ph.Get(s.Workspace, s.Name)
+	if err != nil {
+		return nil, err
+	}
+	return &Runtime{Service: svc}, nil
+}
+
+func (s *Service) GetTemplate() (string, error) {
+	if !s.memoryOnly {
+		return s.Template, nil
+	} else {
+		runtime, err := s.GetRuntime()
+		if err != nil {
+			return "", err
+		}
+		t, err := util.GetYamlTemplateFromObject(runtime.Service)
+		if err != nil {
+			return "", log.DebugPrint(err)
+		}
+		return *t, nil
+
+	}
 }
 
 func InitServiceController(be backend.BackendHandler) (ServiceController, error) {
