@@ -26,12 +26,13 @@ type ResourceController struct {
 
 	informerFactory informers.SharedInformerFactory
 	//core
-	podInformer            coreinformers.PodInformer
-	serviceInformer        coreinformers.ServiceInformer
-	configmapInformer      coreinformers.ConfigMapInformer
-	serviceaccountInformer coreinformers.ServiceAccountInformer
-	secretInformer         coreinformers.SecretInformer
-	endpointInformer       coreinformers.EndpointsInformer
+	replicationcontrollerInformer coreinformers.ReplicationControllerInformer
+	podInformer                   coreinformers.PodInformer
+	serviceInformer               coreinformers.ServiceInformer
+	configmapInformer             coreinformers.ConfigMapInformer
+	serviceaccountInformer        coreinformers.ServiceAccountInformer
+	secretInformer                coreinformers.SecretInformer
+	endpointInformer              coreinformers.EndpointsInformer
 
 	//extension
 	deploymentInformer extensioninformers.DeploymentInformer
@@ -52,6 +53,7 @@ func (c *ResourceController) Run(stopCh chan struct{}) error {
 		c.podInformer.Informer().HasSynced,
 		c.endpointInformer.Informer().HasSynced,
 		c.serviceInformer.Informer().HasSynced,
+		c.replicationcontrollerInformer.Informer().HasSynced,
 		c.configmapInformer.Informer().HasSynced,
 		c.serviceaccountInformer.Informer().HasSynced,
 		c.deploymentInformer.Informer().HasSynced,
@@ -148,6 +150,8 @@ func (c *ResourceController) resourceAdd(obj interface{}) {
 		ServiceEventChan <- e
 	case *corev1.ConfigMap:
 		ConfigMapEventChan <- e
+	case *corev1.ReplicationController:
+		ReplicationControllerEventChan <- e
 	case *corev1.Endpoints:
 		EndpointEventChan <- e
 	case *corev1.ServiceAccount:
@@ -189,6 +193,8 @@ func (c *ResourceController) resourceUpdate(obj, new interface{}) {
 		ServiceEventChan <- e
 	case *corev1.ConfigMap:
 		ConfigMapEventChan <- e
+	case *corev1.ReplicationController:
+		ReplicationControllerEventChan <- e
 	case *corev1.Endpoints:
 		EndpointEventChan <- e
 	case *corev1.ServiceAccount:
@@ -230,6 +236,8 @@ func (c *ResourceController) resourceDelete(obj interface{}) {
 		ServiceEventChan <- e
 	case *corev1.ConfigMap:
 		ConfigMapEventChan <- e
+	case *corev1.ReplicationController:
+		ReplicationControllerEventChan <- e
 	case *corev1.Endpoints:
 		EndpointEventChan <- e
 	case *corev1.ServiceAccount:
@@ -256,6 +264,7 @@ func NewResourceController(informerFactory informers.SharedInformerFactory, ws m
 	podInformer := informerFactory.Core().V1().Pods()
 	serviceInformer := informerFactory.Core().V1().Services()
 	configmapInformer := informerFactory.Core().V1().ConfigMaps()
+	replicationcontrollerInformer := informerFactory.Core().V1().ReplicationControllers()
 	serviceaccountInformer := informerFactory.Core().V1().ServiceAccounts()
 	endpointInformer := informerFactory.Core().V1().Endpoints()
 	secretInformer := informerFactory.Core().V1().Secrets()
@@ -267,19 +276,20 @@ func NewResourceController(informerFactory informers.SharedInformerFactory, ws m
 	cronjobInformer := informerFactory.Batch().V2alpha1().CronJobs()
 
 	c := ResourceController{
-		informerFactory:        informerFactory,
-		podInformer:            podInformer,
-		serviceInformer:        serviceInformer,
-		configmapInformer:      configmapInformer,
-		endpointInformer:       endpointInformer,
-		serviceaccountInformer: serviceaccountInformer,
-		secretInformer:         secretInformer,
-		deploymentInformer:     deploymentInformer,
-		daemonsetInformer:      daemonsetInformer,
-		ingressInformer:        ingressInformer,
-		statefulsetInformer:    statefulsetInformer,
-		jobInformer:            jobInformer,
-		cronjobInformer:        cronjobInformer,
+		informerFactory:               informerFactory,
+		podInformer:                   podInformer,
+		serviceInformer:               serviceInformer,
+		configmapInformer:             configmapInformer,
+		replicationcontrollerInformer: replicationcontrollerInformer,
+		endpointInformer:              endpointInformer,
+		serviceaccountInformer:        serviceaccountInformer,
+		secretInformer:                secretInformer,
+		deploymentInformer:            deploymentInformer,
+		daemonsetInformer:             daemonsetInformer,
+		ingressInformer:               ingressInformer,
+		statefulsetInformer:           statefulsetInformer,
+		jobInformer:                   jobInformer,
+		cronjobInformer:               cronjobInformer,
 
 		Workspaces: ws,
 	}
@@ -308,6 +318,17 @@ func NewResourceController(informerFactory informers.SharedInformerFactory, ws m
 		},
 	)
 	configmapInformer.Informer().AddEventHandler(
+		// Your custom resource event handlers.
+		cache.ResourceEventHandlerFuncs{
+			// Called on creation
+			AddFunc: c.resourceAdd,
+			// Called on resource update and every resyncPeriod on existing resources.
+			UpdateFunc: c.resourceUpdate,
+			// Called on resource deletion.
+			DeleteFunc: c.resourceDelete,
+		},
+	)
+	replicationcontrollerInformer.Informer().AddEventHandler(
 		// Your custom resource event handlers.
 		cache.ResourceEventHandlerFuncs{
 			// Called on creation

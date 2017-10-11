@@ -265,6 +265,7 @@ type Status struct {
 	Total             int               `json:"total"`
 	Restarts          int               `json:"restarts"`
 	Labels            map[string]string `json:"labels"`
+	Annotations       map[string]string `json:"annotations"`
 	RestartPolicy     string            `json:"restartpolicy"`
 	ContainerStatuses []ContainerStatus `json:"containerstatuses"`
 	ContainerSpecs    []ContainerSpec   `json:"containerspec"`
@@ -353,6 +354,12 @@ func V1PodToPodStatus(pod corev1.Pod) *Status {
 	if len(pod.Labels) != 0 {
 		s.Labels = pod.Labels
 	}
+
+	s.Annotations = make(map[string]string)
+	if len(pod.Annotations) != 0 {
+		s.Annotations = pod.Annotations
+	}
+
 	s.RestartPolicy = string(pod.Spec.RestartPolicy)
 
 	if ps.StartTime != nil {

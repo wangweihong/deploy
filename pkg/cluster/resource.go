@@ -183,6 +183,59 @@ func (h *configmapHandler) Delete(namespace, configmapName string) error {
 	return h.clientset.CoreV1().ConfigMaps(namespace).Delete(configmapName, nil)
 }
 
+/* ------------------------ ReplicationController---------------------------*/
+
+type ReplicationControllerHandler interface {
+	Get(namespace string, name string) (*corev1.ReplicationController, error)
+	Create(namespace string, cm *corev1.ReplicationController) error
+	Delete(namespace string, name string) error
+	GetPods(namespace, name string) ([]*corev1.Pod, error)
+}
+
+func NewReplicationControllerHandler(group, workspace string) (ReplicationControllerHandler, error) {
+	Cluster, err := Controller.GetCluster(group, workspace)
+	if err != nil {
+		return nil, log.DebugPrint(err)
+	}
+
+	return &replicationcontrollerHandler{Cluster: Cluster}, nil
+}
+
+type replicationcontrollerHandler struct {
+	*Cluster
+}
+
+func (h *replicationcontrollerHandler) Get(namespace, name string) (*corev1.ReplicationController, error) {
+	return h.informerController.replicationcontrollerInformer.Lister().ReplicationControllers(namespace).Get(name)
+}
+
+func (h *replicationcontrollerHandler) Create(namespace string, replicationcontroller *corev1.ReplicationController) error {
+	_, err := h.clientset.CoreV1().ReplicationControllers(namespace).Create(replicationcontroller)
+	return err
+}
+
+func (h *replicationcontrollerHandler) Delete(namespace, replicationcontrollerName string) error {
+	return h.clientset.CoreV1().ReplicationControllers(namespace).Delete(replicationcontrollerName, nil)
+}
+func (h *replicationcontrollerHandler) GetPods(namespace, name string) ([]*corev1.Pod, error) {
+	d, err := h.informerController.replicationcontrollerInformer.Lister().ReplicationControllers(namespace).Get(name)
+	if err != nil {
+		return nil, nil
+	}
+	//rsSelector := d.Spec.Selector.MatchLabels
+	rsSelector := d.Spec.Selector
+
+	selector := labels.Set(rsSelector).AsSelector()
+	//opts := corev1.ListOptions{LabelSelector: selector.String()}
+	//po, err := h.clientset.CoreV1().Pods(namespace).List(opts)
+	pos, err := h.informerController.podInformer.Lister().List(selector)
+	if err != nil {
+		return nil, err
+	}
+
+	return pos, nil
+}
+
 /* ------------------------ ServiceAccount ----------------------------*/
 
 type ServiceAccountHandler interface {
