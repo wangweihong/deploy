@@ -146,7 +146,7 @@ func (this *PodController) CreatePod() {
 // @Success 201 {string} create success!
 // @Failure 500
 // @router /groups [Post]
-func (this *PodController) ListGroupPods() {
+func (this *PodController) ListGroupsPods() {
 
 	groups := make([]string, 0)
 	if this.Ctx.Input.RequestBody == nil {
@@ -171,6 +171,32 @@ func (this *PodController) ListGroupPods() {
 			return
 		}
 		pis = append(pis, tmp...)
+	}
+	pss := make([]PodState, 0)
+	for _, v := range pis {
+		ps := GetPodState(v)
+		pss = append(pss, ps)
+	}
+
+	this.normalReturn(pss)
+}
+
+// ListGroupPods
+// @Title Pod
+// @Description   Pod
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /group/:group [Get]
+func (this *PodController) ListGroupPods() {
+
+	group := this.Ctx.Input.Param(":group")
+
+	pis, err := pk.Controller.ListGroup(group)
+	if err != nil {
+		this.errReturn(err, 500)
+		return
 	}
 	pss := make([]PodState, 0)
 	for _, v := range pis {
@@ -335,4 +361,108 @@ func (this *PodController) GetPodStat() {
 	}
 
 	this.normalReturn(logs)
+}
+
+// GetPodContainers
+// @Title Pod
+// @Description   Pod container event
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Param workspace path string true "工作区"
+// @Param pod path string true "容器组"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /:pod/group/:group/workspace/:workspace/event [Get]
+func (this *PodController) GetPodEvent() {
+
+	group := this.Ctx.Input.Param(":group")
+	workspace := this.Ctx.Input.Param(":workspace")
+	pod := this.Ctx.Input.Param(":pod")
+
+	pi, err := pk.Controller.Get(group, workspace, pod)
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+	es, err := pi.Event()
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+
+	this.normalReturn(es)
+}
+
+// GetPodContainers
+// @Title Pod
+// @Description   Pod container terminal
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Param workspace path string true "工作区"
+// @Param pod path string true "容器组"
+// @Param container path string true "容器"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /:pod/group/:group/workspace/:workspace/container/:container/terminal [Get]
+func (this *PodController) GetPodTerminal() {
+
+	group := this.Ctx.Input.Param(":group")
+	workspace := this.Ctx.Input.Param(":workspace")
+	pod := this.Ctx.Input.Param(":pod")
+	c := this.Ctx.Input.Param(":container")
+
+	pi, err := pk.Controller.Get(group, workspace, pod)
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+	logs, err := pi.Terminal(c)
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+
+	this.normalReturn(logs)
+}
+
+// GetPodContainerSpec
+// @Title Pod
+// @Description   Pod Containers
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Param workspace path string true "工作区"
+// @Param pod path string true "容器组"
+// @Param container path string true "容器"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /:pod/group/:group/workspace/:workspace/container/:container/spec [Get]
+func (this *PodController) GetPodContainerSpec() {
+
+	group := this.Ctx.Input.Param(":group")
+	workspace := this.Ctx.Input.Param(":workspace")
+	pod := this.Ctx.Input.Param(":pod")
+	container := this.Ctx.Input.Param(":container")
+
+	pi, err := pk.Controller.Get(group, workspace, pod)
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+
+	stat, err := pi.GetStatus()
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+
+	for _, v := range stat.ContainerSpecs {
+		if v.Name == container {
+			this.normalReturn(v)
+			return
+		}
+	}
+
+	err = fmt.Errorf("container not found")
+
+	this.errReturn(err, 500)
 }

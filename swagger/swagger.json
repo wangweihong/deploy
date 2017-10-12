@@ -14,6 +14,37 @@
     },
     "basePath": "/v1/deploy",
     "paths": {
+        "/configap/group/{group}": {
+            "get": {
+                "tags": [
+                    "configap"
+                ],
+                "description": "ConfigMap",
+                "operationId": "ConfigMapController.ConfigMap",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Token",
+                        "description": "'Token'",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "group",
+                        "description": "组名",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "{string} create success!"
+                    },
+                    "500": {}
+                }
+            }
+        },
         "/configap/group/{group}/workspace/{workspace}": {
             "get": {
                 "tags": [
@@ -161,6 +192,37 @@
                         "in": "path",
                         "name": "configmap",
                         "description": "容器组",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "{string} create success!"
+                    },
+                    "500": {}
+                }
+            }
+        },
+        "/cronjob/group/{group}": {
+            "get": {
+                "tags": [
+                    "cronjob"
+                ],
+                "description": "CronJob",
+                "operationId": "CronJobController.CronJob",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Token",
+                        "description": "'Token'",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "group",
+                        "description": "组名",
                         "required": true,
                         "type": "string"
                     }
@@ -484,6 +546,37 @@
                 }
             }
         },
+        "/job/group/{group}": {
+            "get": {
+                "tags": [
+                    "job"
+                ],
+                "description": "Job",
+                "operationId": "JobController.Job",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Token",
+                        "description": "'Token'",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "group",
+                        "description": "组名",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "{string} create success!"
+                    },
+                    "500": {}
+                }
+            }
+        },
         "/job/group/{group}/workspace/{workspace}": {
             "get": {
                 "tags": [
@@ -586,6 +679,82 @@
                         "in": "path",
                         "name": "job",
                         "description": "任务名",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "{string} create success!"
+                    },
+                    "500": {}
+                }
+            }
+        },
+        "/job/{job}/group/{group}/workspace/{workspace}/template": {
+            "get": {
+                "tags": [
+                    "job"
+                ],
+                "description": "Get Job Template",
+                "operationId": "JobController.Job",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Token",
+                        "description": "'Token'",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "group",
+                        "description": "组名",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "workspace",
+                        "description": "工作区",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "job",
+                        "description": "任务名",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "{string} create success!"
+                    },
+                    "500": {}
+                }
+            }
+        },
+        "/pod/group/{group}": {
+            "get": {
+                "tags": [
+                    "pod"
+                ],
+                "description": "Pod",
+                "operationId": "PodController.Pod",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Token",
+                        "description": "'Token'",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "group",
+                        "description": "组名",
                         "required": true,
                         "type": "string"
                     }
@@ -850,6 +1019,58 @@
                 }
             }
         },
+        "/pod/{pod}/group/{group}/workspace/{workspace}/container/{container}/spec": {
+            "get": {
+                "tags": [
+                    "pod"
+                ],
+                "description": "Pod Containers",
+                "operationId": "PodController.Pod",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Token",
+                        "description": "'Token'",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "group",
+                        "description": "组名",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "workspace",
+                        "description": "工作区",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "pod",
+                        "description": "容器组",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "container",
+                        "description": "容器",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "{string} create success!"
+                    },
+                    "500": {}
+                }
+            }
+        },
         "/pod/{pod}/group/{group}/workspace/{workspace}/container/{container}/stat": {
             "get": {
                 "tags": [
@@ -902,12 +1123,109 @@
                 }
             }
         },
+        "/pod/{pod}/group/{group}/workspace/{workspace}/container/{container}/terminal": {
+            "get": {
+                "tags": [
+                    "pod"
+                ],
+                "description": "Pod container terminal",
+                "operationId": "PodController.Pod",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Token",
+                        "description": "'Token'",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "group",
+                        "description": "组名",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "workspace",
+                        "description": "工作区",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "pod",
+                        "description": "容器组",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "container",
+                        "description": "容器",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "{string} create success!"
+                    },
+                    "500": {}
+                }
+            }
+        },
         "/pod/{pod}/group/{group}/workspace/{workspace}/containers": {
             "get": {
                 "tags": [
                     "pod"
                 ],
                 "description": "Pod Containers",
+                "operationId": "PodController.Pod",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Token",
+                        "description": "'Token'",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "group",
+                        "description": "组名",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "workspace",
+                        "description": "工作区",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "pod",
+                        "description": "容器组",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "{string} create success!"
+                    },
+                    "500": {}
+                }
+            }
+        },
+        "/pod/{pod}/group/{group}/workspace/{workspace}/event": {
+            "get": {
+                "tags": [
+                    "pod"
+                ],
+                "description": "Pod container event",
                 "operationId": "PodController.Pod",
                 "parameters": [
                     {
@@ -1076,9 +1394,9 @@
                         "type": "string"
                     },
                     {
-                        "in": "body",
-                        "name": "body",
-                        "description": "组数组",
+                        "in": "path",
+                        "name": "group",
+                        "description": "组名",
                         "required": true,
                         "type": "string"
                     }
@@ -1124,6 +1442,37 @@
                         "in": "path",
                         "name": "replicationcontroller",
                         "description": "任务名",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "{string} create success!"
+                    },
+                    "500": {}
+                }
+            }
+        },
+        "/secret/group/{group}": {
+            "get": {
+                "tags": [
+                    "secret"
+                ],
+                "description": "Secret",
+                "operationId": "SecretController.Secret",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Token",
+                        "description": "'Token'",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "group",
+                        "description": "组名",
                         "required": true,
                         "type": "string"
                     }
@@ -1295,6 +1644,37 @@
                 }
             }
         },
+        "/service/group/{group}": {
+            "get": {
+                "tags": [
+                    "service"
+                ],
+                "description": "Service",
+                "operationId": "ServiceController.Service",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Token",
+                        "description": "'Token'",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "group",
+                        "description": "组名",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "{string} create success!"
+                    },
+                    "500": {}
+                }
+            }
+        },
         "/service/group/{group}/workspace/{workspace}": {
             "get": {
                 "tags": [
@@ -1442,6 +1822,37 @@
                         "in": "path",
                         "name": "service",
                         "description": "容器组",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "{string} create success!"
+                    },
+                    "500": {}
+                }
+            }
+        },
+        "/serviceaccount/group/{group}": {
+            "get": {
+                "tags": [
+                    "serviceaccount"
+                ],
+                "description": "ServiceAccount",
+                "operationId": "ServiceAccountController.ServiceAccount",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Token",
+                        "description": "'Token'",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "group",
+                        "description": "组名",
                         "required": true,
                         "type": "string"
                     }

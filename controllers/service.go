@@ -27,7 +27,7 @@ type ServiceState struct {
 // @Success 201 {string} create success!
 // @Failure 500
 // @router /group/:group/workspace/:workspace [Get]
-func (this *ServiceController) ListServices() {
+func (this *ServiceController) ListGroupWorkspaceServices() {
 
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
@@ -54,7 +54,7 @@ func (this *ServiceController) ListServices() {
 // @Success 201 {string} create success!
 // @Failure 500
 // @router /groups [Post]
-func (this *ServiceController) ListGroupServices() {
+func (this *ServiceController) ListGroupsServices() {
 
 	groups := make([]string, 0)
 	if this.Ctx.Input.RequestBody == nil {
@@ -79,6 +79,35 @@ func (this *ServiceController) ListGroupServices() {
 			return
 		}
 		pis = append(pis, tmp...)
+	}
+	pss := make([]ServiceState, 0)
+	for _, v := range pis {
+		var ps ServiceState
+		ps.Name = v.Info().Name
+		ps.Group = v.Info().Group
+		ps.Workspace = v.Info().Workspace
+		ps.User = v.Info().User
+
+	}
+
+	this.normalReturn(pss)
+}
+
+// ListGroupServices
+// @Title Service
+// @Description   Service
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /group/:group [Get]
+func (this *ServiceController) ListGroupServices() {
+
+	group := this.Ctx.Input.Param(":group")
+	pis, err := sk.Controller.ListGroup(group)
+	if err != nil {
+		this.errReturn(err, 500)
+		return
 	}
 	pss := make([]ServiceState, 0)
 	for _, v := range pis {

@@ -54,7 +54,7 @@ func (this *ServiceAccountController) ListServiceAccounts() {
 // @Success 201 {string} create success!
 // @Failure 500
 // @router /groups [Post]
-func (this *ServiceAccountController) ListGroupServiceAccounts() {
+func (this *ServiceAccountController) ListGroupsServiceAccounts() {
 
 	groups := make([]string, 0)
 	if this.Ctx.Input.RequestBody == nil {
@@ -79,6 +79,35 @@ func (this *ServiceAccountController) ListGroupServiceAccounts() {
 			return
 		}
 		pis = append(pis, tmp...)
+	}
+	pss := make([]ServiceAccountState, 0)
+	for _, v := range pis {
+		var ps ServiceAccountState
+		ps.Name = v.Info().Name
+		ps.Group = v.Info().Group
+		ps.Workspace = v.Info().Workspace
+		ps.User = v.Info().User
+	}
+
+	this.normalReturn(pss)
+}
+
+// ListGroupServiceAccounts
+// @Title ServiceAccount
+// @Description   ServiceAccount
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /group/:group [Get]
+func (this *ServiceAccountController) ListGroupServiceAccounts() {
+
+	group := this.Ctx.Input.Param(":group")
+
+	pis, err := pk.Controller.ListGroup(group)
+	if err != nil {
+		this.errReturn(err, 500)
+		return
 	}
 	pss := make([]ServiceAccountState, 0)
 	for _, v := range pis {

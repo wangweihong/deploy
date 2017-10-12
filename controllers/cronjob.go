@@ -33,7 +33,7 @@ type CronJobState struct {
 // @Success 201 {string} create success!
 // @Failure 500
 // @router /group/:group/workspace/:workspace [Get]
-func (this *CronJobController) ListCronJobs() {
+func (this *CronJobController) ListGroupWorkspaceCronJobs() {
 
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
@@ -60,7 +60,7 @@ func (this *CronJobController) ListCronJobs() {
 // @Success 201 {string} create success!
 // @Failure 500
 // @router /groups [Post]
-func (this *CronJobController) ListGroupCronJobs() {
+func (this *CronJobController) ListGroupsCronJobs() {
 
 	groups := make([]string, 0)
 	if this.Ctx.Input.RequestBody == nil {
@@ -85,6 +85,48 @@ func (this *CronJobController) ListGroupCronJobs() {
 			return
 		}
 		pis = append(pis, tmp...)
+	}
+	pss := make([]pk.Status, 0)
+	for _, v := range pis {
+		var s *pk.Status
+		var err error
+		s, err = v.GetStatus()
+		if err != nil {
+			info := v.Info()
+			s = &pk.Status{}
+			s.JobStatus = make([]jk.Status, 0)
+			s.Name = info.Name
+			s.Group = info.Group
+			s.Workspace = info.Workspace
+			s.User = info.User
+			s.Reason = err.Error()
+
+			pss = append(pss, *s)
+			continue
+		}
+
+		pss = append(pss, *s)
+	}
+
+	this.normalReturn(pss)
+}
+
+// ListGroupCronJobs
+// @Title CronJob
+// @Description   CronJob
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /group/:group [Get]
+func (this *CronJobController) ListGroupCronJobs() {
+
+	group := this.Ctx.Input.Param(":group")
+
+	pis, err := pk.Controller.ListGroup(group)
+	if err != nil {
+		this.errReturn(err, 500)
+		return
 	}
 	pss := make([]pk.Status, 0)
 	for _, v := range pis {

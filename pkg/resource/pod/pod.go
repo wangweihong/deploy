@@ -48,6 +48,8 @@ type PodInterface interface {
 	GetTemplate() (string, error)
 	Log(c string) (string, error)
 	Stat(c string) ([]ContainerStat, error)
+	Terminal(containerName string) (string, error)
+	Event() ([]corev1.Event, error)
 }
 
 type PodManager struct {
@@ -203,6 +205,7 @@ func (p *PodManager) Create(groupName, workspaceName string, data []byte, opt Cr
 	cp.Name = pod.Name
 	cp.Workspace = workspaceName
 	cp.Group = groupName
+	cp.Template = string(data)
 	if opt.App != nil {
 		cp.AppStack = *opt.App
 	}
@@ -460,29 +463,32 @@ func (p *Pod) GetStatus() (*Status, error) {
 }
 
 func (p *Pod) GetTemplate() (string, error) {
-	//	if !p.memoryOnly {
-	//		return p.Template, nil
-	//	} else {
-	runtime, err := p.GetRuntimeDirect()
-	if err != nil {
-		return "", log.DebugPrint(err)
-	}
-	//pod := runtime.Pod
-	//		log.DebugPrint(pod.Kind)
-	//		log.DebugPrint(pod.APIVersion)
-	pod := runtime.Pod
-	if pod.Kind == "" {
-		pod.APIVersion = "v1"
-		pod.Kind = "Pod"
-	}
+	if !p.memoryOnly {
+		return p.Template, nil
+	} else {
+		return "", nil
+		/*
+			runtime, err := p.GetRuntimeDirect()
+			if err != nil {
+				return "", log.DebugPrint(err)
+			}
+			//pod := runtime.Pod
+			//		log.DebugPrint(pod.Kind)
+			//		log.DebugPrint(pod.APIVersion)
+			pod := runtime.Pod
+			if pod.Kind == "" {
+				pod.APIVersion = "v1"
+				pod.Kind = "Pod"
+			}
 
-	t, err := util.GetYamlTemplateFromObject(runtime.Pod)
-	if err != nil {
-		return "", log.DebugPrint(err)
-	}
+			t, err := util.GetYamlTemplateFromObject(runtime.Pod)
+			if err != nil {
+				return "", log.DebugPrint(err)
+			}
 
-	return *t, nil
-	//	}
+			return *t, nil
+		*/
+	}
 }
 
 func (p *Pod) Log(containerName string) (string, error) {
@@ -506,22 +512,37 @@ type ContainerStat struct {
 	cadvisor.ContainerStat
 }
 
-func (p *Pod) Stat(containerName string) ([]ContainerStat, error) {
-	/*
-		ph, err := cluster.NewPodHandler(p.Group, p.Workspace)
-		if err != nil {
-			return "", log.DebugPrint(err)
-		}
+func (p *Pod) Terminal(containerName string) (string, error) {
+	c, err := cluster.Controller.GetCluster(p.Group, p.Workspace)
+	if err != nil {
+		return "", log.DebugPrint(err)
+	}
+	runtime, err := p.GetRuntime()
+	if err != nil {
+		return "", log.DebugPrint(err)
+	}
 
-		opt := cluster.LogOption{
-			DisplayTailLine: 10000,
+	var found bool
+	for _, v := range runtime.Pod.Spec.Containers {
+		if v.Name == containerName {
+			found = true
 		}
-		logs, err := ph.Log(p.Workspace, p.Name, containerName, opt)
-		if err != nil {
-			return "", log.DebugPrint(err)
-		}
-		return logs, nil
-	*/
+	}
+	if !found {
+		return "", fmt.Errorf("container not exist in pod %v ", p.Name)
+	}
+
+	token := "1234567890987654321"
+
+	url, err := cluster.GetTerminalUrl(p.Group, p.Workspace, p.Name, containerName, runtime.Pod.Status.HostIP, c.Name, token)
+	if err != nil {
+		return "", err
+	}
+
+	return url, nil
+}
+
+func (p *Pod) Stat(containerName string) ([]ContainerStat, error) {
 	runtime, err := p.GetRuntime()
 	if err != nil {
 		return nil, err
@@ -568,10 +589,14 @@ func (p *Pod) Stat(containerName string) ([]ContainerStat, error) {
 	return stats, nil
 }
 
-/*
-func (p *Pod) GetSpec() ([]ContainerSpec, error) {
+func (p *Pod) Event() ([]corev1.Event, error) {
+	ph, err := cluster.NewPodHandler(p.Group, p.Workspace)
+	if err != nil {
+		return nil, log.DebugPrint(err)
+	}
+
+	return ph.Event(p.Workspace, p.Name)
 }
-*/
 
 func InitPodController(be backend.BackendHandler) (PodController, error) {
 	rm = &PodManager{}

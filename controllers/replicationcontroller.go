@@ -20,7 +20,7 @@ type ReplicationControllerController struct {
 // @Success 201 {string} create success!
 // @Failure 500
 // @router /group/:group/workspace/:workspace [Get]
-func (this *ReplicationControllerController) ListGroupReplicationControllers() {
+func (this *ReplicationControllerController) ListGroupWorkspaceReplicationControllers() {
 
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
@@ -87,6 +87,45 @@ func (this *ReplicationControllerController) ListGroupsReplicationControllers() 
 			return
 		}
 		pis = append(pis, tmp...)
+	}
+	//replicationcontrollers := make([]jk.ReplicationController, 0)
+	jss := make([]jk.Status, 0)
+	for _, v := range pis {
+		js := &jk.Status{}
+		var err error
+		js, err = v.GetStatus()
+		if err != nil {
+			replicationcontroller := v.Info()
+			js.Name = replicationcontroller.Name
+			js.User = replicationcontroller.User
+			js.Workspace = replicationcontroller.Workspace
+			js.Group = replicationcontroller.Group
+			js.Reason = err.Error()
+			js.PodStatus = make([]pk.Status, 0)
+			jss = append(jss, *js)
+			continue
+		}
+
+		jss = append(jss, *js)
+	}
+
+	this.normalReturn(jss)
+}
+
+// ListGroupsReplicationControllers
+// @Title ReplicationController
+// @Description   ReplicationController
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /groups [Post]
+func (this *ReplicationControllerController) ListGroupReplicationControllers() {
+	group := this.Ctx.Input.Param(":group")
+	pis, err := jk.Controller.ListGroup(group)
+	if err != nil {
+		this.errReturn(err, 500)
+		return
 	}
 	//replicationcontrollers := make([]jk.ReplicationController, 0)
 	jss := make([]jk.Status, 0)

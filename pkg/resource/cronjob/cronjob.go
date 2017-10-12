@@ -8,7 +8,6 @@ import (
 	"ufleet-deploy/pkg/cluster"
 	"ufleet-deploy/pkg/log"
 	jk "ufleet-deploy/pkg/resource/job"
-	"ufleet-deploy/pkg/resource/util"
 
 	batchv1 "k8s.io/client-go/pkg/apis/batch/v1"
 	batchv2alpha1 "k8s.io/client-go/pkg/apis/batch/v2alpha1"
@@ -242,17 +241,20 @@ func (p *CronJob) GetTemplate() (string, error) {
 	if !p.memoryOnly {
 		return p.Template, nil
 	} else {
-		runtime, err := p.GetRuntime()
-		if err != nil {
-			return "", log.DebugPrint(err)
-		}
+		/*
+			runtime, err := p.GetRuntime()
+			if err != nil {
+				return "", log.DebugPrint(err)
+			}
 
-		t, err := util.GetYamlTemplateFromObject(runtime.CronJob)
-		if err != nil {
-			return "", log.DebugPrint(err)
-		}
+			t, err := util.GetYamlTemplateFromObject(runtime.CronJob)
+			if err != nil {
+				return "", log.DebugPrint(err)
+			}
 
-		return *t, nil
+			return *t, nil
+		*/
+		return "", nil
 	}
 }
 

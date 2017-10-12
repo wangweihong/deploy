@@ -40,6 +40,7 @@ type JobInterface interface {
 	Info() *Job
 	GetRuntime() (*Runtime, error)
 	GetStatus() (*Status, error)
+	GetTemplate() (string, error)
 	//	Runtime()
 }
 
@@ -72,6 +73,7 @@ type Job struct {
 	AppStack   string `json:"app"`
 	User       string `json:"user"`
 	Cluster    string `json:"cluster"`
+	Template   string `json:"template"`
 	memoryOnly bool   //用于判定pod是否由k8s自动创建
 }
 
@@ -304,6 +306,15 @@ func (j *Job) GetStatus() (*Status, error) {
 	}
 
 	return js, nil
+}
+
+func (j *Job) GetTemplate() (string, error) {
+	if !j.memoryOnly {
+		return j.Template, nil
+	} else {
+		return "", nil
+	}
+
 }
 
 func InitJobController(be backend.BackendHandler) (JobController, error) {

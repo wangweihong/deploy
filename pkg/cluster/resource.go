@@ -32,6 +32,7 @@ type PodHandler interface {
 	Delete(namespace string, name string) error
 	Create(namespace string, pod *corev1.Pod) error
 	Log(namespace, podName string, containerName string, opt LogOption) (string, error)
+	Event(namespace, podName string) ([]corev1.Event, error)
 }
 
 func NewPodHandler(group, workspace string) (PodHandler, error) {
@@ -94,22 +95,19 @@ func (h *podHandler) Log(namespace, podName string, containerName string, opt Lo
 	return string(bc), nil
 }
 
-/*
-func (h *podHandler) Event(namespace, podName string) (string, []corev1.Event, error) {
-	pod, err := h.clientset.Pods(namespace).Get(podName, meta_v1.GetOptions{})
-	selector := h.clientset.CoreV1().Events(namespace).GetFieldSelector(&podName,&namespace,nil,nil)
-	options := corev1.ListOptions{FieldSelector: selector.String())
-	if err2!=nil {
-		return "", nil, err2
+func (h *podHandler) Event(namespace, podName string) ([]corev1.Event, error) {
+	//	pod, err := h.clientset.Pods(namespace).Get(podName, metav1.GetOptions{})
+	selector := h.clientset.CoreV1().Events(namespace).GetFieldSelector(&podName, &namespace, nil, nil)
+	options := metav1.ListOptions{FieldSelector: selector.String()}
+	events, err2 := h.clientset.CoreV1().Events(namespace).List(options)
+	if err2 != nil {
+		return nil, err2
 	}
 
 	//获取不到Pod,但有Pod事件
 	sort.Sort(SortableEvents(events.Items))
-	if err != nil {
-		return "", events.Items,nil
-	}
+	return events.Items, nil
 }
-*/
 
 /* ----------------- Service ----------------------*/
 
@@ -684,34 +682,3 @@ func (h *jobHandler) GetPods(namespace, jobName string) ([]*corev1.Pod, error) {
 }
 
 /*  helpers */
-
-type SortableEvents []corev1.Event
-
-func (list SortableEvents) Len() int {
-	return len(list)
-}
-
-func (list SortableEvents) Swap(i, j int) {
-	list[i], list[j] = list[j], list[i]
-}
-
-func (list SortableEvents) Less(i, j int) bool {
-	return list[i].LastTimestamp.Time.Before(list[j].LastTimestamp.Time)
-}
-
-/*job*/
-
-type SortableJobs []*batchv1.Job
-
-func (list SortableJobs) Len() int {
-	return len(list)
-}
-
-func (list SortableJobs) Swap(i, j int) {
-	list[i], list[j] = list[j], list[i]
-}
-
-//按距离当前的创建时间进行排序
-func (list SortableJobs) Less(i, j int) bool {
-	return list[i].CreationTimestamp.Time.After(list[j].CreationTimestamp.Time)
-}

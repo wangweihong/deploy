@@ -9,9 +9,10 @@ const (
 	kind = "cluster"
 )
 
-func Init(clusterHostStr string) {
+func Init(clusterHostStr string, currentHost string) {
 
 	clusterHost = clusterHostStr
+	hostDomain = currentHost
 
 	gws, err := backend.GetExternalWorkspaceList()
 	if err != nil {

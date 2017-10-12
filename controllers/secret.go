@@ -54,7 +54,7 @@ func (this *SecretController) ListSecrets() {
 // @Success 201 {string} create success!
 // @Failure 500
 // @router /groups [Post]
-func (this *SecretController) ListGroupSecrets() {
+func (this *SecretController) ListGroupsSecrets() {
 
 	groups := make([]string, 0)
 	if this.Ctx.Input.RequestBody == nil {
@@ -80,6 +80,36 @@ func (this *SecretController) ListGroupSecrets() {
 		}
 		pis = append(pis, tmp...)
 	}
+	pss := make([]SecretState, 0)
+	for _, v := range pis {
+		var ps SecretState
+		ps.Name = v.Info().Name
+		ps.Group = v.Info().Group
+		ps.Workspace = v.Info().Workspace
+		ps.User = v.Info().User
+
+	}
+
+	this.normalReturn(pss)
+}
+
+// ListGroupSecrets
+// @Title Secret
+// @Description   Secret
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /group/:group [Get]
+func (this *SecretController) ListGroupSecrets() {
+
+	group := this.Ctx.Input.Param(":group")
+	pis, err := sk.Controller.ListGroup(group)
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+
 	pss := make([]SecretState, 0)
 	for _, v := range pis {
 		var ps SecretState

@@ -12,6 +12,7 @@ import (
 
 var (
 	clusterHost string
+	hostDomain  string
 )
 
 type ClusterConfig struct {
@@ -109,4 +110,9 @@ func ClusterConfigToK8sClientConfig(c ClusterConfig) (*rest.Config, error) {
 type WorkspaceAndConfig struct {
 	Config    ClusterConfig `json:"k8sconf"`
 	Namespace string        `json:"namespace"`
+}
+
+func GetTerminalUrl(group, workspace string, podName string, containerName string, hostIp string, clusterName string, token string) (string, error) {
+	url := hostDomain + "/console/?cluster_name=" + clusterName + "&" + "pod_name=" + podName + "&" + "container_name=" + containerName + "&" + "namespace=" + workspace + "&" + "ip=" + hostIp
+	return url, nil
 }

@@ -20,7 +20,7 @@ type JobController struct {
 // @Success 201 {string} create success!
 // @Failure 500
 // @router /group/:group/workspace/:workspace [Get]
-func (this *JobController) ListGroupJobs() {
+func (this *JobController) ListGroupWorkspaceJobs() {
 
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
@@ -112,6 +112,46 @@ func (this *JobController) ListGroupsJobs() {
 	this.normalReturn(jss)
 }
 
+// ListGroupJobs
+// @Title Job
+// @Description   Job
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /group/:group [Get]
+func (this *JobController) ListGroupJobs() {
+
+	group := this.Ctx.Input.Param(":group")
+	pis, err := jk.Controller.ListGroup(group)
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+	//jobs := make([]jk.Job, 0)
+	jss := make([]jk.Status, 0)
+	for _, v := range pis {
+		js := &jk.Status{}
+		var err error
+		js, err = v.GetStatus()
+		if err != nil {
+			job := v.Info()
+			js.Name = job.Name
+			js.User = job.User
+			js.Workspace = job.Workspace
+			js.Group = job.Group
+			js.Reason = err.Error()
+			js.PodStatus = make([]pk.Status, 0)
+			jss = append(jss, *js)
+			continue
+		}
+
+		jss = append(jss, *js)
+	}
+
+	this.normalReturn(jss)
+}
+
 // DeleteJob
 // @Title Job
 // @Description  DeleteeJob
@@ -135,4 +175,34 @@ func (this *JobController) DeleteJob() {
 	}
 
 	this.normalReturn("ok")
+}
+
+// GetJobTemplate
+// @Title Job
+// @Description Get Job Template
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Param workspace path string true "工作区"
+// @Param job path string true "任务名"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /:job/group/:group/workspace/:workspace/template [Get]
+func (this *JobController) GetJobTemplate() {
+
+	group := this.Ctx.Input.Param(":group")
+	workspace := this.Ctx.Input.Param(":workspace")
+	job := this.Ctx.Input.Param(":job")
+
+	ji, err := jk.Controller.Get(group, workspace, job)
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+	t, err := ji.GetTemplate()
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+
+	this.normalReturn(t)
 }

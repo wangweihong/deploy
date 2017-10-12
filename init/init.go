@@ -24,8 +24,9 @@ import (
 )
 
 const (
-	etcdHostEnvKey    = "ETCDHOST"
-	clusterHostEnvKey = "CLUSTERHOST"
+	etcdHostEnvKey        = "ETCDHOST"
+	clusterHostEnvKey     = "CLUSTERHOST"
+	clusterCurrentHostKey = "CURRENT_HOST"
 )
 
 func init() {
@@ -72,6 +73,10 @@ func initCluster() {
 	if len(clusterHost) == 0 {
 		panic(fmt.Sprintf("must provide Environment \"%v\"", clusterHostEnvKey))
 	}
+	currentHost := os.Getenv(clusterCurrentHostKey)
+	if len(clusterHost) == 0 {
+		panic(fmt.Sprintf("must provide Environment \"%v\"", clusterHostEnvKey))
+	}
 
-	cluster.Init(clusterHost)
+	cluster.Init(clusterHost, currentHost)
 }
