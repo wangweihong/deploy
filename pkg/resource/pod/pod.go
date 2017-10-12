@@ -460,24 +460,29 @@ func (p *Pod) GetStatus() (*Status, error) {
 }
 
 func (p *Pod) GetTemplate() (string, error) {
-	if !p.memoryOnly {
-		return p.Template, nil
-	} else {
-		runtime, err := p.GetRuntimeDirect()
-		if err != nil {
-			return "", log.DebugPrint(err)
-		}
-		//pod := runtime.Pod
-		//		log.DebugPrint(pod.Kind)
-		//		log.DebugPrint(pod.APIVersion)
-
-		t, err := util.GetYamlTemplateFromObject(runtime.Pod)
-		if err != nil {
-			return "", log.DebugPrint(err)
-		}
-
-		return *t, nil
+	//	if !p.memoryOnly {
+	//		return p.Template, nil
+	//	} else {
+	runtime, err := p.GetRuntimeDirect()
+	if err != nil {
+		return "", log.DebugPrint(err)
 	}
+	//pod := runtime.Pod
+	//		log.DebugPrint(pod.Kind)
+	//		log.DebugPrint(pod.APIVersion)
+	pod := runtime.Pod
+	if pod.Kind == "" {
+		pod.APIVersion = "v1"
+		pod.Kind = "Pod"
+	}
+
+	t, err := util.GetYamlTemplateFromObject(runtime.Pod)
+	if err != nil {
+		return "", log.DebugPrint(err)
+	}
+
+	return *t, nil
+	//	}
 }
 
 func (p *Pod) Log(containerName string) (string, error) {

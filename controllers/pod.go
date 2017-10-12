@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	pk "ufleet-deploy/pkg/resource/pod"
+	//	"ufleet-deploy/util/user"
 )
 
 type PodController struct {
@@ -37,20 +38,6 @@ func GetPodState(pi pk.PodInterface) PodState {
 	if ps.CreateTime == 0 {
 		ps.CreateTime = ps.Status.StartTime
 	}
-	/*
-		runtime, err := pi.GetRuntime()
-		if err != nil {
-			ps.Reason = err.Error()
-			return ps
-		}
-
-			if runtime.Pod.Status.StartTime != nil {
-				ps.Status.StartTime = runtime.Pod.Status.StartTime.Unix()
-			}
-			ps.Status.State = string(runtime.Pod.Status.Phase)
-			ps.Status.HostIP = runtime.Pod.Status.HostIP
-			ps.Status.IP = runtime.Pod.Generation
-	*/
 
 	return ps
 
@@ -126,6 +113,7 @@ func (this *PodController) GetPod() {
 // @router /group/:group/workspace/:workspace [Post]
 func (this *PodController) CreatePod() {
 
+	//token := this.Ctx.Request.Header.Get("token")
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
 
@@ -134,6 +122,11 @@ func (this *PodController) CreatePod() {
 		this.errReturn(err, 500)
 		return
 	}
+
+	/*
+		ui := user.NewUserClient(token)
+		ui.GetUserName()
+	*/
 
 	var opt pk.CreateOptions
 	err := pk.Controller.Create(group, workspace, this.Ctx.Input.RequestBody, opt)

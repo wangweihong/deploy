@@ -47,20 +47,16 @@ type podHandler struct {
 	*Cluster
 }
 
-func (h *podHandler) GetFromClientSet(namespace, name string) (*corev1.Pod, error) {
-	//	return h.informerController.podInformer.Lister().Pods(namespace).Get(name)
-	return h.clientset.CoreV1().Pods(namespace).Get(name, metav1.GetOptions{})
-}
-
 func (h *podHandler) Get(namespace, name string, opt GetOptions) (*corev1.Pod, error) {
+	//gv := h.clientset.CoreV1().RESTClient().APIVersion()
+	//	h.clientset.Core().Pods()
+
 	if opt.Direct {
 		pod, err := h.clientset.CoreV1().Pods(namespace).Get(name, metav1.GetOptions{})
 		if err != nil {
 			return nil, err
 		}
-		//	log.DebugPrint(pod.TypeMeta)
-		//	log.DebugPrint(pod.ObjectMeta)
-		//	log.DebugPrint(pod.APIVersion)
+		//	pod.APIVersion = typemeta.Version
 		return pod, nil
 	}
 	return h.informerController.podInformer.Lister().Pods(namespace).Get(name)

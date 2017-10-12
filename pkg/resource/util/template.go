@@ -2,9 +2,12 @@ package util
 
 import (
 	"bytes"
+	"encoding/json"
 	"io"
 
 	"ufleet-deploy/pkg/log"
+
+	ghyaml "github.com/ghodss/yaml"
 
 	"k8s.io/apimachinery/pkg/util/yaml"
 
@@ -15,6 +18,17 @@ import (
 
 func GetYamlTemplateFromObject(origin runtime.Object) (*string, error) {
 
+	json, err := json.Marshal(origin)
+	if err != nil {
+		return nil, err
+	}
+	data, err := ghyaml.JSONToYAML(json)
+	if err != nil {
+		return nil, err
+	}
+	str := string(data)
+	return &str, err
+
 	f := cmdutil.NewFactory(nil)
 	log.DebugPrint(origin.GetObjectKind().GroupVersionKind().String())
 	//	log.DebugPrint(origin)
@@ -22,7 +36,7 @@ func GetYamlTemplateFromObject(origin runtime.Object) (*string, error) {
 	//一定要编码,不然会出现字段首字母全大写的情况
 	//1.7客户端返回的TypeMeta为空,无法进行Encoder
 	encoder := f.JSONEncoder()
-	data, err := runtime.Encode(encoder, origin)
+	data, err = runtime.Encode(encoder, origin)
 	if err != nil {
 		return nil, log.DebugPrint(err)
 	}
@@ -38,6 +52,7 @@ func GetYamlTemplateFromObject(origin runtime.Object) (*string, error) {
 	}
 
 	t := string(buf.Bytes())
+
 	return &t, nil
 
 }
