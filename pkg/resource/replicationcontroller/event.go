@@ -66,7 +66,7 @@ func HandleClusterResourceEvent() {
 					return
 				}
 
-				x, ok = workspace.ReplicationControllers[e.Name]
+				x, ok := workspace.ReplicationControllers[e.Name]
 				if ok {
 					if x.memoryOnly {
 						log.ErrorPrint("handle cluster replicationcontroller create event fail: job\"%v\" has exist", e.Name)

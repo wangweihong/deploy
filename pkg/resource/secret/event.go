@@ -66,7 +66,7 @@ func HandleClusterResourceEvent() {
 					return
 				}
 
-				x, ok = workspace.Secrets[e.Name]
+				x, ok := workspace.Secrets[e.Name]
 				if ok {
 					if x.memoryOnly {
 						log.ErrorPrint("handle cluster pod create event fail: pod\"%v\" has exist", e.Name)

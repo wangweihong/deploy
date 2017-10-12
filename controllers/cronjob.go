@@ -3,7 +3,7 @@ package controllers
 import (
 	"encoding/json"
 	"fmt"
-	pk "ufleet-deploy/pkg/resource/cronjob"
+	ck "ufleet-deploy/pkg/resource/cronjob"
 	jk "ufleet-deploy/pkg/resource/job"
 )
 
@@ -38,12 +38,12 @@ func (this *CronJobController) ListGroupWorkspaceCronJobs() {
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
 
-	pis, err := pk.Controller.List(group, workspace)
+	pis, err := ck.Controller.List(group, workspace)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
 	}
-	cronjobs := make([]pk.CronJob, 0)
+	cronjobs := make([]ck.CronJob, 0)
 	for _, v := range pis {
 		t := v.Info()
 		cronjobs = append(cronjobs, *t)
@@ -76,24 +76,24 @@ func (this *CronJobController) ListGroupsCronJobs() {
 		return
 	}
 
-	pis := make([]pk.CronJobInterface, 0)
+	pis := make([]ck.CronJobInterface, 0)
 
 	for _, v := range groups {
-		tmp, err := pk.Controller.ListGroup(v)
+		tmp, err := ck.Controller.ListGroup(v)
 		if err != nil {
 			this.errReturn(err, 500)
 			return
 		}
 		pis = append(pis, tmp...)
 	}
-	pss := make([]pk.Status, 0)
+	pss := make([]ck.Status, 0)
 	for _, v := range pis {
-		var s *pk.Status
+		var s *ck.Status
 		var err error
 		s, err = v.GetStatus()
 		if err != nil {
 			info := v.Info()
-			s = &pk.Status{}
+			s = &ck.Status{}
 			s.JobStatus = make([]jk.Status, 0)
 			s.Name = info.Name
 			s.Group = info.Group
@@ -123,19 +123,19 @@ func (this *CronJobController) ListGroupCronJobs() {
 
 	group := this.Ctx.Input.Param(":group")
 
-	pis, err := pk.Controller.ListGroup(group)
+	pis, err := ck.Controller.ListGroup(group)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
 	}
-	pss := make([]pk.Status, 0)
+	pss := make([]ck.Status, 0)
 	for _, v := range pis {
-		var s *pk.Status
+		var s *ck.Status
 		var err error
 		s, err = v.GetStatus()
 		if err != nil {
 			info := v.Info()
-			s = &pk.Status{}
+			s = &ck.Status{}
 			s.JobStatus = make([]jk.Status, 0)
 			s.Name = info.Name
 			s.Group = info.Group
@@ -151,6 +151,43 @@ func (this *CronJobController) ListGroupCronJobs() {
 	}
 
 	this.normalReturn(pss)
+}
+
+// CreateCronJob
+// @Title CronJob
+// @Description  创建容器组
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Param workspace path string true "工作区"
+// @Param body body string true "资源描述"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /group/:group/workspace/:workspace [Post]
+func (this *CronJobController) CreateCronJob() {
+
+	//token := this.Ctx.Request.Header.Get("token")
+	group := this.Ctx.Input.Param(":group")
+	workspace := this.Ctx.Input.Param(":workspace")
+
+	if this.Ctx.Input.RequestBody == nil {
+		err := fmt.Errorf("must commit resource json/yaml data")
+		this.errReturn(err, 500)
+		return
+	}
+
+	/*
+		ui := user.NewUserClient(token)
+		ui.GetUserName()
+	*/
+
+	var opt ck.CreateOptions
+	err := ck.Controller.Create(group, workspace, this.Ctx.Input.RequestBody, opt)
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+
+	this.normalReturn("ok")
 }
 
 // DeleteCronJob
@@ -169,7 +206,7 @@ func (this *CronJobController) DeleteCronJob() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	cronjob := this.Ctx.Input.Param(":cronjob")
 
-	err := pk.Controller.Delete(group, workspace, cronjob, pk.DeleteOption{})
+	err := ck.Controller.Delete(group, workspace, cronjob, ck.DeleteOption{})
 	if err != nil {
 		this.errReturn(err, 500)
 		return
@@ -194,7 +231,7 @@ func (this *CronJobController) GetCronJobTemplate() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	cronjob := this.Ctx.Input.Param(":cronjob")
 
-	pi, err := pk.Controller.Get(group, workspace, cronjob)
+	pi, err := ck.Controller.Get(group, workspace, cronjob)
 	if err != nil {
 		this.errReturn(err, 500)
 		return

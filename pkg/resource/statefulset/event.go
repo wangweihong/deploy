@@ -66,7 +66,7 @@ func HandleClusterResourceEvent() {
 					return
 				}
 
-				x, ok = workspace.StatefulSets[e.Name]
+				x, ok := workspace.StatefulSets[e.Name]
 				if ok {
 					if x.memoryOnly {
 						log.ErrorPrint("handle cluster statefulset create event fail: statefulset\"%v\" has exist", e.Name)

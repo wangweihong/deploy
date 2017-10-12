@@ -66,7 +66,7 @@ func HandleClusterResourceEvent() {
 					return
 				}
 
-				x, ok = workspace.Ingresss[e.Name]
+				x, ok := workspace.Ingresss[e.Name]
 				if ok {
 					if x.memoryOnly {
 						log.ErrorPrint("handle cluster ingress create event fail: ingress\"%v\" has exist", e.Name)

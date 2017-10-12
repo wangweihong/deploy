@@ -71,6 +71,13 @@ func init() {
 
 	beego.GlobalControllerRouter["ufleet-deploy/controllers:CronJobController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:CronJobController"],
 		beego.ControllerComments{
+			Method: "CreateCronJob",
+			Router: `/group/:group/workspace/:workspace`,
+			AllowHTTPMethods: []string{"Post"},
+			Params: nil})
+
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:CronJobController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:CronJobController"],
+		beego.ControllerComments{
 			Method: "DeleteCronJob",
 			Router: `/:cronjob/group/:group/workspace/:workspace`,
 			AllowHTTPMethods: []string{"Delete"},

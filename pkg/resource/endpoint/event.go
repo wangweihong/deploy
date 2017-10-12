@@ -66,7 +66,7 @@ func HandleClusterResourceEvent() {
 					return
 				}
 
-				x, ok = workspace.Endpoints[e.Name]
+				x, ok := workspace.Endpoints[e.Name]
 				if ok {
 					if x.memoryOnly {
 						log.ErrorPrint("handle cluster endpoint create event fail: endpoint\"%v\" has exist", e.Name)
