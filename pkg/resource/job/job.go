@@ -8,6 +8,9 @@ import (
 	"ufleet-deploy/pkg/cluster"
 	"ufleet-deploy/pkg/log"
 	pk "ufleet-deploy/pkg/resource/pod"
+	"ufleet-deploy/pkg/resource/util"
+
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 
 	corev1 "k8s.io/client-go/pkg/api/v1"
 	batchv1 "k8s.io/client-go/pkg/apis/batch/v1"
@@ -29,7 +32,7 @@ var (
 )
 
 type JobController interface {
-	Create(group, workspace string, data interface{}, opt CreateOptions) error
+	Create(group, workspace string, data []byte, opt CreateOptions) error
 	Delete(group, workspace, job string, opt DeleteOption) error
 	Get(group, workspace, job string) (JobInterface, error)
 	List(group, workspace string) ([]JobInterface, error)
@@ -158,13 +161,58 @@ func (p *JobManager) List(groupName, workspaceName string) ([]JobInterface, erro
 	return pis, nil
 }
 
-func (p *JobManager) Create(groupName, workspaceName string, data interface{}, opt CreateOptions) error {
+func (p *JobManager) Create(groupName, workspaceName string, data []byte, opt CreateOptions) error {
 
 	p.locker.Lock()
 	defer p.locker.Unlock()
 
-	return nil
+	ph, err := cluster.NewJobHandler(groupName, workspaceName)
+	if err != nil {
+		return log.DebugPrint(err)
+	}
 
+	exts, err := util.ParseJsonOrYaml(data)
+	if err != nil {
+		return log.DebugPrint(err)
+	}
+	if len(exts) != 1 {
+		return log.DebugPrint("must offer one  resource json/yaml data")
+	}
+	var job batchv1.Job
+	err = json.Unmarshal(exts[0].Raw, &job)
+	if err != nil {
+		return log.DebugPrint(err)
+	}
+
+	if job.Kind != "Job" {
+		return log.DebugPrint("must offer one  resource json/yaml data")
+	}
+
+	var cp Job
+	cp.Name = job.Name
+	cp.Group = groupName
+	cp.Workspace = workspaceName
+	cp.Template = string(data)
+	cp.User = opt.User
+	if opt.App != nil {
+		cp.AppStack = *opt.App
+	}
+
+	be := backend.NewBackendHandler()
+	err = be.CreateResource(backendKind, groupName, workspaceName, cp.Name, cp)
+	if err != nil {
+		return log.DebugPrint(err)
+	}
+
+	err = ph.Create(workspaceName, &job)
+	if err != nil {
+		err2 := be.DeleteResource(backendKind, groupName, workspaceName, cp.Name)
+		if err2 != nil {
+			log.ErrorPrint(err2)
+		}
+		return log.DebugPrint(err)
+	}
+	return nil
 }
 
 //无锁
@@ -187,16 +235,16 @@ func (p *JobManager) delete(groupName, workspaceName, jobName string) error {
 func (p *JobManager) Delete(group, workspace, jobName string, opt DeleteOption) error {
 	p.locker.Lock()
 	defer p.locker.Unlock()
+	ph, err := cluster.NewJobHandler(group, workspace)
+	if err != nil {
+		return log.DebugPrint(err)
+	}
 	job, err := p.get(group, workspace, jobName)
 	if err != nil {
 		return log.DebugPrint(err)
 	}
 
 	if job.memoryOnly {
-		ph, err := cluster.NewJobHandler(group, workspace)
-		if err != nil {
-			return log.DebugPrint(err)
-		}
 
 		//触发集群控制器来删除内存中的数据
 		err = ph.Delete(workspace, jobName)
@@ -206,7 +254,20 @@ func (p *JobManager) Delete(group, workspace, jobName string, opt DeleteOption) 
 		return nil
 		//TODO:ufleet创建的数据
 	} else {
+		be := backend.NewBackendHandler()
+		err := be.DeleteResource(backendKind, group, workspace, jobName)
+		if err != nil {
+			return log.DebugPrint(err)
+		}
+
+		err = ph.Delete(workspace, jobName)
+		if err != nil {
+			if !apierrors.IsNotFound(err) {
+				return log.DebugPrint(err)
+			}
+		}
 		return nil
+
 	}
 }
 

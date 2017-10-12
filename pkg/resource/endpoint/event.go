@@ -66,9 +66,11 @@ func HandleClusterResourceEvent() {
 					return
 				}
 
-				_, ok = workspace.Endpoints[e.Name]
+				x, ok = workspace.Endpoints[e.Name]
 				if ok {
-					log.ErrorPrint("handle cluster endpoint create event fail: endpoint\"%v\" has exist", e.Name)
+					if x.memoryOnly {
+						log.ErrorPrint("handle cluster endpoint create event fail: endpoint\"%v\" has exist", e.Name)
+					}
 					return
 				}
 
@@ -130,9 +132,8 @@ func EventHandler(e backend.ResourceEvent) {
 				return
 			}
 
-			//这是一个app事件
 			if e.Resource != nil {
-				workspace, ok := group.Workspaces[e.Group]
+				workspace, ok := group.Workspaces[*e.Workspace]
 				if !ok {
 					log.ErrorPrint("workspace %v not found", e.Workspace)
 					return

@@ -194,7 +194,6 @@ func EventHandler(e backend.ResourceEvent) {
 			ws.Pods[*e.Resource] = app
 			group.Workspaces[*e.Workspace] = ws
 			rm.Groups[e.Group] = group
-			//这是一个工作区事件
 		}
 
 	default:

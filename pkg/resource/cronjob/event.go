@@ -66,9 +66,11 @@ func HandleClusterResourceEvent() {
 					return
 				}
 
-				_, ok = workspace.CronJobs[e.Name]
+				x, ok := workspace.CronJobs[e.Name]
 				if ok {
-					log.ErrorPrint("handle cluster cronjob create event fail: cronjob\"%v\" has exist", e.Name)
+					if x.memoryOnly {
+						log.ErrorPrint("handle cluster cronjob create event fail: cronjob\"%v\" has exist", e.Name)
+					}
 					return
 				}
 
@@ -132,7 +134,7 @@ func EventHandler(e backend.ResourceEvent) {
 
 			//这是一个app事件
 			if e.Resource != nil {
-				workspace, ok := group.Workspaces[e.Group]
+				workspace, ok := group.Workspaces[*e.Workspace]
 				if !ok {
 					log.ErrorPrint("workspace %v not found", e.Workspace)
 					return

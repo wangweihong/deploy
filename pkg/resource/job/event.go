@@ -66,9 +66,11 @@ func HandleClusterResourceEvent() {
 					return
 				}
 
-				_, ok = workspace.Jobs[e.Name]
+				x, ok := workspace.Jobs[e.Name]
 				if ok {
-					log.ErrorPrint("handle cluster job create event fail: job\"%v\" has exist", e.Name)
+					if x.memoryOnly {
+						log.ErrorPrint("handle cluster job create event fail: job\"%v\" has exist", e.Name)
+					}
 					return
 				}
 
@@ -133,9 +135,9 @@ func EventHandler(e backend.ResourceEvent) {
 
 			//这是一个app事件
 			if e.Resource != nil {
-				workspace, ok := group.Workspaces[e.Group]
+				workspace, ok := group.Workspaces[*e.Workspace]
 				if !ok {
-					log.ErrorPrint("workspace %v not found", e.Workspace)
+					log.ErrorPrint("workspace %v not found", *e.Workspace)
 					return
 				}
 				delete(workspace.Jobs, *e.Resource)
@@ -193,7 +195,6 @@ func EventHandler(e backend.ResourceEvent) {
 			ws.Jobs[*e.Resource] = app
 			group.Workspaces[*e.Workspace] = ws
 			rm.Groups[e.Group] = group
-			//这是一个工作区事件
 		}
 
 	default:

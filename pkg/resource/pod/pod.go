@@ -187,7 +187,7 @@ func (p *PodManager) Create(groupName, workspaceName string, data []byte, opt Cr
 	}
 
 	if len(exts) != 1 {
-		return log.DebugPrint("must offer one  pod json/yaml data")
+		return log.DebugPrint("must  offer  one  resource json/yaml data")
 	}
 
 	var pod corev1.Pod
@@ -197,7 +197,7 @@ func (p *PodManager) Create(groupName, workspaceName string, data []byte, opt Cr
 	}
 
 	if pod.Kind != "Pod" {
-		return log.DebugPrint("must offer one  pod json/yaml data")
+		return log.DebugPrint("must and  offer one resource json/yaml data")
 	}
 
 	var cp Pod

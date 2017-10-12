@@ -66,9 +66,11 @@ func HandleClusterResourceEvent() {
 					return
 				}
 
-				_, ok = workspace.ReplicationControllers[e.Name]
+				x, ok = workspace.ReplicationControllers[e.Name]
 				if ok {
-					log.ErrorPrint("handle cluster replicationcontroller create event fail: job\"%v\" has exist", e.Name)
+					if x.memoryOnly {
+						log.ErrorPrint("handle cluster replicationcontroller create event fail: job\"%v\" has exist", e.Name)
+					}
 					return
 				}
 
@@ -133,7 +135,7 @@ func EventHandler(e backend.ResourceEvent) {
 
 			//这是一个app事件
 			if e.Resource != nil {
-				workspace, ok := group.Workspaces[e.Group]
+				workspace, ok := group.Workspaces[*e.Workspace]
 				if !ok {
 					log.ErrorPrint("workspace %v not found", e.Workspace)
 					return

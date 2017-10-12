@@ -134,6 +134,13 @@ func init() {
 
 	beego.GlobalControllerRouter["ufleet-deploy/controllers:JobController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:JobController"],
 		beego.ControllerComments{
+			Method: "CreateJob",
+			Router: `/group/:group/workspace/:workspace`,
+			AllowHTTPMethods: []string{"Post"},
+			Params: nil})
+
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:JobController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:JobController"],
+		beego.ControllerComments{
 			Method: "DeleteJob",
 			Router: `/:job/group/:group/workspace/:workspace`,
 			AllowHTTPMethods: []string{"Delete"},
