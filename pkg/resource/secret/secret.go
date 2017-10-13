@@ -4,11 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"sync"
+	"time"
 	"ufleet-deploy/pkg/backend"
 	"ufleet-deploy/pkg/cluster"
 	"ufleet-deploy/pkg/log"
 	"ufleet-deploy/pkg/resource/util"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	corev1 "k8s.io/client-go/pkg/api/v1"
 )
 
@@ -28,7 +30,7 @@ var (
 )
 
 type SecretController interface {
-	Create(group, workspace string, data interface{}, opt CreateOptions) error
+	Create(group, workspace string, data []byte, opt CreateOptions) error
 	Delete(group, workspace, secret string, opt DeleteOption) error
 	Get(group, workspace, secret string) (SecretInterface, error)
 	List(group, workspace string) ([]SecretInterface, error)
@@ -70,6 +72,7 @@ type Secret struct {
 	User       string `json:"user"`
 	Cluster    string `json:"cluster"`
 	Template   string `json:"template"`
+	CreateTime int64  `json:"createtime"`
 	memoryOnly bool
 }
 
@@ -85,7 +88,7 @@ type CreateOptions struct {
 }
 
 //注意这里没锁
-func (p *SecretManager) get(groupName, workspaceName, secretName string) (*Secret, error) {
+func (p *SecretManager) get(groupName, workspaceName, resourceName string) (*Secret, error) {
 
 	group, ok := p.Groups[groupName]
 	if !ok {
@@ -97,7 +100,7 @@ func (p *SecretManager) get(groupName, workspaceName, secretName string) (*Secre
 		return nil, ErrWorkspaceNotFound
 	}
 
-	secret, ok := workspace.Secrets[secretName]
+	secret, ok := workspace.Secrets[resourceName]
 	if !ok {
 		return nil, ErrResourceNotFound
 	}
@@ -105,10 +108,10 @@ func (p *SecretManager) get(groupName, workspaceName, secretName string) (*Secre
 	return &secret, nil
 }
 
-func (p *SecretManager) Get(group, workspace, secretName string) (SecretInterface, error) {
+func (p *SecretManager) Get(group, workspace, resourceName string) (SecretInterface, error) {
 	p.locker.Lock()
 	defer p.locker.Unlock()
-	return p.get(group, workspace, secretName)
+	return p.get(group, workspace, resourceName)
 }
 
 func (p *SecretManager) List(groupName, workspaceName string) ([]SecretInterface, error) {
@@ -160,17 +163,66 @@ func (p *SecretManager) ListGroup(groupName string) ([]SecretInterface, error) {
 	return pis, nil
 }
 
-func (p *SecretManager) Create(groupName, workspaceName string, data interface{}, opt CreateOptions) error {
+func (p *SecretManager) Create(groupName, workspaceName string, data []byte, opt CreateOptions) error {
 
 	p.locker.Lock()
 	defer p.locker.Unlock()
 
-	return nil
+	ph, err := cluster.NewSecretHandler(groupName, workspaceName)
+	if err != nil {
+		return log.DebugPrint(err)
+	}
 
+	exts, err := util.ParseJsonOrYaml(data)
+	if err != nil {
+		return log.DebugPrint(err)
+	}
+
+	if len(exts) != 1 {
+		return log.DebugPrint("must  offer  one  resource json/yaml data")
+	}
+
+	var svc corev1.Secret
+	err = json.Unmarshal(exts[0].Raw, &svc)
+	if err != nil {
+		return log.DebugPrint(err)
+	}
+
+	if svc.Kind != "Secret" {
+		return log.DebugPrint("must and  offer one resource json/yaml data")
+	}
+
+	var cp Secret
+	cp.CreateTime = time.Now().Unix()
+	cp.Name = svc.Name
+	cp.Workspace = workspaceName
+	cp.Group = groupName
+	cp.Template = string(data)
+	if opt.App != nil {
+		cp.AppStack = *opt.App
+	}
+	cp.User = opt.User
+	//因为pod创建时,触发informer,所以优先创建etcd
+	be := backend.NewBackendHandler()
+	err = be.CreateResource(backendKind, groupName, workspaceName, cp.Name, cp)
+	if err != nil {
+		return log.DebugPrint(err)
+	}
+
+	err = ph.Create(workspaceName, &svc)
+	if err != nil {
+		err2 := be.DeleteResource(backendKind, groupName, workspaceName, cp.Name)
+		if err2 != nil {
+			log.ErrorPrint(err2)
+		}
+		return log.DebugPrint(err)
+	}
+
+	return nil
 }
 
 //无锁
-func (p *SecretManager) delete(groupName, workspaceName, secretName string) error {
+func (p *SecretManager) delete(groupName, workspaceName, resourceName string) error {
 	group, ok := p.Groups[groupName]
 	if !ok {
 		return ErrGroupNotFound
@@ -180,34 +232,45 @@ func (p *SecretManager) delete(groupName, workspaceName, secretName string) erro
 		return ErrWorkspaceNotFound
 	}
 
-	delete(workspace.Secrets, secretName)
+	delete(workspace.Secrets, resourceName)
 	group.Workspaces[workspaceName] = workspace
 	p.Groups[groupName] = group
 	return nil
 }
 
-func (p *SecretManager) Delete(group, workspace, secretName string, opt DeleteOption) error {
+func (p *SecretManager) Delete(group, workspace, resourceName string, opt DeleteOption) error {
 	p.locker.Lock()
 	defer p.locker.Unlock()
-	secret, err := p.get(group, workspace, secretName)
+	secret, err := p.get(group, workspace, resourceName)
+	if err != nil {
+		return log.DebugPrint(err)
+	}
+	ph, err := cluster.NewSecretHandler(group, workspace)
 	if err != nil {
 		return log.DebugPrint(err)
 	}
 
 	if secret.memoryOnly {
-		ph, err := cluster.NewSecretHandler(group, workspace)
-		if err != nil {
-			return log.DebugPrint(err)
-		}
 
 		//触发集群控制器来删除内存中的数据
-		err = ph.Delete(workspace, secretName)
+		err = ph.Delete(workspace, resourceName)
 		if err != nil {
 			return log.DebugPrint(err)
 		}
 		//TODO:ufleet创建的数据
 		return nil
 	} else {
+		be := backend.NewBackendHandler()
+		err := be.DeleteResource(backendKind, group, workspace, resourceName)
+		if err != nil {
+			return log.DebugPrint(err)
+		}
+		err = ph.Delete(workspace, resourceName)
+		if err != nil {
+			if !apierrors.IsNotFound(err) {
+				return log.DebugPrint(err)
+			}
+		}
 		return nil
 	}
 }

@@ -101,43 +101,6 @@ func (this *PodController) GetPod() {
 	this.normalReturn(s)
 }
 
-// CreatePod
-// @Title Pod
-// @Description  创建容器组
-// @Param Token header string true 'Token'
-// @Param group path string true "组名"
-// @Param workspace path string true "工作区"
-// @Param body body string true "资源描述"
-// @Success 201 {string} create success!
-// @Failure 500
-// @router /group/:group/workspace/:workspace [Post]
-func (this *PodController) CreatePod() {
-
-	//token := this.Ctx.Request.Header.Get("token")
-	group := this.Ctx.Input.Param(":group")
-	workspace := this.Ctx.Input.Param(":workspace")
-
-	if this.Ctx.Input.RequestBody == nil {
-		err := fmt.Errorf("must commit resource json/yaml data")
-		this.errReturn(err, 500)
-		return
-	}
-
-	/*
-		ui := user.NewUserClient(token)
-		ui.GetUserName()
-	*/
-
-	var opt pk.CreateOptions
-	err := pk.Controller.Create(group, workspace, this.Ctx.Input.RequestBody, opt)
-	if err != nil {
-		this.errReturn(err, 500)
-		return
-	}
-
-	this.normalReturn("ok")
-}
-
 // ListGroupsPods
 // @Title Pod
 // @Description   Pod
@@ -205,6 +168,43 @@ func (this *PodController) ListGroupPods() {
 	}
 
 	this.normalReturn(pss)
+}
+
+// CreatePod
+// @Title Pod
+// @Description  创建容器组
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Param workspace path string true "工作区"
+// @Param body body string true "资源描述"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /group/:group/workspace/:workspace [Post]
+func (this *PodController) CreatePod() {
+
+	//token := this.Ctx.Request.Header.Get("token")
+	group := this.Ctx.Input.Param(":group")
+	workspace := this.Ctx.Input.Param(":workspace")
+
+	if this.Ctx.Input.RequestBody == nil {
+		err := fmt.Errorf("must commit resource json/yaml data")
+		this.errReturn(err, 500)
+		return
+	}
+
+	/*
+		ui := user.NewUserClient(token)
+		ui.GetUserName()
+	*/
+
+	var opt pk.CreateOptions
+	err := pk.Controller.Create(group, workspace, this.Ctx.Input.RequestBody, opt)
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+
+	this.normalReturn("ok")
 }
 
 // DeletePod

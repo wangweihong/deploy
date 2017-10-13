@@ -4,10 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"sync"
+	"time"
 	"ufleet-deploy/pkg/backend"
 	"ufleet-deploy/pkg/cluster"
 	"ufleet-deploy/pkg/log"
+	"ufleet-deploy/pkg/resource/util"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	corev1 "k8s.io/client-go/pkg/api/v1"
 )
 
@@ -27,7 +30,7 @@ var (
 )
 
 type EndpointController interface {
-	Create(group, workspace string, data interface{}, opt CreateOptions) error
+	Create(group, workspace string, data []byte, opt CreateOptions) error
 	Delete(group, workspace, endpoint string, opt DeleteOption) error
 	Get(group, workspace, endpoint string) (EndpointInterface, error)
 	List(group, workspace string) ([]EndpointInterface, error)
@@ -65,6 +68,8 @@ type Endpoint struct {
 	AppStack   string `json:"app"`
 	User       string `json:"user"`
 	Cluster    string `json:"cluster"`
+	CreateTime int64  `json:"createtime"`
+	Template   string `json:"template"`
 	memoryOnly bool
 }
 
@@ -80,7 +85,7 @@ type CreateOptions struct {
 }
 
 //注意这里没锁
-func (p *EndpointManager) get(groupName, workspaceName, endpointName string) (*Endpoint, error) {
+func (p *EndpointManager) get(groupName, workspaceName, resourceName string) (*Endpoint, error) {
 
 	group, ok := p.Groups[groupName]
 	if !ok {
@@ -92,7 +97,7 @@ func (p *EndpointManager) get(groupName, workspaceName, endpointName string) (*E
 		return nil, ErrWorkspaceNotFound
 	}
 
-	endpoint, ok := workspace.Endpoints[endpointName]
+	endpoint, ok := workspace.Endpoints[resourceName]
 	if !ok {
 		return nil, ErrResourceNotFound
 	}
@@ -100,10 +105,10 @@ func (p *EndpointManager) get(groupName, workspaceName, endpointName string) (*E
 	return &endpoint, nil
 }
 
-func (p *EndpointManager) Get(group, workspace, endpointName string) (EndpointInterface, error) {
+func (p *EndpointManager) Get(group, workspace, resourceName string) (EndpointInterface, error) {
 	p.locker.Lock()
 	defer p.locker.Unlock()
-	return p.get(group, workspace, endpointName)
+	return p.get(group, workspace, resourceName)
 }
 
 func (p *EndpointManager) List(groupName, workspaceName string) ([]EndpointInterface, error) {
@@ -132,17 +137,67 @@ func (p *EndpointManager) List(groupName, workspaceName string) ([]EndpointInter
 	return pis, nil
 }
 
-func (p *EndpointManager) Create(groupName, workspaceName string, data interface{}, opt CreateOptions) error {
+func (p *EndpointManager) Create(groupName, workspaceName string, data []byte, opt CreateOptions) error {
 
 	p.locker.Lock()
 	defer p.locker.Unlock()
+
+	ph, err := cluster.NewEndpointHandler(groupName, workspaceName)
+	if err != nil {
+		return log.DebugPrint(err)
+	}
+
+	exts, err := util.ParseJsonOrYaml(data)
+	if err != nil {
+		return log.DebugPrint(err)
+	}
+
+	if len(exts) != 1 {
+		return log.DebugPrint("must  offer  one  resource json/yaml data")
+	}
+
+	var svc corev1.Endpoints
+	err = json.Unmarshal(exts[0].Raw, &svc)
+	if err != nil {
+		return log.DebugPrint(err)
+	}
+
+	if svc.Kind != "Endpoint" {
+		return log.DebugPrint("must and  offer one resource json/yaml data")
+	}
+
+	var cp Endpoint
+	cp.CreateTime = time.Now().Unix()
+	cp.Name = svc.Name
+	cp.Workspace = workspaceName
+	cp.Group = groupName
+	cp.Template = string(data)
+	if opt.App != nil {
+		cp.AppStack = *opt.App
+	}
+	cp.User = opt.User
+	//因为pod创建时,触发informer,所以优先创建etcd
+	be := backend.NewBackendHandler()
+	err = be.CreateResource(backendKind, groupName, workspaceName, cp.Name, cp)
+	if err != nil {
+		return log.DebugPrint(err)
+	}
+
+	err = ph.Create(workspaceName, &svc)
+	if err != nil {
+		err2 := be.DeleteResource(backendKind, groupName, workspaceName, cp.Name)
+		if err2 != nil {
+			log.ErrorPrint(err2)
+		}
+		return log.DebugPrint(err)
+	}
 
 	return nil
 
 }
 
 //无锁
-func (p *EndpointManager) delete(groupName, workspaceName, endpointName string) error {
+func (p *EndpointManager) delete(groupName, workspaceName, resourceName string) error {
 	group, ok := p.Groups[groupName]
 	if !ok {
 		return ErrGroupNotFound
@@ -152,34 +207,45 @@ func (p *EndpointManager) delete(groupName, workspaceName, endpointName string) 
 		return ErrWorkspaceNotFound
 	}
 
-	delete(workspace.Endpoints, endpointName)
+	delete(workspace.Endpoints, resourceName)
 	group.Workspaces[workspaceName] = workspace
 	p.Groups[groupName] = group
 	return nil
 }
 
-func (p *EndpointManager) Delete(group, workspace, endpointName string, opt DeleteOption) error {
+func (p *EndpointManager) Delete(group, workspace, resourceName string, opt DeleteOption) error {
 	p.locker.Lock()
 	defer p.locker.Unlock()
-	endpoint, err := p.get(group, workspace, endpointName)
+	ph, err := cluster.NewEndpointHandler(group, workspace)
+	if err != nil {
+		return log.DebugPrint(err)
+	}
+	endpoint, err := p.get(group, workspace, resourceName)
 	if err != nil {
 		return log.DebugPrint(err)
 	}
 
 	if endpoint.memoryOnly {
-		ph, err := cluster.NewEndpointHandler(group, workspace)
-		if err != nil {
-			return log.DebugPrint(err)
-		}
 
 		//触发集群控制器来删除内存中的数据
-		err = ph.Delete(workspace, endpointName)
+		err = ph.Delete(workspace, resourceName)
 		if err != nil {
 			return log.DebugPrint(err)
 		}
 		//TODO:ufleet创建的数据
 		return nil
 	} else {
+		be := backend.NewBackendHandler()
+		err := be.DeleteResource(backendKind, group, workspace, resourceName)
+		if err != nil {
+			return log.DebugPrint(err)
+		}
+		err = ph.Delete(workspace, resourceName)
+		if err != nil {
+			if !apierrors.IsNotFound(err) {
+				return log.DebugPrint(err)
+			}
+		}
 		return nil
 	}
 }

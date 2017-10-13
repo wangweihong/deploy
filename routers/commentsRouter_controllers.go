@@ -36,6 +36,13 @@ func init() {
 
 	beego.GlobalControllerRouter["ufleet-deploy/controllers:ConfigMapController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:ConfigMapController"],
 		beego.ControllerComments{
+			Method: "CreateConfigMap",
+			Router: `/group/:group/workspace/:workspace`,
+			AllowHTTPMethods: []string{"Post"},
+			Params: nil})
+
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:ConfigMapController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:ConfigMapController"],
+		beego.ControllerComments{
 			Method: "DeleteConfigMap",
 			Router: `/:configmap/group/:group/workspace/:workspace`,
 			AllowHTTPMethods: []string{"Delete"},
@@ -97,11 +104,39 @@ func init() {
 			AllowHTTPMethods: []string{"Get"},
 			Params: nil})
 
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:DaemonSetController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:DaemonSetController"],
+		beego.ControllerComments{
+			Method: "CreateDaemonSet",
+			Router: `/group/:group/workspace/:workspace`,
+			AllowHTTPMethods: []string{"Post"},
+			Params: nil})
+
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:DaemonSetController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:DaemonSetController"],
+		beego.ControllerComments{
+			Method: "DeleteDaemonSet",
+			Router: `/:daemonset/group/:group/workspace/:workspace`,
+			AllowHTTPMethods: []string{"Delete"},
+			Params: nil})
+
 	beego.GlobalControllerRouter["ufleet-deploy/controllers:DeploymentController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:DeploymentController"],
 		beego.ControllerComments{
 			Method: "ListDeployments",
 			Router: `/group/:group/workspace/:workspace`,
 			AllowHTTPMethods: []string{"Get"},
+			Params: nil})
+
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:DeploymentController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:DeploymentController"],
+		beego.ControllerComments{
+			Method: "CreateDeployment",
+			Router: `/group/:group/workspace/:workspace`,
+			AllowHTTPMethods: []string{"Post"},
+			Params: nil})
+
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:DeploymentController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:DeploymentController"],
+		beego.ControllerComments{
+			Method: "DeleteDeployment",
+			Router: `/:deployment/group/:group/workspace/:workspace`,
+			AllowHTTPMethods: []string{"Delete"},
 			Params: nil})
 
 	beego.GlobalControllerRouter["ufleet-deploy/controllers:EndpointController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:EndpointController"],
@@ -111,11 +146,39 @@ func init() {
 			AllowHTTPMethods: []string{"Get"},
 			Params: nil})
 
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:EndpointController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:EndpointController"],
+		beego.ControllerComments{
+			Method: "CreateEndpoint",
+			Router: `/group/:group/workspace/:workspace`,
+			AllowHTTPMethods: []string{"Post"},
+			Params: nil})
+
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:EndpointController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:EndpointController"],
+		beego.ControllerComments{
+			Method: "DeleteEndpoint",
+			Router: `/:endpoint/group/:group/workspace/:workspace`,
+			AllowHTTPMethods: []string{"Delete"},
+			Params: nil})
+
 	beego.GlobalControllerRouter["ufleet-deploy/controllers:IngressController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:IngressController"],
 		beego.ControllerComments{
 			Method: "ListIngresss",
 			Router: `/group/:group/workspace/:workspace`,
 			AllowHTTPMethods: []string{"Get"},
+			Params: nil})
+
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:IngressController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:IngressController"],
+		beego.ControllerComments{
+			Method: "CreateIngress",
+			Router: `/group/:group/workspace/:workspace`,
+			AllowHTTPMethods: []string{"Post"},
+			Params: nil})
+
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:IngressController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:IngressController"],
+		beego.ControllerComments{
+			Method: "DeleteIngress",
+			Router: `/:ingress/group/:group/workspace/:workspace`,
+			AllowHTTPMethods: []string{"Delete"},
 			Params: nil})
 
 	beego.GlobalControllerRouter["ufleet-deploy/controllers:JobController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:JobController"],
@@ -288,6 +351,13 @@ func init() {
 
 	beego.GlobalControllerRouter["ufleet-deploy/controllers:ReplicationControllerController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:ReplicationControllerController"],
 		beego.ControllerComments{
+			Method: "CreateReplicationController",
+			Router: `/group/:group/workspace/:workspace`,
+			AllowHTTPMethods: []string{"Post"},
+			Params: nil})
+
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:ReplicationControllerController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:ReplicationControllerController"],
+		beego.ControllerComments{
 			Method: "DeleteReplicationController",
 			Router: `/:replicationcontroller/group/:group/workspace/:workspace`,
 			AllowHTTPMethods: []string{"Delete"},
@@ -312,6 +382,13 @@ func init() {
 			Method: "ListGroupSecrets",
 			Router: `/group/:group`,
 			AllowHTTPMethods: []string{"Get"},
+			Params: nil})
+
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:SecretController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:SecretController"],
+		beego.ControllerComments{
+			Method: "CreateSecret",
+			Router: `/group/:group/workspace/:workspace`,
+			AllowHTTPMethods: []string{"Post"},
 			Params: nil})
 
 	beego.GlobalControllerRouter["ufleet-deploy/controllers:SecretController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:SecretController"],
@@ -351,6 +428,13 @@ func init() {
 
 	beego.GlobalControllerRouter["ufleet-deploy/controllers:ServiceAccountController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:ServiceAccountController"],
 		beego.ControllerComments{
+			Method: "CreateServiceAccount",
+			Router: `/group/:group/workspace/:workspace`,
+			AllowHTTPMethods: []string{"Post"},
+			Params: nil})
+
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:ServiceAccountController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:ServiceAccountController"],
+		beego.ControllerComments{
 			Method: "DeleteServiceAccount",
 			Router: `/:serviceaccount/group/:group/workspace/:workspace`,
 			AllowHTTPMethods: []string{"Delete"},
@@ -386,6 +470,13 @@ func init() {
 
 	beego.GlobalControllerRouter["ufleet-deploy/controllers:ServiceController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:ServiceController"],
 		beego.ControllerComments{
+			Method: "CreateService",
+			Router: `/group/:group/workspace/:workspace`,
+			AllowHTTPMethods: []string{"Post"},
+			Params: nil})
+
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:ServiceController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:ServiceController"],
+		beego.ControllerComments{
 			Method: "DeleteService",
 			Router: `/:service/group/:group/workspace/:workspace`,
 			AllowHTTPMethods: []string{"Delete"},
@@ -403,6 +494,20 @@ func init() {
 			Method: "ListStatefulSets",
 			Router: `/group/:group/workspace/:workspace`,
 			AllowHTTPMethods: []string{"Get"},
+			Params: nil})
+
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:StatefulSetController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:StatefulSetController"],
+		beego.ControllerComments{
+			Method: "CreateStatefulSet",
+			Router: `/group/:group/workspace/:workspace`,
+			AllowHTTPMethods: []string{"Post"},
+			Params: nil})
+
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:StatefulSetController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:StatefulSetController"],
+		beego.ControllerComments{
+			Method: "DeleteStatefulSet",
+			Router: `/:statefulset/group/:group/workspace/:workspace`,
+			AllowHTTPMethods: []string{"Delete"},
 			Params: nil})
 
 	beego.GlobalControllerRouter["ufleet-deploy/controllers:TestController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:TestController"],

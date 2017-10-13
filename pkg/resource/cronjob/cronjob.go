@@ -90,7 +90,7 @@ type CreateOptions struct {
 }
 
 //注意这里没锁
-func (p *CronJobManager) get(groupName, workspaceName, cronjobName string) (*CronJob, error) {
+func (p *CronJobManager) get(groupName, workspaceName, resourceName string) (*CronJob, error) {
 
 	group, ok := p.Groups[groupName]
 	if !ok {
@@ -102,7 +102,7 @@ func (p *CronJobManager) get(groupName, workspaceName, cronjobName string) (*Cro
 		return nil, ErrWorkspaceNotFound
 	}
 
-	cronjob, ok := workspace.CronJobs[cronjobName]
+	cronjob, ok := workspace.CronJobs[resourceName]
 	if !ok {
 		return nil, ErrResourceNotFound
 	}
@@ -110,10 +110,10 @@ func (p *CronJobManager) get(groupName, workspaceName, cronjobName string) (*Cro
 	return &cronjob, nil
 }
 
-func (p *CronJobManager) Get(group, workspace, cronjobName string) (CronJobInterface, error) {
+func (p *CronJobManager) Get(group, workspace, resourceName string) (CronJobInterface, error) {
 	p.locker.Lock()
 	defer p.locker.Unlock()
-	return p.get(group, workspace, cronjobName)
+	return p.get(group, workspace, resourceName)
 }
 
 func (p *CronJobManager) List(groupName, workspaceName string) ([]CronJobInterface, error) {
@@ -222,7 +222,7 @@ func (p *CronJobManager) Create(groupName, workspaceName string, data []byte, op
 }
 
 //无锁
-func (p *CronJobManager) delete(groupName, workspaceName, cronjobName string) error {
+func (p *CronJobManager) delete(groupName, workspaceName, resourceName string) error {
 	group, ok := p.Groups[groupName]
 	if !ok {
 		return ErrGroupNotFound
@@ -232,13 +232,13 @@ func (p *CronJobManager) delete(groupName, workspaceName, cronjobName string) er
 		return ErrWorkspaceNotFound
 	}
 
-	delete(workspace.CronJobs, cronjobName)
+	delete(workspace.CronJobs, resourceName)
 	group.Workspaces[workspaceName] = workspace
 	p.Groups[groupName] = group
 	return nil
 }
 
-func (p *CronJobManager) Delete(group, workspace, cronjobName string, opt DeleteOption) error {
+func (p *CronJobManager) Delete(group, workspace, resourceName string, opt DeleteOption) error {
 	p.locker.Lock()
 	defer p.locker.Unlock()
 	ph, err := cluster.NewCronJobHandler(group, workspace)
@@ -246,7 +246,7 @@ func (p *CronJobManager) Delete(group, workspace, cronjobName string, opt Delete
 		return log.DebugPrint(err)
 	}
 
-	cronjob, err := p.get(group, workspace, cronjobName)
+	cronjob, err := p.get(group, workspace, resourceName)
 	if err != nil {
 		return log.DebugPrint(err)
 	}
@@ -254,7 +254,7 @@ func (p *CronJobManager) Delete(group, workspace, cronjobName string, opt Delete
 	if cronjob.memoryOnly {
 
 		//触发集群控制器来删除内存中的数据
-		err = ph.Delete(workspace, cronjobName)
+		err = ph.Delete(workspace, resourceName)
 		if err != nil {
 			return log.DebugPrint(err)
 		}
@@ -262,12 +262,12 @@ func (p *CronJobManager) Delete(group, workspace, cronjobName string, opt Delete
 		return nil
 	} else {
 		be := backend.NewBackendHandler()
-		err := be.DeleteResource(backendKind, group, workspace, cronjobName)
+		err := be.DeleteResource(backendKind, group, workspace, resourceName)
 		if err != nil {
 			return log.DebugPrint(err)
 		}
 
-		err = ph.Delete(workspace, cronjobName)
+		err = ph.Delete(workspace, resourceName)
 		if err != nil {
 			if !apierrors.IsNotFound(err) {
 				return log.DebugPrint(err)

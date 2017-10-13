@@ -4,10 +4,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"sync"
+	"time"
 	"ufleet-deploy/pkg/backend"
 	"ufleet-deploy/pkg/cluster"
 	"ufleet-deploy/pkg/log"
 	pk "ufleet-deploy/pkg/resource/pod"
+	"ufleet-deploy/pkg/resource/util"
+
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 
 	corev1 "k8s.io/client-go/pkg/api/v1"
 )
@@ -28,7 +32,7 @@ var (
 )
 
 type ReplicationControllerController interface {
-	Create(group, workspace string, data interface{}, opt CreateOptions) error
+	Create(group, workspace string, data []byte, opt CreateOptions) error
 	Delete(group, workspace, replicationcontroller string, opt DeleteOption) error
 	Get(group, workspace, replicationcontroller string) (ReplicationControllerInterface, error)
 	List(group, workspace string) ([]ReplicationControllerInterface, error)
@@ -71,6 +75,8 @@ type ReplicationController struct {
 	AppStack   string `json:"app"`
 	User       string `json:"user"`
 	Cluster    string `json:"cluster"`
+	CreateTime int64  `json:"createtime"`
+	Template   string `json:"template"`
 	memoryOnly bool   //用于判定pod是否由k8s自动创建
 }
 
@@ -155,10 +161,60 @@ func (p *ReplicationControllerManager) List(groupName, workspaceName string) ([]
 	return pis, nil
 }
 
-func (p *ReplicationControllerManager) Create(groupName, workspaceName string, data interface{}, opt CreateOptions) error {
+func (p *ReplicationControllerManager) Create(groupName, workspaceName string, data []byte, opt CreateOptions) error {
 
 	p.locker.Lock()
 	defer p.locker.Unlock()
+
+	ph, err := cluster.NewReplicationControllerHandler(groupName, workspaceName)
+	if err != nil {
+		return log.DebugPrint(err)
+	}
+
+	exts, err := util.ParseJsonOrYaml(data)
+	if err != nil {
+		return log.DebugPrint(err)
+	}
+
+	if len(exts) != 1 {
+		return log.DebugPrint("must  offer  one  resource json/yaml data")
+	}
+
+	var svc corev1.ReplicationController
+	err = json.Unmarshal(exts[0].Raw, &svc)
+	if err != nil {
+		return log.DebugPrint(err)
+	}
+
+	if svc.Kind != "ReplicationController" {
+		return log.DebugPrint("must and  offer one rc json/yaml data")
+	}
+
+	var cp ReplicationController
+	cp.CreateTime = time.Now().Unix()
+	cp.Name = svc.Name
+	cp.Workspace = workspaceName
+	cp.Group = groupName
+	cp.Template = string(data)
+	if opt.App != nil {
+		cp.AppStack = *opt.App
+	}
+	cp.User = opt.User
+	//因为pod创建时,触发informer,所以优先创建etcd
+	be := backend.NewBackendHandler()
+	err = be.CreateResource(backendKind, groupName, workspaceName, cp.Name, cp)
+	if err != nil {
+		return log.DebugPrint(err)
+	}
+
+	err = ph.Create(workspaceName, &svc)
+	if err != nil {
+		err2 := be.DeleteResource(backendKind, groupName, workspaceName, cp.Name)
+		if err2 != nil {
+			log.ErrorPrint(err2)
+		}
+		return log.DebugPrint(err)
+	}
 
 	return nil
 
@@ -184,16 +240,18 @@ func (p *ReplicationControllerManager) delete(groupName, workspaceName, replicat
 func (p *ReplicationControllerManager) Delete(group, workspace, replicationcontrollerName string, opt DeleteOption) error {
 	p.locker.Lock()
 	defer p.locker.Unlock()
+
+	ph, err := cluster.NewReplicationControllerHandler(group, workspace)
+	if err != nil {
+		return log.DebugPrint(err)
+	}
+
 	replicationcontroller, err := p.get(group, workspace, replicationcontrollerName)
 	if err != nil {
 		return log.DebugPrint(err)
 	}
 
 	if replicationcontroller.memoryOnly {
-		ph, err := cluster.NewReplicationControllerHandler(group, workspace)
-		if err != nil {
-			return log.DebugPrint(err)
-		}
 
 		//触发集群控制器来删除内存中的数据
 		err = ph.Delete(workspace, replicationcontrollerName)
@@ -203,6 +261,17 @@ func (p *ReplicationControllerManager) Delete(group, workspace, replicationcontr
 		return nil
 		//TODO:ufleet创建的数据
 	} else {
+		be := backend.NewBackendHandler()
+		err := be.DeleteResource(backendKind, group, workspace, replicationcontrollerName)
+		if err != nil {
+			return log.DebugPrint(err)
+		}
+		err = ph.Delete(workspace, replicationcontrollerName)
+		if err != nil {
+			if !apierrors.IsNotFound(err) {
+				return log.DebugPrint(err)
+			}
+		}
 		return nil
 	}
 }

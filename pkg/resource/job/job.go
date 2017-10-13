@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sync"
+	"time"
 	"ufleet-deploy/pkg/backend"
 	"ufleet-deploy/pkg/cluster"
 	"ufleet-deploy/pkg/log"
@@ -77,6 +78,7 @@ type Job struct {
 	User       string `json:"user"`
 	Cluster    string `json:"cluster"`
 	Template   string `json:"template"`
+	CreateTime int64  `json:"createtime"`
 	memoryOnly bool   //用于判定pod是否由k8s自动创建
 }
 
@@ -90,7 +92,7 @@ type CreateOptions struct {
 }
 
 //注意这里没锁
-func (p *JobManager) get(groupName, workspaceName, jobName string) (*Job, error) {
+func (p *JobManager) get(groupName, workspaceName, resourceName string) (*Job, error) {
 
 	group, ok := p.Groups[groupName]
 	if !ok {
@@ -102,7 +104,7 @@ func (p *JobManager) get(groupName, workspaceName, jobName string) (*Job, error)
 		return nil, ErrWorkspaceNotFound
 	}
 
-	job, ok := workspace.Jobs[jobName]
+	job, ok := workspace.Jobs[resourceName]
 	if !ok {
 		return nil, ErrResourceNotFound
 	}
@@ -110,10 +112,10 @@ func (p *JobManager) get(groupName, workspaceName, jobName string) (*Job, error)
 	return &job, nil
 }
 
-func (p *JobManager) Get(group, workspace, jobName string) (JobInterface, error) {
+func (p *JobManager) Get(group, workspace, resourceName string) (JobInterface, error) {
 	p.locker.Lock()
 	defer p.locker.Unlock()
-	return p.get(group, workspace, jobName)
+	return p.get(group, workspace, resourceName)
 }
 
 func (p *JobManager) ListGroup(groupName string) ([]JobInterface, error) {
@@ -189,6 +191,7 @@ func (p *JobManager) Create(groupName, workspaceName string, data []byte, opt Cr
 	}
 
 	var cp Job
+	cp.CreateTime = time.Now().Unix()
 	cp.Name = job.Name
 	cp.Group = groupName
 	cp.Workspace = workspaceName
@@ -216,7 +219,7 @@ func (p *JobManager) Create(groupName, workspaceName string, data []byte, opt Cr
 }
 
 //无锁
-func (p *JobManager) delete(groupName, workspaceName, jobName string) error {
+func (p *JobManager) delete(groupName, workspaceName, resourceName string) error {
 	group, ok := p.Groups[groupName]
 	if !ok {
 		return ErrGroupNotFound
@@ -226,20 +229,20 @@ func (p *JobManager) delete(groupName, workspaceName, jobName string) error {
 		return ErrWorkspaceNotFound
 	}
 
-	delete(workspace.Jobs, jobName)
+	delete(workspace.Jobs, resourceName)
 	group.Workspaces[workspaceName] = workspace
 	p.Groups[groupName] = group
 	return nil
 }
 
-func (p *JobManager) Delete(group, workspace, jobName string, opt DeleteOption) error {
+func (p *JobManager) Delete(group, workspace, resourceName string, opt DeleteOption) error {
 	p.locker.Lock()
 	defer p.locker.Unlock()
 	ph, err := cluster.NewJobHandler(group, workspace)
 	if err != nil {
 		return log.DebugPrint(err)
 	}
-	job, err := p.get(group, workspace, jobName)
+	job, err := p.get(group, workspace, resourceName)
 	if err != nil {
 		return log.DebugPrint(err)
 	}
@@ -247,7 +250,7 @@ func (p *JobManager) Delete(group, workspace, jobName string, opt DeleteOption) 
 	if job.memoryOnly {
 
 		//触发集群控制器来删除内存中的数据
-		err = ph.Delete(workspace, jobName)
+		err = ph.Delete(workspace, resourceName)
 		if err != nil {
 			return log.DebugPrint(err)
 		}
@@ -255,12 +258,12 @@ func (p *JobManager) Delete(group, workspace, jobName string, opt DeleteOption) 
 		//TODO:ufleet创建的数据
 	} else {
 		be := backend.NewBackendHandler()
-		err := be.DeleteResource(backendKind, group, workspace, jobName)
+		err := be.DeleteResource(backendKind, group, workspace, resourceName)
 		if err != nil {
 			return log.DebugPrint(err)
 		}
 
-		err = ph.Delete(workspace, jobName)
+		err = ph.Delete(workspace, resourceName)
 		if err != nil {
 			if !apierrors.IsNotFound(err) {
 				return log.DebugPrint(err)

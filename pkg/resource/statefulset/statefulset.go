@@ -4,10 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"sync"
+	"time"
 	"ufleet-deploy/pkg/backend"
 	"ufleet-deploy/pkg/cluster"
 	"ufleet-deploy/pkg/log"
+	"ufleet-deploy/pkg/resource/util"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	appv1beta1 "k8s.io/client-go/pkg/apis/apps/v1beta1"
 )
 
@@ -27,7 +30,7 @@ var (
 )
 
 type StatefulSetController interface {
-	Create(group, workspace string, data interface{}, opt CreateOptions) error
+	Create(group, workspace string, data []byte, opt CreateOptions) error
 	Delete(group, workspace, statefulset string, opt DeleteOption) error
 	Get(group, workspace, statefulset string) (StatefulSetInterface, error)
 	List(group, workspace string) ([]StatefulSetInterface, error)
@@ -65,6 +68,8 @@ type StatefulSet struct {
 	AppStack   string `json:"app"`
 	User       string `json:"user"`
 	Cluster    string `json:"cluster"`
+	CreateTime int64  `json:"createtime"`
+	Template   string `json:"template"`
 	memoryOnly bool
 }
 
@@ -80,7 +85,7 @@ type CreateOptions struct {
 }
 
 //注意这里没锁
-func (p *StatefulSetManager) get(groupName, workspaceName, statefulsetName string) (*StatefulSet, error) {
+func (p *StatefulSetManager) get(groupName, workspaceName, resourceName string) (*StatefulSet, error) {
 
 	group, ok := p.Groups[groupName]
 	if !ok {
@@ -92,7 +97,7 @@ func (p *StatefulSetManager) get(groupName, workspaceName, statefulsetName strin
 		return nil, ErrWorkspaceNotFound
 	}
 
-	statefulset, ok := workspace.StatefulSets[statefulsetName]
+	statefulset, ok := workspace.StatefulSets[resourceName]
 	if !ok {
 		return nil, ErrResourceNotFound
 	}
@@ -100,10 +105,10 @@ func (p *StatefulSetManager) get(groupName, workspaceName, statefulsetName strin
 	return &statefulset, nil
 }
 
-func (p *StatefulSetManager) Get(group, workspace, statefulsetName string) (StatefulSetInterface, error) {
+func (p *StatefulSetManager) Get(group, workspace, resourceName string) (StatefulSetInterface, error) {
 	p.locker.Lock()
 	defer p.locker.Unlock()
-	return p.get(group, workspace, statefulsetName)
+	return p.get(group, workspace, resourceName)
 }
 
 func (p *StatefulSetManager) List(groupName, workspaceName string) ([]StatefulSetInterface, error) {
@@ -132,17 +137,66 @@ func (p *StatefulSetManager) List(groupName, workspaceName string) ([]StatefulSe
 	return pis, nil
 }
 
-func (p *StatefulSetManager) Create(groupName, workspaceName string, data interface{}, opt CreateOptions) error {
+func (p *StatefulSetManager) Create(groupName, workspaceName string, data []byte, opt CreateOptions) error {
 
 	p.locker.Lock()
 	defer p.locker.Unlock()
+	ph, err := cluster.NewStatefulSetHandler(groupName, workspaceName)
+	if err != nil {
+		return log.DebugPrint(err)
+	}
+
+	exts, err := util.ParseJsonOrYaml(data)
+	if err != nil {
+		return log.DebugPrint(err)
+	}
+
+	if len(exts) != 1 {
+		return log.DebugPrint("must  offer  one  resource json/yaml data")
+	}
+
+	var svc appv1beta1.StatefulSet
+	err = json.Unmarshal(exts[0].Raw, &svc)
+	if err != nil {
+		return log.DebugPrint(err)
+	}
+
+	if svc.Kind != "StatefulSet" {
+		return log.DebugPrint("must and  offer one resource json/yaml data")
+	}
+
+	var cp StatefulSet
+	cp.CreateTime = time.Now().Unix()
+	cp.Name = svc.Name
+	cp.Workspace = workspaceName
+	cp.Group = groupName
+	cp.Template = string(data)
+	if opt.App != nil {
+		cp.AppStack = *opt.App
+	}
+	cp.User = opt.User
+	//因为pod创建时,触发informer,所以优先创建etcd
+	be := backend.NewBackendHandler()
+	err = be.CreateResource(backendKind, groupName, workspaceName, cp.Name, cp)
+	if err != nil {
+		return log.DebugPrint(err)
+	}
+
+	err = ph.Create(workspaceName, &svc)
+	if err != nil {
+		err2 := be.DeleteResource(backendKind, groupName, workspaceName, cp.Name)
+		if err2 != nil {
+			log.ErrorPrint(err2)
+		}
+		return log.DebugPrint(err)
+	}
 
 	return nil
 
 }
 
 //无锁
-func (p *StatefulSetManager) delete(groupName, workspaceName, statefulsetName string) error {
+func (p *StatefulSetManager) delete(groupName, workspaceName, resourceName string) error {
 	group, ok := p.Groups[groupName]
 	if !ok {
 		return ErrGroupNotFound
@@ -152,34 +206,45 @@ func (p *StatefulSetManager) delete(groupName, workspaceName, statefulsetName st
 		return ErrWorkspaceNotFound
 	}
 
-	delete(workspace.StatefulSets, statefulsetName)
+	delete(workspace.StatefulSets, resourceName)
 	group.Workspaces[workspaceName] = workspace
 	p.Groups[groupName] = group
 	return nil
 }
 
-func (p *StatefulSetManager) Delete(group, workspace, statefulsetName string, opt DeleteOption) error {
+func (p *StatefulSetManager) Delete(group, workspace, resourceName string, opt DeleteOption) error {
 	p.locker.Lock()
 	defer p.locker.Unlock()
-	statefulset, err := p.get(group, workspace, statefulsetName)
+	ph, err := cluster.NewStatefulSetHandler(group, workspace)
+	if err != nil {
+		return log.DebugPrint(err)
+	}
+	statefulset, err := p.get(group, workspace, resourceName)
 	if err != nil {
 		return log.DebugPrint(err)
 	}
 
 	if statefulset.memoryOnly {
-		ph, err := cluster.NewStatefulSetHandler(group, workspace)
-		if err != nil {
-			return log.DebugPrint(err)
-		}
 
 		//触发集群控制器来删除内存中的数据
-		err = ph.Delete(workspace, statefulsetName)
+		err = ph.Delete(workspace, resourceName)
 		if err != nil {
 			return log.DebugPrint(err)
 		}
 		//TODO:ufleet创建的数据
 		return nil
 	} else {
+		be := backend.NewBackendHandler()
+		err := be.DeleteResource(backendKind, group, workspace, resourceName)
+		if err != nil {
+			return log.DebugPrint(err)
+		}
+		err = ph.Delete(workspace, resourceName)
+		if err != nil {
+			if !apierrors.IsNotFound(err) {
+				return log.DebugPrint(err)
+			}
+		}
 		return nil
 	}
 }

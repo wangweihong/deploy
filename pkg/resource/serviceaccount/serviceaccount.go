@@ -4,11 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"sync"
+	"time"
 	"ufleet-deploy/pkg/backend"
 	"ufleet-deploy/pkg/cluster"
 	"ufleet-deploy/pkg/log"
 	"ufleet-deploy/pkg/resource/util"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	corev1 "k8s.io/client-go/pkg/api/v1"
 )
 
@@ -28,7 +30,7 @@ var (
 )
 
 type ServiceAccountController interface {
-	Create(group, workspace string, data interface{}, opt CreateOptions) error
+	Create(group, workspace string, data []byte, opt CreateOptions) error
 	Delete(group, workspace, serviceaccount string, opt DeleteOption) error
 	Get(group, workspace, serviceaccount string) (ServiceAccountInterface, error)
 	List(group, workspace string) ([]ServiceAccountInterface, error)
@@ -69,6 +71,7 @@ type ServiceAccount struct {
 	AppStack   string `json:"app"`
 	User       string `json:"user"`
 	Cluster    string `json:"cluster"`
+	CreateTime int64  `json:"createtime"`
 	Template   string `json:"template"`
 	memoryOnly bool
 }
@@ -85,7 +88,7 @@ type CreateOptions struct {
 }
 
 //注意这里没锁
-func (p *ServiceAccountManager) get(groupName, workspaceName, serviceaccountName string) (*ServiceAccount, error) {
+func (p *ServiceAccountManager) get(groupName, workspaceName, resourceName string) (*ServiceAccount, error) {
 
 	group, ok := p.Groups[groupName]
 	if !ok {
@@ -97,7 +100,7 @@ func (p *ServiceAccountManager) get(groupName, workspaceName, serviceaccountName
 		return nil, ErrWorkspaceNotFound
 	}
 
-	serviceaccount, ok := workspace.ServiceAccounts[serviceaccountName]
+	serviceaccount, ok := workspace.ServiceAccounts[resourceName]
 	if !ok {
 		return nil, ErrResourceNotFound
 	}
@@ -105,10 +108,10 @@ func (p *ServiceAccountManager) get(groupName, workspaceName, serviceaccountName
 	return &serviceaccount, nil
 }
 
-func (p *ServiceAccountManager) Get(group, workspace, serviceaccountName string) (ServiceAccountInterface, error) {
+func (p *ServiceAccountManager) Get(group, workspace, resourceName string) (ServiceAccountInterface, error) {
 	p.locker.Lock()
 	defer p.locker.Unlock()
-	return p.get(group, workspace, serviceaccountName)
+	return p.get(group, workspace, resourceName)
 }
 
 func (p *ServiceAccountManager) List(groupName, workspaceName string) ([]ServiceAccountInterface, error) {
@@ -159,17 +162,68 @@ func (p *ServiceAccountManager) ListGroup(groupName string) ([]ServiceAccountInt
 	return pis, nil
 }
 
-func (p *ServiceAccountManager) Create(groupName, workspaceName string, data interface{}, opt CreateOptions) error {
+func (p *ServiceAccountManager) Create(groupName, workspaceName string, data []byte, opt CreateOptions) error {
 
 	p.locker.Lock()
 	defer p.locker.Unlock()
+	ph, err := cluster.NewServiceAccountHandler(groupName, workspaceName)
+	if err != nil {
+		return log.DebugPrint(err)
+	}
+
+	exts, err := util.ParseJsonOrYaml(data)
+	if err != nil {
+		return log.DebugPrint(err)
+	}
+
+	if len(exts) != 1 {
+		return log.DebugPrint("must  offer  one  resource json/yaml data")
+	}
+
+	var svc corev1.ServiceAccount
+	err = json.Unmarshal(exts[0].Raw, &svc)
+	if err != nil {
+		return log.DebugPrint(err)
+	}
+
+	if svc.Kind != "ServiceAccount" {
+		return log.DebugPrint("must and  offer one resource json/yaml data")
+	}
+
+	var cp ServiceAccount
+	cp.CreateTime = time.Now().Unix()
+	cp.Name = svc.Name
+	cp.Workspace = workspaceName
+	cp.Group = groupName
+	cp.Template = string(data)
+	if opt.App != nil {
+		cp.AppStack = *opt.App
+	}
+	cp.User = opt.User
+	//因为pod创建时,触发informer,所以优先创建etcd
+	be := backend.NewBackendHandler()
+	err = be.CreateResource(backendKind, groupName, workspaceName, cp.Name, cp)
+	if err != nil {
+		return log.DebugPrint(err)
+	}
+
+	err = ph.Create(workspaceName, &svc)
+	if err != nil {
+		err2 := be.DeleteResource(backendKind, groupName, workspaceName, cp.Name)
+		if err2 != nil {
+			log.ErrorPrint(err2)
+		}
+		return log.DebugPrint(err)
+	}
+
+	return nil
 
 	return nil
 
 }
 
 //无锁
-func (p *ServiceAccountManager) delete(groupName, workspaceName, serviceaccountName string) error {
+func (p *ServiceAccountManager) delete(groupName, workspaceName, resourceName string) error {
 	group, ok := p.Groups[groupName]
 	if !ok {
 		return fmt.Errorf("%v: group\\%v", ErrGroupNotFound, groupName)
@@ -179,34 +233,46 @@ func (p *ServiceAccountManager) delete(groupName, workspaceName, serviceaccountN
 		return fmt.Errorf("%v: group\\%v,workspace\\%v", ErrWorkspaceNotFound, groupName, workspaceName)
 	}
 
-	delete(workspace.ServiceAccounts, serviceaccountName)
+	delete(workspace.ServiceAccounts, resourceName)
 	group.Workspaces[workspaceName] = workspace
 	p.Groups[groupName] = group
 	return nil
 }
 
-func (p *ServiceAccountManager) Delete(group, workspace, serviceaccountName string, opt DeleteOption) error {
+func (p *ServiceAccountManager) Delete(group, workspace, resourceName string, opt DeleteOption) error {
 	p.locker.Lock()
 	defer p.locker.Unlock()
-	serviceaccount, err := p.get(group, workspace, serviceaccountName)
+
+	ph, err := cluster.NewServiceAccountHandler(group, workspace)
+	if err != nil {
+		return log.DebugPrint(err)
+	}
+	serviceaccount, err := p.get(group, workspace, resourceName)
 	if err != nil {
 		return log.DebugPrint(err)
 	}
 
 	if serviceaccount.memoryOnly {
-		ph, err := cluster.NewServiceAccountHandler(group, workspace)
-		if err != nil {
-			return log.DebugPrint(err)
-		}
 
 		//触发集群控制器来删除内存中的数据
-		err = ph.Delete(workspace, serviceaccountName)
+		err = ph.Delete(workspace, resourceName)
 		if err != nil {
 			return log.DebugPrint(err)
 		}
 		//TODO:ufleet创建的数据
 		return nil
 	} else {
+		be := backend.NewBackendHandler()
+		err := be.DeleteResource(backendKind, group, workspace, resourceName)
+		if err != nil {
+			return log.DebugPrint(err)
+		}
+		err = ph.Delete(workspace, resourceName)
+		if err != nil {
+			if !apierrors.IsNotFound(err) {
+				return log.DebugPrint(err)
+			}
+		}
 		return nil
 	}
 }
