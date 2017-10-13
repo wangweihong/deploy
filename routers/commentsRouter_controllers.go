@@ -239,13 +239,6 @@ func init() {
 
 	beego.GlobalControllerRouter["ufleet-deploy/controllers:PodController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:PodController"],
 		beego.ControllerComments{
-			Method: "CreatePod",
-			Router: `/group/:group/workspace/:workspace`,
-			AllowHTTPMethods: []string{"Post"},
-			Params: nil})
-
-	beego.GlobalControllerRouter["ufleet-deploy/controllers:PodController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:PodController"],
-		beego.ControllerComments{
 			Method: "ListGroupsPods",
 			Router: `/groups`,
 			AllowHTTPMethods: []string{"Post"},
@@ -256,6 +249,13 @@ func init() {
 			Method: "ListGroupPods",
 			Router: `/group/:group`,
 			AllowHTTPMethods: []string{"Get"},
+			Params: nil})
+
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:PodController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:PodController"],
+		beego.ControllerComments{
+			Method: "CreatePod",
+			Router: `/group/:group/workspace/:workspace`,
+			AllowHTTPMethods: []string{"Post"},
 			Params: nil})
 
 	beego.GlobalControllerRouter["ufleet-deploy/controllers:PodController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:PodController"],
