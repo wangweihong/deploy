@@ -16,22 +16,22 @@ import (
 	"k8s.io/kubernetes/pkg/printers"
 )
 
-func GetObjectFromYamlTemplate(template []byte, obj interface) error {
+func GetObjectFromYamlTemplate(template []byte, obj interface{}) error {
 	/*
-	f := cmdutil.NewFactory(nil)
-	decoder := f.Decoder(false)
-	err := runtime.DecodeInto(decoder, template, obj)
-	if err != nil {
-		return err
-	}
-	return nil
+		f := cmdutil.NewFactory(nil)
+		decoder := f.Decoder(false)
+		err := runtime.DecodeInto(decoder, template, obj)
+		if err != nil {
+			return err
+		}
+		return nil
 	*/
 	data, err := ghyaml.JSONToYAML(template)
 	if err != nil {
 		return err
 	}
 
-	return json.Unmarshal( data, &obj)
+	return json.Unmarshal(data, &obj)
 
 }
 
@@ -47,7 +47,6 @@ func GetYamlTemplateFromObject(origin runtime.Object) (*string, error) {
 	}
 	str := string(data)
 	return &str, err
-
 
 	f := cmdutil.NewFactory(nil)
 	log.DebugPrint(origin.GetObjectKind().GroupVersionKind().String())

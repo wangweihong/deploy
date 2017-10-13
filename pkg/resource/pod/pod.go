@@ -671,7 +671,7 @@ func InitPodController(be backend.BackendHandler) (PodController, error) {
 		}
 		rm.Groups[k] = group
 	}
-	log.DebugPrint(rm)
+	//log.DebugPrint(rm)
 	return rm, nil
 
 }
