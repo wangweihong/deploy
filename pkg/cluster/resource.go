@@ -71,11 +71,7 @@ func (h *podHandler) Create(namespace string, pod *corev1.Pod) error {
 
 func (h *podHandler) Update(namespace string, newpod *corev1.Pod) error {
 	_, err := h.clientset.CoreV1().Pods(namespace).Update(newpod)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return err
 }
 
 func (h *podHandler) Delete(namespace, podName string) error {
@@ -125,6 +121,7 @@ type ServiceHandler interface {
 	Get(namespace string, name string) (*corev1.Service, error)
 	Delete(namespace string, name string) error
 	Create(namespace string, service *corev1.Service) error
+	Update(namespace string, service *corev1.Service) error
 }
 
 func NewServiceHandler(group, workspace string) (ServiceHandler, error) {
@@ -149,6 +146,11 @@ func (h *serviceHandler) Create(namespace string, service *corev1.Service) error
 	return err
 }
 
+func (h *serviceHandler) Update(namespace string, service *corev1.Service) error {
+	_, err := h.clientset.CoreV1().Services(namespace).Update(service)
+	return err
+}
+
 func (h *serviceHandler) Delete(namespace, serviceName string) error {
 	return h.clientset.CoreV1().Services(namespace).Delete(serviceName, nil)
 }
@@ -159,6 +161,7 @@ type ConfigMapHandler interface {
 	Get(namespace string, name string) (*corev1.ConfigMap, error)
 	Create(namespace string, cm *corev1.ConfigMap) error
 	Delete(namespace string, name string) error
+	Update(namespace string, service *corev1.ConfigMap) error
 }
 
 func NewConfigMapHandler(group, workspace string) (ConfigMapHandler, error) {
@@ -183,6 +186,11 @@ func (h *configmapHandler) Create(namespace string, configmap *corev1.ConfigMap)
 	return err
 }
 
+func (h *configmapHandler) Update(namespace string, resource *corev1.ConfigMap) error {
+	_, err := h.clientset.CoreV1().ConfigMaps(namespace).Update(resource)
+	return err
+}
+
 func (h *configmapHandler) Delete(namespace, configmapName string) error {
 	return h.clientset.CoreV1().ConfigMaps(namespace).Delete(configmapName, nil)
 }
@@ -194,6 +202,7 @@ type ReplicationControllerHandler interface {
 	Create(namespace string, cm *corev1.ReplicationController) error
 	Delete(namespace string, name string) error
 	GetPods(namespace, name string) ([]*corev1.Pod, error)
+	Update(namespace string, resource *corev1.ReplicationController) error
 }
 
 func NewReplicationControllerHandler(group, workspace string) (ReplicationControllerHandler, error) {
@@ -215,6 +224,11 @@ func (h *replicationcontrollerHandler) Get(namespace, name string) (*corev1.Repl
 
 func (h *replicationcontrollerHandler) Create(namespace string, replicationcontroller *corev1.ReplicationController) error {
 	_, err := h.clientset.CoreV1().ReplicationControllers(namespace).Create(replicationcontroller)
+	return err
+}
+
+func (h *replicationcontrollerHandler) Update(namespace string, resource *corev1.ReplicationController) error {
+	_, err := h.clientset.CoreV1().ReplicationControllers(namespace).Update(resource)
 	return err
 }
 
@@ -246,6 +260,7 @@ type ServiceAccountHandler interface {
 	Get(namespace string, name string) (*corev1.ServiceAccount, error)
 	Create(namespace string, sa *corev1.ServiceAccount) error
 	Delete(namespace string, name string) error
+	Update(namespace string, resource *corev1.ServiceAccount) error
 }
 
 func NewServiceAccountHandler(group, workspace string) (ServiceAccountHandler, error) {
@@ -270,6 +285,11 @@ func (h *serviceaccountHandler) Create(namespace string, serviceaccount *corev1.
 	return err
 }
 
+func (h *serviceaccountHandler) Update(namespace string, resource *corev1.ServiceAccount) error {
+	_, err := h.clientset.CoreV1().ServiceAccounts(namespace).Update(resource)
+	return err
+}
+
 func (h *serviceaccountHandler) Delete(namespace, serviceaccountName string) error {
 	return h.clientset.CoreV1().ServiceAccounts(namespace).Delete(serviceaccountName, nil)
 }
@@ -280,6 +300,7 @@ type SecretHandler interface {
 	Get(namespace string, name string) (*corev1.Secret, error)
 	Create(namespace string, secret *corev1.Secret) error
 	Delete(namespace string, name string) error
+	Update(namespace string, resource *corev1.Secret) error
 }
 
 func NewSecretHandler(group, workspace string) (SecretHandler, error) {
@@ -308,12 +329,18 @@ func (h *secretHandler) Delete(namespace, secretName string) error {
 	return h.clientset.CoreV1().Secrets(namespace).Delete(secretName, nil)
 }
 
+func (h *secretHandler) Update(namespace string, resource *corev1.Secret) error {
+	_, err := h.clientset.CoreV1().Secrets(namespace).Update(resource)
+	return err
+}
+
 /* ------------------------ Endpoint ----------------------------*/
 
 type EndpointHandler interface {
 	Get(namespace string, name string) (*corev1.Endpoints, error)
 	Create(namespace string, ep *corev1.Endpoints) error
 	Delete(namespace string, name string) error
+	Update(namespace string, resource *corev1.Endpoints) error
 }
 
 func NewEndpointHandler(group, workspace string) (EndpointHandler, error) {
@@ -342,12 +369,18 @@ func (h *endpointHandler) Delete(namespace, endpointName string) error {
 	return h.clientset.CoreV1().Endpoints(namespace).Delete(endpointName, nil)
 }
 
+func (h *endpointHandler) Update(namespace string, resource *corev1.Endpoints) error {
+	_, err := h.clientset.CoreV1().Endpoints(namespace).Update(resource)
+	return err
+}
+
 /* ------------------------ Deployment ----------------------------*/
 
 type DeploymentHandler interface {
 	Get(namespace string, name string) (*extensionsv1beta1.Deployment, error)
 	Create(namespace string, d *extensionsv1beta1.Deployment) error
 	Delete(namespace string, name string) error
+	Update(namespace string, resource *extensionsv1beta1.Deployment) error
 	Scale(namespace, name string, num int32) error
 	GetPods(namespace, name string) ([]*corev1.Pod, error)
 }
@@ -371,6 +404,11 @@ func (h *deploymentHandler) Get(namespace, name string) (*extensionsv1beta1.Depl
 
 func (h *deploymentHandler) Create(namespace string, deployment *extensionsv1beta1.Deployment) error {
 	_, err := h.clientset.ExtensionsV1beta1().Deployments(namespace).Create(deployment)
+	return err
+}
+
+func (h *deploymentHandler) Update(namespace string, resource *extensionsv1beta1.Deployment) error {
+	_, err := h.clientset.ExtensionsV1beta1().Deployments(namespace).Update(resource)
 	return err
 }
 
@@ -437,6 +475,7 @@ type DaemonSetHandler interface {
 	Get(namespace string, name string) (*extensionsv1beta1.DaemonSet, error)
 	Create(namespace string, ds *extensionsv1beta1.DaemonSet) error
 	Delete(namespace string, name string) error
+	Update(namespace string, resource *extensionsv1beta1.DaemonSet) error
 }
 
 func NewDaemonSetHandler(group, workspace string) (DaemonSetHandler, error) {
@@ -465,12 +504,18 @@ func (h *daemonsetHandler) Delete(namespace, daemonsetName string) error {
 	return h.clientset.ExtensionsV1beta1().DaemonSets(namespace).Delete(daemonsetName, nil)
 }
 
+func (h *daemonsetHandler) Update(namespace string, resource *extensionsv1beta1.DaemonSet) error {
+	_, err := h.clientset.ExtensionsV1beta1().DaemonSets(namespace).Update(resource)
+	return err
+}
+
 /* --------------- Ingress --------------*/
 
 type IngressHandler interface {
 	Get(namespace string, name string) (*extensionsv1beta1.Ingress, error)
 	Create(namespace string, ing *extensionsv1beta1.Ingress) error
 	Delete(namespace string, name string) error
+	Update(namespace string, resource *extensionsv1beta1.Ingress) error
 }
 
 func NewIngressHandler(group, workspace string) (IngressHandler, error) {
@@ -499,12 +544,18 @@ func (h *ingressHandler) Delete(namespace string, ingressName string) error {
 	return h.clientset.ExtensionsV1beta1().Ingresses(namespace).Delete(ingressName, nil)
 }
 
+func (h *ingressHandler) Update(namespace string, resource *extensionsv1beta1.Ingress) error {
+	_, err := h.clientset.ExtensionsV1beta1().Ingresses(namespace).Update(resource)
+	return err
+}
+
 /* --------------- StatefulSet --------------*/
 
 type StatefulSetHandler interface {
 	Get(namespace, name string) (*appv1beta1.StatefulSet, error)
 	Create(namespace string, ss *appv1beta1.StatefulSet) error
 	Delete(namespace string, name string) error
+	Update(namespace string, resource *appv1beta1.StatefulSet) error
 }
 
 func NewStatefulSetHandler(group, workspace string) (StatefulSetHandler, error) {
@@ -533,12 +584,18 @@ func (h *statefulsetHandler) Delete(namespace, statefulsetName string) error {
 	return h.clientset.Apps().StatefulSets(namespace).Delete(statefulsetName, nil)
 }
 
+func (h *statefulsetHandler) Update(namespace string, resource *appv1beta1.StatefulSet) error {
+	_, err := h.clientset.AppsV1beta1().StatefulSets(namespace).Update(resource)
+	return err
+}
+
 /* --------------- CronJob --------------*/
 
 type CronJobHandler interface {
 	Get(namespace, name string) (*batchv2alpha1.CronJob, error)
 	Create(namespace string, cj *batchv2alpha1.CronJob) error
 	Delete(namespace string, name string) error
+	Update(namespace string, resource *batchv2alpha1.CronJob) error
 	GetJobs(namespace, name string) ([]*batchv1.Job, error)
 }
 
@@ -593,6 +650,11 @@ func (h *cronjobHandler) Delete(namespace, cronjobName string) error {
 	return nil
 }
 
+func (h *cronjobHandler) Update(namespace string, resource *batchv2alpha1.CronJob) error {
+	_, err := h.clientset.BatchV2alpha1().CronJobs(namespace).Update(resource)
+	return err
+}
+
 func (h *cronjobHandler) GetJobs(namespace, cronjobName string) ([]*batchv1.Job, error) {
 	cj, err := h.Get(namespace, cronjobName)
 	if err != nil {
@@ -621,6 +683,7 @@ type JobHandler interface {
 	Get(namespace, name string) (*batchv1.Job, error)
 	Create(namespace string, job *batchv1.Job) error
 	Delete(namespace string, name string) error
+	Update(namespace string, resource *batchv1.Job) error
 	GetPods(Namespace, name string) ([]*corev1.Pod, error)
 }
 
@@ -669,6 +732,11 @@ func (h *jobHandler) Delete(namespace, jobName string) error {
 	}
 
 	return nil
+}
+
+func (h *jobHandler) Update(namespace string, resource *batchv1.Job) error {
+	_, err := h.clientset.BatchV1().Jobs(namespace).Update(resource)
+	return err
 }
 
 func (h *jobHandler) GetPods(namespace, jobName string) ([]*corev1.Pod, error) {

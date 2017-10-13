@@ -33,6 +33,7 @@ type IngressController interface {
 	Create(group, workspace string, data []byte, opt CreateOptions) error
 	Delete(group, workspace, ingress string, opt DeleteOption) error
 	Get(group, workspace, ingress string) (IngressInterface, error)
+	Update(group, workspace, resource string, newdata []byte) error
 	List(group, workspace string) ([]IngressInterface, error)
 }
 
@@ -250,6 +251,39 @@ func (p *IngressManager) Delete(group, workspace, resourceName string, opt Delet
 	}
 }
 
+func (p *IngressManager) Update(groupName, workspaceName string, resourceName string, data []byte) error {
+	p.locker.Lock()
+	defer p.locker.Unlock()
+
+	_, err := p.get(groupName, workspaceName, resourceName)
+	if err != nil {
+		return err
+	}
+
+	//说明是主动创建的..
+	var newr extensionsv1beta1.Ingress
+	err = util.GetObjectFromYamlTemplate(data, &newr)
+	if err != nil {
+		return log.DebugPrint(err)
+	}
+	//
+	newr.ResourceVersion = ""
+
+	if newr.Name != resourceName {
+		return fmt.Errorf("invalid update data, name not match")
+	}
+
+	ph, err := cluster.NewIngressHandler(groupName, workspaceName)
+	if err != nil {
+		return log.DebugPrint(err)
+	}
+	err = ph.Update(workspaceName, &newr)
+	if err != nil {
+		return log.DebugPrint(err)
+	}
+
+	return nil
+}
 func (ingress *Ingress) Info() *Ingress {
 	return ingress
 }

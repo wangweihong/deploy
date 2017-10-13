@@ -33,6 +33,7 @@ type DaemonSetController interface {
 	Create(group, workspace string, data []byte, opt CreateOptions) error
 	Delete(group, workspace, daemonset string, opt DeleteOption) error
 	Get(group, workspace, daemonset string) (DaemonSetInterface, error)
+	Update(group, workspace, resource string, newdata []byte) error
 	List(group, workspace string) ([]DaemonSetInterface, error)
 }
 
@@ -247,6 +248,40 @@ func (p *DaemonSetManager) Delete(group, workspace, resourceName string, opt Del
 		}
 		return nil
 	}
+}
+
+func (p *DaemonSetManager) Update(groupName, workspaceName string, resourceName string, data []byte) error {
+	p.locker.Lock()
+	defer p.locker.Unlock()
+
+	_, err := p.get(groupName, workspaceName, resourceName)
+	if err != nil {
+		return err
+	}
+
+	//说明是主动创建的..
+	var newr extensionsv1beta1.DaemonSet
+	err = util.GetObjectFromYamlTemplate(data, &newr)
+	if err != nil {
+		return log.DebugPrint(err)
+	}
+	//
+	newr.ResourceVersion = ""
+
+	if newr.Name != resourceName {
+		return fmt.Errorf("invalid update data, name not match")
+	}
+
+	ph, err := cluster.NewDaemonSetHandler(groupName, workspaceName)
+	if err != nil {
+		return log.DebugPrint(err)
+	}
+	err = ph.Update(workspaceName, &newr)
+	if err != nil {
+		return log.DebugPrint(err)
+	}
+
+	return nil
 }
 
 func (daemonset *DaemonSet) Info() *DaemonSet {

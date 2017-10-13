@@ -33,6 +33,7 @@ var (
 type CronJobController interface {
 	Create(group, workspace string, data []byte, opt CreateOptions) error
 	Delete(group, workspace, cronjob string, opt DeleteOption) error
+	Update(groupName, workspaceName string, resourceName string, data []byte) error
 	Get(group, workspace, cronjob string) (CronJobInterface, error)
 	List(group, workspace string) ([]CronJobInterface, error)
 	ListGroup(group string) ([]CronJobInterface, error)
@@ -221,6 +222,40 @@ func (p *CronJobManager) Create(groupName, workspaceName string, data []byte, op
 
 }
 
+func (p *CronJobManager) Update(groupName, workspaceName string, resourceName string, data []byte) error {
+	p.locker.Lock()
+	defer p.locker.Unlock()
+
+	_, err := p.get(groupName, workspaceName, resourceName)
+	if err != nil {
+		return err
+	}
+
+	//说明是主动创建的..
+	var newr batchv2alpha1.CronJob
+	err = util.GetObjectFromYamlTemplate(data, &newr)
+	if err != nil {
+		return log.DebugPrint(err)
+	}
+	//
+	newr.ResourceVersion = ""
+
+	if newr.Name != resourceName {
+		return fmt.Errorf("invalid update data, name not match")
+	}
+
+	ph, err := cluster.NewCronJobHandler(groupName, workspaceName)
+	if err != nil {
+		return log.DebugPrint(err)
+	}
+	err = ph.Update(workspaceName, &newr)
+	if err != nil {
+		return log.DebugPrint(err)
+	}
+
+	return nil
+}
+
 //无锁
 func (p *CronJobManager) delete(groupName, workspaceName, resourceName string) error {
 	group, ok := p.Groups[groupName]
@@ -301,24 +336,17 @@ func (p *CronJob) GetRuntime() (*Runtime, error) {
 }
 
 func (p *CronJob) GetTemplate() (string, error) {
-	if !p.memoryOnly {
-		return p.Template, nil
-	} else {
-		/*
-			runtime, err := p.GetRuntime()
-			if err != nil {
-				return "", log.DebugPrint(err)
-			}
-
-			t, err := util.GetYamlTemplateFromObject(runtime.CronJob)
-			if err != nil {
-				return "", log.DebugPrint(err)
-			}
-
-			return *t, nil
-		*/
-		return "", nil
+	runtime, err := p.GetRuntime()
+	if err != nil {
+		return "", log.DebugPrint(err)
 	}
+
+	t, err := util.GetYamlTemplateFromObject(runtime.CronJob)
+	if err != nil {
+		return "", log.DebugPrint(err)
+	}
+
+	return *t, nil
 }
 
 type Status struct {

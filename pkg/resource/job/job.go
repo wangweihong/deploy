@@ -37,6 +37,7 @@ type JobController interface {
 	Delete(group, workspace, job string, opt DeleteOption) error
 	Get(group, workspace, job string) (JobInterface, error)
 	List(group, workspace string) ([]JobInterface, error)
+	Update(group, workspace, resource string, newdata []byte) error
 	ListGroup(group string) ([]JobInterface, error)
 }
 
@@ -274,6 +275,40 @@ func (p *JobManager) Delete(group, workspace, resourceName string, opt DeleteOpt
 	}
 }
 
+func (p *JobManager) Update(groupName, workspaceName string, resourceName string, data []byte) error {
+	p.locker.Lock()
+	defer p.locker.Unlock()
+
+	_, err := p.get(groupName, workspaceName, resourceName)
+	if err != nil {
+		return err
+	}
+
+	//说明是主动创建的..
+	var newr batchv1.Job
+	err = util.GetObjectFromYamlTemplate(data, &newr)
+	if err != nil {
+		return log.DebugPrint(err)
+	}
+	//
+	newr.ResourceVersion = ""
+
+	if newr.Name != resourceName {
+		return fmt.Errorf("invalid update data, name not match")
+	}
+
+	ph, err := cluster.NewJobHandler(groupName, workspaceName)
+	if err != nil {
+		return log.DebugPrint(err)
+	}
+	err = ph.Update(workspaceName, &newr)
+	if err != nil {
+		return log.DebugPrint(err)
+	}
+
+	return nil
+}
+
 func (j *Job) Info() *Job {
 	return j
 }
@@ -373,11 +408,17 @@ func (j *Job) GetStatus() (*Status, error) {
 }
 
 func (j *Job) GetTemplate() (string, error) {
-	if !j.memoryOnly {
-		return j.Template, nil
-	} else {
-		return "", nil
+	runtime, err := j.GetRuntime()
+	if err != nil {
+		return "", log.DebugPrint(err)
 	}
+
+	t, err := util.GetYamlTemplateFromObject(runtime.Job)
+	if err != nil {
+		return "", log.DebugPrint(err)
+	}
+
+	return *t, nil
 
 }
 

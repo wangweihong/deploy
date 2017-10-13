@@ -33,6 +33,7 @@ type ConfigMapController interface {
 	Create(group, workspace string, data []byte, opt CreateOptions) error
 	Delete(group, workspace, configmap string, opt DeleteOption) error
 	Get(group, workspace, configmap string) (ConfigMapInterface, error)
+	Update(group, workspace, resource string, newdata []byte) error
 	List(group, workspace string) ([]ConfigMapInterface, error)
 	ListGroup(group string) ([]ConfigMapInterface, error)
 }
@@ -220,6 +221,38 @@ func (p *ConfigMapManager) Create(groupName, workspaceName string, data []byte, 
 	return nil
 
 }
+func (p *ConfigMapManager) Update(groupName, workspaceName string, resourceName string, data []byte) error {
+	p.locker.Lock()
+	defer p.locker.Unlock()
+
+	_, err := p.get(groupName, workspaceName, resourceName)
+	if err != nil {
+		return err
+	}
+
+	var newr corev1.ConfigMap
+	err = util.GetObjectFromYamlTemplate(data, &newr)
+	if err != nil {
+		return log.DebugPrint(err)
+	}
+	//
+	newr.ResourceVersion = ""
+
+	if newr.Name != resourceName {
+		return fmt.Errorf("invalid update data, name not match")
+	}
+
+	ph, err := cluster.NewConfigMapHandler(groupName, workspaceName)
+	if err != nil {
+		return log.DebugPrint(err)
+	}
+	err = ph.Update(workspaceName, &newr)
+	if err != nil {
+		return log.DebugPrint(err)
+	}
+
+	return nil
+}
 
 //无锁
 func (p *ConfigMapManager) delete(groupName, workspaceName, resourceName string) error {
@@ -294,20 +327,16 @@ func (s *ConfigMap) GetRuntime() (*Runtime, error) {
 }
 
 func (s *ConfigMap) GetTemplate() (string, error) {
-	if !s.memoryOnly {
-		return s.Template, nil
-	} else {
-		runtime, err := s.GetRuntime()
-		if err != nil {
-			return "", err
-		}
-		t, err := util.GetYamlTemplateFromObject(runtime.ConfigMap)
-		if err != nil {
-			return "", log.DebugPrint(err)
-		}
-		return *t, nil
-
+	runtime, err := s.GetRuntime()
+	if err != nil {
+		return "", err
 	}
+	t, err := util.GetYamlTemplateFromObject(runtime.ConfigMap)
+	if err != nil {
+		return "", log.DebugPrint(err)
+	}
+	return *t, nil
+
 }
 
 func InitConfigMapController(be backend.BackendHandler) (ConfigMapController, error) {

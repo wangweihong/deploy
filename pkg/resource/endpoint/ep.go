@@ -33,6 +33,7 @@ type EndpointController interface {
 	Create(group, workspace string, data []byte, opt CreateOptions) error
 	Delete(group, workspace, endpoint string, opt DeleteOption) error
 	Get(group, workspace, endpoint string) (EndpointInterface, error)
+	Update(group, workspace, resource string, newdata []byte) error
 	List(group, workspace string) ([]EndpointInterface, error)
 }
 
@@ -248,6 +249,40 @@ func (p *EndpointManager) Delete(group, workspace, resourceName string, opt Dele
 		}
 		return nil
 	}
+}
+
+func (p *EndpointManager) Update(groupName, workspaceName string, resourceName string, data []byte) error {
+	p.locker.Lock()
+	defer p.locker.Unlock()
+
+	_, err := p.get(groupName, workspaceName, resourceName)
+	if err != nil {
+		return err
+	}
+
+	//说明是主动创建的..
+	var newr corev1.Endpoints
+	err = util.GetObjectFromYamlTemplate(data, &newr)
+	if err != nil {
+		return log.DebugPrint(err)
+	}
+	//
+	newr.ResourceVersion = ""
+
+	if newr.Name != resourceName {
+		return fmt.Errorf("invalid update data, name not match")
+	}
+
+	ph, err := cluster.NewEndpointHandler(groupName, workspaceName)
+	if err != nil {
+		return log.DebugPrint(err)
+	}
+	err = ph.Update(workspaceName, &newr)
+	if err != nil {
+		return log.DebugPrint(err)
+	}
+
+	return nil
 }
 
 func (endpoint *Endpoint) Info() *Endpoint {

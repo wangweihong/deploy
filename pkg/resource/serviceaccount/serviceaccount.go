@@ -32,6 +32,7 @@ var (
 type ServiceAccountController interface {
 	Create(group, workspace string, data []byte, opt CreateOptions) error
 	Delete(group, workspace, serviceaccount string, opt DeleteOption) error
+	Update(group, workspace, resource string, newdata []byte) error
 	Get(group, workspace, serviceaccount string) (ServiceAccountInterface, error)
 	List(group, workspace string) ([]ServiceAccountInterface, error)
 	ListGroup(group string) ([]ServiceAccountInterface, error)
@@ -277,6 +278,40 @@ func (p *ServiceAccountManager) Delete(group, workspace, resourceName string, op
 	}
 }
 
+func (p *ServiceAccountManager) Update(groupName, workspaceName string, resourceName string, data []byte) error {
+	p.locker.Lock()
+	defer p.locker.Unlock()
+
+	_, err := p.get(groupName, workspaceName, resourceName)
+	if err != nil {
+		return err
+	}
+
+	//说明是主动创建的..
+	var newr corev1.ServiceAccount
+	err = util.GetObjectFromYamlTemplate(data, &newr)
+	if err != nil {
+		return log.DebugPrint(err)
+	}
+	//
+	newr.ResourceVersion = ""
+
+	if newr.Name != resourceName {
+		return fmt.Errorf("invalid update data, name not match")
+	}
+
+	ph, err := cluster.NewServiceAccountHandler(groupName, workspaceName)
+	if err != nil {
+		return log.DebugPrint(err)
+	}
+	err = ph.Update(workspaceName, &newr)
+	if err != nil {
+		return log.DebugPrint(err)
+	}
+
+	return nil
+}
+
 func (serviceaccount *ServiceAccount) Info() *ServiceAccount {
 	return serviceaccount
 }
@@ -295,20 +330,16 @@ func (s *ServiceAccount) GetRuntime() (*Runtime, error) {
 }
 
 func (s *ServiceAccount) GetTemplate() (string, error) {
-	if !s.memoryOnly {
-		return s.Template, nil
-	} else {
-		runtime, err := s.GetRuntime()
-		if err != nil {
-			return "", err
-		}
-		t, err := util.GetYamlTemplateFromObject(runtime.ServiceAccount)
-		if err != nil {
-			return "", log.DebugPrint(err)
-		}
-		return *t, nil
-
+	runtime, err := s.GetRuntime()
+	if err != nil {
+		return "", err
 	}
+	t, err := util.GetYamlTemplateFromObject(runtime.ServiceAccount)
+	if err != nil {
+		return "", log.DebugPrint(err)
+	}
+	return *t, nil
+
 }
 
 func InitServiceAccountController(be backend.BackendHandler) (ServiceAccountController, error) {

@@ -33,6 +33,7 @@ type DeploymentController interface {
 	Create(group, workspace string, data []byte, opt CreateOptions) error
 	Delete(group, workspace, deployment string, opt DeleteOption) error
 	Get(group, workspace, deployment string) (DeploymentInterface, error)
+	Update(group, workspace, resource string, newdata []byte) error
 	List(group, workspace string) ([]DeploymentInterface, error)
 }
 
@@ -246,6 +247,40 @@ func (p *DeploymentManager) Delete(group, workspace, resourceName string, opt De
 		}
 		return nil
 	}
+}
+
+func (p *DeploymentManager) Update(groupName, workspaceName string, resourceName string, data []byte) error {
+	p.locker.Lock()
+	defer p.locker.Unlock()
+
+	_, err := p.get(groupName, workspaceName, resourceName)
+	if err != nil {
+		return err
+	}
+
+	//说明是主动创建的..
+	var newr extensionsv1beta1.Deployment
+	err = util.GetObjectFromYamlTemplate(data, &newr)
+	if err != nil {
+		return log.DebugPrint(err)
+	}
+	//
+	newr.ResourceVersion = ""
+
+	if newr.Name != resourceName {
+		return fmt.Errorf("invalid update data, name not match")
+	}
+
+	ph, err := cluster.NewDeploymentHandler(groupName, workspaceName)
+	if err != nil {
+		return log.DebugPrint(err)
+	}
+	err = ph.Update(workspaceName, &newr)
+	if err != nil {
+		return log.DebugPrint(err)
+	}
+
+	return nil
 }
 
 func (deployment *Deployment) Info() *Deployment {

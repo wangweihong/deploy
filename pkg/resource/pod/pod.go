@@ -37,7 +37,7 @@ type PodController interface {
 	Create(group, workspace string, data []byte, opt CreateOptions) error
 	Delete(group, workspace, pod string, opt DeleteOption) error
 	Get(group, workspace, pod string) (PodInterface, error)
-	Update(group, workspace, pod string, newdata []byte) error
+	Update(group, workspace, resource string, newdata []byte) error
 	List(group, workspace string) ([]PodInterface, error)
 	ListGroup(group string) ([]PodInterface, error)
 }
@@ -240,19 +240,7 @@ func (p *PodManager) Update(groupName, workspaceName string, resourceName string
 	}
 
 	//说明是主动创建的..
-	/*
-		if r.Info().Template != "" {
-
-		}
-	*/
-	//log.DebugPrint(string(data))
 	var newr corev1.Pod
-	/*
-		err = json.Unmarshal(data, &newr)
-		if err != nil {
-			return log.DebugPrint(err)
-		}
-	*/
 	err = util.GetObjectFromYamlTemplate(data, &newr)
 	if err != nil {
 		return log.DebugPrint(err)
@@ -509,23 +497,9 @@ func (p *Pod) GetStatus() (*Status, error) {
 }
 
 func (p *Pod) GetTemplate() (string, error) {
-	/*
-		if !p.memoryOnly {
-			return p.Template, nil
-		} else {
-			return "", nil
-	*/
 	runtime, err := p.GetRuntimeDirect()
 	if err != nil {
 		return "", log.DebugPrint(err)
-	}
-	//pod := runtime.Pod
-	//		log.DebugPrint(pod.Kind)
-	//		log.DebugPrint(pod.APIVersion)
-	pod := runtime.Pod
-	if pod.Kind == "" {
-		pod.APIVersion = "v1"
-		pod.Kind = "Pod"
 	}
 
 	t, err := util.GetYamlTemplateFromObject(runtime.Pod)

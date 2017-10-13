@@ -32,6 +32,7 @@ var (
 type StatefulSetController interface {
 	Create(group, workspace string, data []byte, opt CreateOptions) error
 	Delete(group, workspace, statefulset string, opt DeleteOption) error
+	Update(group, workspace, resource string, newdata []byte) error
 	Get(group, workspace, statefulset string) (StatefulSetInterface, error)
 	List(group, workspace string) ([]StatefulSetInterface, error)
 }
@@ -247,6 +248,39 @@ func (p *StatefulSetManager) Delete(group, workspace, resourceName string, opt D
 		}
 		return nil
 	}
+}
+func (p *StatefulSetManager) Update(groupName, workspaceName string, resourceName string, data []byte) error {
+	p.locker.Lock()
+	defer p.locker.Unlock()
+
+	_, err := p.get(groupName, workspaceName, resourceName)
+	if err != nil {
+		return err
+	}
+
+	//说明是主动创建的..
+	var newr appv1beta1.StatefulSet
+	err = util.GetObjectFromYamlTemplate(data, &newr)
+	if err != nil {
+		return log.DebugPrint(err)
+	}
+	//
+	newr.ResourceVersion = ""
+
+	if newr.Name != resourceName {
+		return fmt.Errorf("invalid update data, name not match")
+	}
+
+	ph, err := cluster.NewStatefulSetHandler(groupName, workspaceName)
+	if err != nil {
+		return log.DebugPrint(err)
+	}
+	err = ph.Update(workspaceName, &newr)
+	if err != nil {
+		return log.DebugPrint(err)
+	}
+
+	return nil
 }
 
 func (statefulset *StatefulSet) Info() *StatefulSet {

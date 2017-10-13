@@ -33,6 +33,7 @@ type SecretController interface {
 	Create(group, workspace string, data []byte, opt CreateOptions) error
 	Delete(group, workspace, secret string, opt DeleteOption) error
 	Get(group, workspace, secret string) (SecretInterface, error)
+	Update(group, workspace, resource string, newdata []byte) error
 	List(group, workspace string) ([]SecretInterface, error)
 	ListGroup(group string) ([]SecretInterface, error)
 }
@@ -275,6 +276,39 @@ func (p *SecretManager) Delete(group, workspace, resourceName string, opt Delete
 	}
 }
 
+func (p *SecretManager) Update(groupName, workspaceName string, resourceName string, data []byte) error {
+	p.locker.Lock()
+	defer p.locker.Unlock()
+
+	_, err := p.get(groupName, workspaceName, resourceName)
+	if err != nil {
+		return err
+	}
+
+	//说明是主动创建的..
+	var newr corev1.Secret
+	err = util.GetObjectFromYamlTemplate(data, &newr)
+	if err != nil {
+		return log.DebugPrint(err)
+	}
+	//
+	newr.ResourceVersion = ""
+
+	if newr.Name != resourceName {
+		return fmt.Errorf("invalid update data, name not match")
+	}
+
+	ph, err := cluster.NewSecretHandler(groupName, workspaceName)
+	if err != nil {
+		return log.DebugPrint(err)
+	}
+	err = ph.Update(workspaceName, &newr)
+	if err != nil {
+		return log.DebugPrint(err)
+	}
+
+	return nil
+}
 func (secret *Secret) Info() *Secret {
 	return secret
 }
