@@ -37,6 +37,7 @@ type PodController interface {
 	Create(group, workspace string, data []byte, opt CreateOptions) error
 	Delete(group, workspace, pod string, opt DeleteOption) error
 	Get(group, workspace, pod string) (PodInterface, error)
+	Update(group, workspace, pod string, newdata []byte) error
 	List(group, workspace string) ([]PodInterface, error)
 	ListGroup(group string) ([]PodInterface, error)
 }
@@ -85,8 +86,7 @@ type Pod struct {
 	memoryOnly bool
 }
 
-type GetOptions struct {
-}
+type GetOptions struct{}
 type DeleteOption struct{}
 
 type CreateOptions struct {
@@ -228,6 +228,52 @@ func (p *PodManager) Create(groupName, workspaceName string, data []byte, opt Cr
 
 	return nil
 
+}
+
+func (p *PodManager) Update(groupName, workspaceName string, resourceName string, data []byte) error {
+	p.locker.Lock()
+	defer p.locker.Unlock()
+
+	_, err := p.get(groupName, workspaceName, resourceName)
+	if err != nil {
+		return err
+	}
+
+	//说明是主动创建的..
+	/*
+		if r.Info().Template != "" {
+
+		}
+	*/
+	//log.DebugPrint(string(data))
+	var newr corev1.Pod
+	/*
+		err = json.Unmarshal(data, &newr)
+		if err != nil {
+			return log.DebugPrint(err)
+		}
+	*/
+	err = util.GetObjectFromYamlTemplate(data, &newr)
+	if err != nil {
+		return log.DebugPrint(err)
+	}
+	//
+	newr.ResourceVersion = ""
+
+	if newr.Name != resourceName {
+		return fmt.Errorf("invalid update data, name not match")
+	}
+
+	ph, err := cluster.NewPodHandler(groupName, workspaceName)
+	if err != nil {
+		return log.DebugPrint(err)
+	}
+	err = ph.Update(workspaceName, &newr)
+	if err != nil {
+		return log.DebugPrint(err)
+	}
+
+	return nil
 }
 
 //无锁
@@ -463,32 +509,31 @@ func (p *Pod) GetStatus() (*Status, error) {
 }
 
 func (p *Pod) GetTemplate() (string, error) {
-	if !p.memoryOnly {
-		return p.Template, nil
-	} else {
-		return "", nil
-		/*
-			runtime, err := p.GetRuntimeDirect()
-			if err != nil {
-				return "", log.DebugPrint(err)
-			}
-			//pod := runtime.Pod
-			//		log.DebugPrint(pod.Kind)
-			//		log.DebugPrint(pod.APIVersion)
-			pod := runtime.Pod
-			if pod.Kind == "" {
-				pod.APIVersion = "v1"
-				pod.Kind = "Pod"
-			}
-
-			t, err := util.GetYamlTemplateFromObject(runtime.Pod)
-			if err != nil {
-				return "", log.DebugPrint(err)
-			}
-
-			return *t, nil
-		*/
+	/*
+		if !p.memoryOnly {
+			return p.Template, nil
+		} else {
+			return "", nil
+	*/
+	runtime, err := p.GetRuntimeDirect()
+	if err != nil {
+		return "", log.DebugPrint(err)
 	}
+	//pod := runtime.Pod
+	//		log.DebugPrint(pod.Kind)
+	//		log.DebugPrint(pod.APIVersion)
+	pod := runtime.Pod
+	if pod.Kind == "" {
+		pod.APIVersion = "v1"
+		pod.Kind = "Pod"
+	}
+
+	t, err := util.GetYamlTemplateFromObject(runtime.Pod)
+	if err != nil {
+		return "", log.DebugPrint(err)
+	}
+
+	return *t, nil
 }
 
 func (p *Pod) Log(containerName string) (string, error) {

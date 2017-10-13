@@ -33,6 +33,7 @@ type PodHandler interface {
 	Create(namespace string, pod *corev1.Pod) error
 	Log(namespace, podName string, containerName string, opt LogOption) (string, error)
 	Event(namespace, podName string) ([]corev1.Event, error)
+	Update(namespace string, pod *corev1.Pod) error
 }
 
 func NewPodHandler(group, workspace string) (PodHandler, error) {
@@ -66,6 +67,15 @@ func (h *podHandler) Get(namespace, name string, opt GetOptions) (*corev1.Pod, e
 func (h *podHandler) Create(namespace string, pod *corev1.Pod) error {
 	_, err := h.clientset.CoreV1().Pods(namespace).Create(pod)
 	return err
+}
+
+func (h *podHandler) Update(namespace string, newpod *corev1.Pod) error {
+	_, err := h.clientset.CoreV1().Pods(namespace).Update(newpod)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (h *podHandler) Delete(namespace, podName string) error {
