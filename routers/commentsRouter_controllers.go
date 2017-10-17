@@ -9,8 +9,29 @@ func init() {
 	beego.GlobalControllerRouter["ufleet-deploy/controllers:AppController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:AppController"],
 		beego.ControllerComments{
 			Method: "NewApp",
-			Router: `/`,
+			Router: `/:app/group/:group/workspace/:workspace`,
 			AllowHTTPMethods: []string{"Post"},
+			Params: nil})
+
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:AppController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:AppController"],
+		beego.ControllerComments{
+			Method: "DeleteApp",
+			Router: `/:app/group/:group/workspace/:workspace`,
+			AllowHTTPMethods: []string{"Delete"},
+			Params: nil})
+
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:AppController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:AppController"],
+		beego.ControllerComments{
+			Method: "GetApp",
+			Router: `/:app/group/:group/workspace/:workspace`,
+			AllowHTTPMethods: []string{"Get"},
+			Params: nil})
+
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:AppController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:AppController"],
+		beego.ControllerComments{
+			Method: "ListGroupApp",
+			Router: `/group/:group`,
+			AllowHTTPMethods: []string{"Get"},
 			Params: nil})
 
 	beego.GlobalControllerRouter["ufleet-deploy/controllers:ConfigMapController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:ConfigMapController"],

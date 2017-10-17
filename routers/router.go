@@ -20,6 +20,11 @@ func init() {
 				&controllers.TestController{},
 			),
 		),
+		beego.NSNamespace("/stack",
+			beego.NSInclude(
+				&controllers.AppController{},
+			),
+		),
 		beego.NSNamespace("/program",
 			beego.NSInclude(&controllers.ProgramController{}),
 		),

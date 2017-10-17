@@ -6,7 +6,8 @@ import (
 
 func Init() {
 	be := backend.NewBackendHandler()
-	storer = InitStore()
+	//	storer = InitStore()
+
 	/*
 		err := backend.RegisterWorkspaceNoticer(backend.ResourceApps)
 		if err != nil {

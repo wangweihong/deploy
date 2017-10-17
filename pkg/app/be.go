@@ -1,7 +1,6 @@
 package app
 
 import (
-	"encoding/json"
 	"ufleet-deploy/deploy/backend"
 )
 
@@ -9,6 +8,7 @@ const (
 	backendKind = backend.ResourceApps
 )
 
+/*
 var (
 	storer Store
 )
@@ -69,3 +69,4 @@ func InitStore() Store {
 	be := backend.NewBackendHandler()
 	return store{BackendHandler: be}
 }
+*/

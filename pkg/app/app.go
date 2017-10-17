@@ -3,6 +3,7 @@ package app
 import (
 	"fmt"
 	"strings"
+	"ufleet-deploy/pkg/backend"
 	"ufleet-deploy/pkg/log"
 	"ufleet-deploy/pkg/option"
 	"ufleet-deploy/pkg/resource"
@@ -12,32 +13,24 @@ var (
 	Controller AppController
 	sm         *AppMananger
 
-	ErrAppNotFound       = fmt.Errorf("app not found")
-	ErrAppExists         = fmt.Errorf("app exists")
+	ErrResourceNotFound  = fmt.Errorf("app not found")
+	ErrResourceExists    = fmt.Errorf("app exists")
 	ErrGroupNotFound     = fmt.Errorf("group not found")
 	ErrWorkspaceNotFound = fmt.Errorf("workspace not found")
 )
 
 func IsAppNotFound(err error) bool {
-	if strings.HasPrefix(err.Error(), ErrAppNotFound.Error()) {
+	if strings.HasPrefix(err.Error(), ErrResourceNotFound.Error()) {
 		return true
 	}
 	return false
 }
 
 func IsAppExists(err error) bool {
-	if strings.HasPrefix(err.Error(), ErrAppExists.Error()) {
+	if strings.HasPrefix(err.Error(), ErrResourceExists.Error()) {
 		return true
 	}
 	return false
-}
-
-type AppGetter interface {
-	AppIF(group, workspaceName, name string) (AppInterface, error)
-}
-
-type AppLister interface {
-	AppIFs(group string, opt ListOptions) ([]AppInterface, error)
 }
 
 type AppInterface interface {
@@ -67,7 +60,7 @@ func (s *App) RemoveResource(kind string, name string, flush bool) error {
 	key := generateResourceKey(kind, name)
 	_, ok := s.Resources[key]
 	if !ok {
-		return ErrAppNotFound
+		return ErrResourceNotFound
 	}
 
 	rc, err := resource.GetResourceControllerFromKind(kind)
@@ -88,7 +81,9 @@ func (s *App) RemoveResource(kind string, name string, flush bool) error {
 
 	//flush - 刷新到后端存储
 	if flush {
-		err := storer.Update(s.Group, s.Workspace, s.Name, s)
+		be := backend.NewBackendHandler()
+		//		err := storer.Update(s.Group, s.Workspace, s.Name, s)
+		err := be.UpdateResource(backendKind, s.Group, s.Workspace, s.Name, s)
 		if err != nil {
 			return log.DebugPrint(err)
 		}

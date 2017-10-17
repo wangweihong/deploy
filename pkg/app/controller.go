@@ -7,13 +7,15 @@ import (
 	"sync"
 	"ufleet-deploy/pkg/backend"
 	"ufleet-deploy/pkg/log"
+	"ufleet-deploy/pkg/resource/pod"
+	"ufleet-deploy/pkg/resource/util"
 )
 
 type AppController interface {
-	NewApp(group, workspace, app, describe string, opt CreateOptions) error
+	NewApp(group, workspace, app string, describe []byte, opt CreateOptions) error
 	DeleteApp(group, workspace, app string, opt DeleteOptions) error
-	AppGetter
-	AppLister
+	Get(group, workspaceName, name string) (AppInterface, error)
+	List(group string, opt ListOptions) ([]AppInterface, error)
 }
 
 type Backend interface {
@@ -77,12 +79,13 @@ type Locker interface {
 	Unlock()
 }
 
-func (sm *AppMananger) NewApp(groupName, workspaceName, appName string, desc string, opt CreateOptions) error {
+func (sm *AppMananger) NewApp(groupName, workspaceName, appName string, desc []byte, opt CreateOptions) error {
 	sm.Locker.Lock()
 	defer sm.Locker.Unlock()
-	_, err := sm.AppIF(groupName, workspaceName, appName)
-	if err == nil || IsAppNotFound(err) {
-		return ErrAppExists
+
+	_, err := sm.get(groupName, workspaceName, appName)
+	if err == nil {
+		return ErrResourceExists
 	}
 	//加锁
 	//
@@ -90,40 +93,122 @@ func (sm *AppMananger) NewApp(groupName, workspaceName, appName string, desc str
 	stack.Name = appName
 	stack.Group = groupName
 	stack.Workspace = workspaceName
+	stack.Templates = make([]string, 0)
+	stack.Resources = make(map[string]Resource)
 
-	err = storer.Create(groupName, workspaceName, appName, stack)
+	be := backend.NewBackendHandler()
+	//	err = storer.Create(groupName, workspaceName, appName, stack)
+	err = be.CreateResource(backendKind, groupName, workspaceName, appName, stack)
 	if err != nil {
 		return log.DebugPrint(err)
 	}
 
-	if len(strings.TrimSpace(desc)) == 0 {
+	if len(desc) == 0 {
 		return nil
 	} else {
-	}
-	return nil
-
-}
-
-func (sm *AppMananger) AppIF(groupName, workspaceName, name string) (AppInterface, error) {
-	var opt ListOptions
-	opt.Workspace = &workspaceName
-
-	sis, err := sm.AppIFs(groupName, opt)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, v := range sis {
-		app := v.Info()
-		if app.Name == name {
-			return v, nil
+		exts, uerr := util.ParseJsonOrYaml(desc)
+		if uerr != nil {
+			return log.DebugPrint(uerr)
 		}
+		if len(exts) == 0 {
+			return log.DebugPrint("must  offer  resource json/yaml data")
+		}
+
+		var err error
+		for _, v := range exts {
+			tmp := struct {
+				Kind     string `json:"kind"`
+				MetaData struct {
+					Name string `json:"name"`
+				} `json:"metadata"`
+			}{}
+			var res Resource
+
+			err = json.Unmarshal(v.Raw, &tmp)
+			if err != nil {
+				err = log.ErrorPrint("create app "+appName+" fail for %v", err)
+				goto CleanApp
+			} else {
+				if strings.TrimSpace(tmp.Kind) == "" || strings.TrimSpace(tmp.MetaData.Name) == "" {
+					err = log.ErrorPrint("create app " + appName + " fail for resource kind or name not set")
+					goto CleanApp
+				}
+
+				res.Name = tmp.MetaData.Name
+				res.Kind = tmp.Kind
+			}
+			key := generateResourceKey("Pod", res.Name)
+
+			if _, ok := stack.Resources[key]; ok {
+				err = log.ErrorPrint("duplicate resource")
+				goto CleanApp
+			}
+
+			switch res.Kind {
+			case "Pod":
+				opt := pod.CreateOptions{}
+				opt.App = &appName
+				err = pod.Controller.Create(groupName, workspaceName, v.Raw, opt)
+				if err != nil {
+					goto CleanApp
+				}
+
+				stack.Templates = append(stack.Templates, string(v.Raw))
+				stack.Resources[key] = res
+
+				//err = storer.Update(groupName, workspaceName, appName, stack)
+				err = be.UpdateResource(backendKind, groupName, workspaceName, appName, stack)
+				if err != nil {
+					err2 := pod.Controller.Delete(groupName, workspaceName, res.Name, pod.DeleteOption{})
+					if err2 != nil {
+						log.ErrorPrint(err2)
+					}
+					goto CleanApp
+				}
+
+			default:
+				err = fmt.Errorf("rsource kind " + res.Kind + " is not supported")
+				goto CleanApp
+			}
+
+		}
+		return nil
+	CleanApp:
+		//err2 := storer.Delete(groupName, workspaceName, appName)
+		err2 := be.DeleteResource(backendKind, groupName, workspaceName, appName)
+		if err2 != nil {
+			log.ErrorPrint(err2)
+		}
+		return err
+	}
+}
+func (sm *AppMananger) get(groupName, workspaceName, name string) (*App, error) {
+	group, ok := sm.Groups[groupName]
+	if !ok {
+		return nil, ErrGroupNotFound
 	}
 
-	return nil, ErrAppNotFound
+	workspace, ok := group.Workspaces[workspaceName]
+	if !ok {
+		return nil, ErrWorkspaceNotFound
+	}
+
+	app, ok := workspace.Apps[name]
+	if !ok {
+		return nil, ErrResourceNotFound
+	}
+	return &app, nil
+
 }
 
-func (sm *AppMananger) AppIFs(groupName string, opt ListOptions) ([]AppInterface, error) {
+func (sm *AppMananger) Get(groupName, workspaceName, name string) (AppInterface, error) {
+	sm.Locker.Lock()
+	defer sm.Locker.Unlock()
+
+	return sm.get(groupName, workspaceName, name)
+}
+
+func (sm *AppMananger) List(groupName string, opt ListOptions) ([]AppInterface, error) {
 	sm.Locker.Lock()
 	defer sm.Locker.Unlock()
 
@@ -156,19 +241,34 @@ func (sm *AppMananger) AppIFs(groupName string, opt ListOptions) ([]AppInterface
 }
 
 func (sm *AppMananger) DeleteApp(groupName, workspaceName, name string, opt DeleteOptions) error {
-	si, err := sm.AppIF(groupName, workspaceName, name)
+	sm.Locker.Lock()
+	defer sm.Locker.Unlock()
+
+	si, err := sm.get(groupName, workspaceName, name)
 	if err != nil {
 		return err
 	}
-
+	be := backend.NewBackendHandler()
 	app := si.Info()
+
+	err = be.DeleteResource(backendKind, groupName, workspaceName, name)
+	if err != nil {
+		return log.DebugPrint(err)
+	}
+
+	/*
+		for _, v := range app.Resources {
+			//通知所有资源移除
+		}
+	*/
 
 	for _, v := range app.Resources {
 
 		key := generateResourceKey(v.Kind, v.Name)
 		err := si.RemoveResource(v.Kind, v.Name, false)
 		if err != nil {
-			err2 := storer.Update(groupName, workspaceName, v.Name, app)
+			//		err2 := storer.Update(groupName, workspaceName, v.Name, app)
+			err2 := be.UpdateResource(backendKind, groupName, workspaceName, v.Name, app)
 			if err2 != nil {
 				log.DebugPrint("store to app backend fail for %v", err)
 			}
@@ -178,7 +278,8 @@ func (sm *AppMananger) DeleteApp(groupName, workspaceName, name string, opt Dele
 	}
 	//删应用
 	if !opt.MemoryOnly {
-		err := storer.Delete(groupName, workspaceName, app.Name)
+		//	err := storer.Delete(groupName, workspaceName, app.Name)
+		err := be.DeleteResource(backendKind, groupName, workspaceName, app.Name)
 		if err != nil {
 			return log.DebugPrint(err)
 		}

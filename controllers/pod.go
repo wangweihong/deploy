@@ -14,6 +14,7 @@ type PodController struct {
 type PodState struct {
 	Name       string    `json:"name"`
 	User       string    `json:"user"`
+	App        string    `json:"app"`
 	Workspace  string    `json:"workspace"`
 	CreateTime int64     `json:"createtime"`
 	Reason     string    `json:"reason"`
@@ -28,6 +29,7 @@ func GetPodState(pi pk.PodInterface) PodState {
 	ps.User = pod.User
 	ps.CreateTime = pod.CreateTime
 	ps.Workspace = pod.Workspace
+	ps.App = pod.AppStack
 
 	status, err := pi.GetStatus()
 	if err != nil {
@@ -176,6 +178,7 @@ func (this *PodController) ListGroupPods() {
 // @Param Token header string true 'Token'
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
+// @Param app path string true "栈名"
 // @Param body body string true "资源描述"
 // @Success 201 {string} create success!
 // @Failure 500

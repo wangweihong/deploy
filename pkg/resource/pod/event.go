@@ -13,6 +13,12 @@ const (
 	eGroup            = "group"
 	eWorkspace        = "workspace"
 	eResource         = "resource"
+
+	NoticeStackEventDelete NoticeStackEvent = "delete"
+)
+
+type (
+	NoticeStackEvent string
 )
 
 func HandleClusterResourceEvent() {
@@ -201,3 +207,13 @@ func EventHandler(e backend.ResourceEvent) {
 		return
 	}
 }
+
+func NoticeStack(stack string, e NoticeStackEvent) {
+	switch e {
+	case NoticeStackEventDelete:
+
+	}
+
+}
+
+func HandleStackEvent(stack string) {}
