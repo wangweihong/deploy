@@ -387,8 +387,8 @@ type ContainerSpec struct {
 	Env                      []corev1.EnvVar                 `json:"env"`
 	Resources                corev1.ResourceRequirements     `json:"resources"`
 	VolumeMounts             []corev1.VolumeMount            `json:"volumeMounts"`
-	LivenessProbe            *corev1.Probe                   `json:"livenessProbe"`
-	ReadinessProbe           *corev1.Probe                   `json:"readinessProbe"`
+	LivenessProbe            *Probe                          `json:"livenessProbe"`
+	ReadinessProbe           *Probe                          `json:"readinessProbe"`
 	Lifecycle                *corev1.Lifecycle               `json:"lifecycle"`
 	TerminationMessagePath   string                          `json:"terminationMessagePath"`
 	TerminationMessagePolicy corev1.TerminationMessagePolicy `json:"terminationMessagePolicy"`
@@ -397,6 +397,10 @@ type ContainerSpec struct {
 	StdinOnce                bool                            `json:"stdinOnce"`
 	Stdin                    bool                            `json:"stdin"`
 	TTY                      bool                            `json:"tty"`
+}
+type Probe struct {
+	*corev1.Probe
+	Type string `json:"type"`
 }
 
 func k8sContainerSpecTran(cspec *corev1.Container) *ContainerSpec {
@@ -428,8 +432,42 @@ func k8sContainerSpecTran(cspec *corev1.Container) *ContainerSpec {
 	if len(cspec.VolumeMounts) != 0 {
 		cs.VolumeMounts = cspec.VolumeMounts
 	}
-	cs.LivenessProbe = cspec.LivenessProbe
-	cs.ReadinessProbe = cspec.ReadinessProbe
+	//cs.LivenessProbe = cspec.LivenessProbe
+	//cs.ReadinessProbe = cspec.ReadinessProbe
+	var lp Probe
+	if cspec.LivenessProbe != nil {
+		if cspec.LivenessProbe.Exec != nil {
+			lp = Probe{Probe: cspec.LivenessProbe, Type: "EXEC"}
+		}
+		if cspec.LivenessProbe.HTTPGet != nil {
+			lp = Probe{Probe: cspec.LivenessProbe, Type: "HTTP"}
+		}
+		if cspec.LivenessProbe.TCPSocket != nil {
+			lp = Probe{Probe: cspec.LivenessProbe, Type: "TCP"}
+		}
+
+		cs.LivenessProbe = &lp
+	} else {
+		cs.LivenessProbe = nil
+	}
+
+	var rp Probe
+	if cspec.ReadinessProbe != nil {
+		if cspec.ReadinessProbe.Exec != nil {
+			rp = Probe{Probe: cspec.ReadinessProbe, Type: "EXEC"}
+		}
+		if cspec.ReadinessProbe.HTTPGet != nil {
+			rp = Probe{Probe: cspec.ReadinessProbe, Type: "HTTP"}
+		}
+		if cspec.ReadinessProbe.TCPSocket != nil {
+			rp = Probe{Probe: cspec.ReadinessProbe, Type: "TCP"}
+		}
+
+		cs.LivenessProbe = &rp
+	} else {
+		cs.LivenessProbe = nil
+	}
+
 	cs.Lifecycle = cspec.Lifecycle
 	cs.TerminationMessagePath = cspec.TerminationMessagePath
 	cs.TerminationMessagePolicy = cspec.TerminationMessagePolicy
