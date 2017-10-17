@@ -189,6 +189,44 @@ func (this *JobController) CreateJob() {
 	this.normalReturn("ok")
 }
 
+// UpdateJob
+// @Title Job
+// @Description  更新Job
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Param workspace path string true "工作区"
+// @Param job path string true "Job"
+// @Param body body string true "资源描述"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /:job/group/:group/workspace/:workspace [Put]
+func (this *JobController) UpdateJob() {
+
+	//token := this.Ctx.Request.Header.Get("token")
+	group := this.Ctx.Input.Param(":group")
+	workspace := this.Ctx.Input.Param(":workspace")
+	job := this.Ctx.Input.Param(":job")
+
+	if this.Ctx.Input.RequestBody == nil {
+		err := fmt.Errorf("must commit resource json/yaml data")
+		this.errReturn(err, 500)
+		return
+	}
+
+	/*
+		ui := user.NewUserClient(token)
+		ui.GetUserName()
+	*/
+
+	err := jk.Controller.Update(group, workspace, job, this.Ctx.Input.RequestBody)
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+
+	this.normalReturn("ok")
+}
+
 // DeleteJob
 // @Title Job
 // @Description  DeleteeJob

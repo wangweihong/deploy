@@ -161,6 +161,44 @@ func (this *SecretController) CreateSecret() {
 	this.normalReturn("ok")
 }
 
+// UpdateSecret
+// @Title Secret
+// @Description  更新secret
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Param workspace path string true "工作区"
+// @Param secret path string true "secret"
+// @Param body body string true "资源描述"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /:secret/group/:group/workspace/:workspace [Put]
+func (this *SecretController) UpdateSecret() {
+
+	//token := this.Ctx.Request.Header.Get("token")
+	group := this.Ctx.Input.Param(":group")
+	workspace := this.Ctx.Input.Param(":workspace")
+	secret := this.Ctx.Input.Param(":secret")
+
+	if this.Ctx.Input.RequestBody == nil {
+		err := fmt.Errorf("must commit resource json/yaml data")
+		this.errReturn(err, 500)
+		return
+	}
+
+	/*
+		ui := user.NewUserClient(token)
+		ui.GetUserName()
+	*/
+
+	err := pk.Controller.Update(group, workspace, secret, this.Ctx.Input.RequestBody)
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+
+	this.normalReturn("ok")
+}
+
 // DeleteSecret
 // @Title Secret
 // @Description   Secret

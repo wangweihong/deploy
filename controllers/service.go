@@ -160,6 +160,44 @@ func (this *ServiceController) CreateService() {
 	this.normalReturn("ok")
 }
 
+// UpdateService
+// @Title Service
+// @Description  更新容器组
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Param workspace path string true "工作区"
+// @Param service path string true "容器组"
+// @Param body body string true "资源描述"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /:service/group/:group/workspace/:workspace [Put]
+func (this *ServiceController) UpdateService() {
+
+	//token := this.Ctx.Request.Header.Get("token")
+	group := this.Ctx.Input.Param(":group")
+	workspace := this.Ctx.Input.Param(":workspace")
+	service := this.Ctx.Input.Param(":service")
+
+	if this.Ctx.Input.RequestBody == nil {
+		err := fmt.Errorf("must commit resource json/yaml data")
+		this.errReturn(err, 500)
+		return
+	}
+
+	/*
+		ui := user.NewUserClient(token)
+		ui.GetUserName()
+	*/
+
+	err := pk.Controller.Update(group, workspace, service, this.Ctx.Input.RequestBody)
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+
+	this.normalReturn("ok")
+}
+
 // DeleteService
 // @Title Service
 // @Description   Service

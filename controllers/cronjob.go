@@ -190,6 +190,44 @@ func (this *CronJobController) CreateCronJob() {
 	this.normalReturn("ok")
 }
 
+// UpdateCronJob
+// @Title CronJob
+// @Description  更新容器组
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Param workspace path string true "工作区"
+// @Param cronjob path string true "容器组"
+// @Param body body string true "资源描述"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /:cronjob/group/:group/workspace/:workspace [Put]
+func (this *CronJobController) UpdateCronJob() {
+
+	//token := this.Ctx.Request.Header.Get("token")
+	group := this.Ctx.Input.Param(":group")
+	workspace := this.Ctx.Input.Param(":workspace")
+	cronjob := this.Ctx.Input.Param(":cronjob")
+
+	if this.Ctx.Input.RequestBody == nil {
+		err := fmt.Errorf("must commit resource json/yaml data")
+		this.errReturn(err, 500)
+		return
+	}
+
+	/*
+		ui := user.NewUserClient(token)
+		ui.GetUserName()
+	*/
+
+	err := ck.Controller.Update(group, workspace, cronjob, this.Ctx.Input.RequestBody)
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+
+	this.normalReturn("ok")
+}
+
 // DeleteCronJob
 // @Title CronJob
 // @Description   CronJob

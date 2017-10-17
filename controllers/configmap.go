@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	sk "ufleet-deploy/pkg/resource/configmap"
+	pk "ufleet-deploy/pkg/resource/statefulset"
 )
 
 type ConfigMapController struct {
@@ -177,6 +178,44 @@ func (this *ConfigMapController) DeleteConfigMap() {
 	configmap := this.Ctx.Input.Param(":configmap")
 
 	err := sk.Controller.Delete(group, workspace, configmap, sk.DeleteOption{})
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+
+	this.normalReturn("ok")
+}
+
+// UpdateConfigMap
+// @Title ConfigMap
+// @Description  更新配置表
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Param workspace path string true "工作区"
+// @Param configmap path string true "配置表"
+// @Param body body string true "资源描述"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /:configmap/group/:group/workspace/:workspace [Put]
+func (this *ConfigMapController) UpdateConfigMap() {
+
+	//token := this.Ctx.Request.Header.Get("token")
+	group := this.Ctx.Input.Param(":group")
+	workspace := this.Ctx.Input.Param(":workspace")
+	configmap := this.Ctx.Input.Param(":configmap")
+
+	if this.Ctx.Input.RequestBody == nil {
+		err := fmt.Errorf("must commit resource json/yaml data")
+		this.errReturn(err, 500)
+		return
+	}
+
+	/*
+		ui := user.NewUserClient(token)
+		ui.GetUserName()
+	*/
+
+	err := pk.Controller.Update(group, workspace, configmap, this.Ctx.Input.RequestBody)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
