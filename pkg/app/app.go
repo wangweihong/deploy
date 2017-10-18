@@ -1,12 +1,13 @@
 package app
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"ufleet-deploy/pkg/backend"
 	"ufleet-deploy/pkg/log"
-	"ufleet-deploy/pkg/option"
 	"ufleet-deploy/pkg/resource"
+	"ufleet-deploy/pkg/resource/util"
 )
 
 var (
@@ -36,7 +37,7 @@ func IsAppExists(err error) bool {
 type AppInterface interface {
 	GetTemplates()
 	GetResources()
-	AddResources()
+	AddResources([]byte, bool) error
 	RemoveResource(kind string, name string, flush bool) error
 	Info() App
 }
@@ -49,13 +50,85 @@ func (s *App) GetTemplates() {
 }
 
 func (s *App) GetResources() {}
-func (s *App) AddResources() {}
+func (s *App) AddResources(desc []byte, flush bool) error {
+	appName := s.Name
+	groupName := s.Group
+	workspaceName := s.Workspace
+	be := backend.NewBackendHandler()
+	exts, uerr := util.ParseJsonOrYaml(desc)
+	if uerr != nil {
+		return log.DebugPrint(uerr)
+	}
+	if len(exts) == 0 {
+		return log.DebugPrint("must  offer  resource json/yaml data")
+	}
+
+	var err error
+	for _, v := range exts {
+		tmp := struct {
+			Kind     string `json:"kind"`
+			MetaData struct {
+				Name string `json:"name"`
+			} `json:"metadata"`
+		}{}
+		var res Resource
+
+		err = json.Unmarshal(v.Raw, &tmp)
+		if err != nil {
+			err = log.ErrorPrint("create app "+appName+" fail for %v", err)
+			return err
+		} else {
+			if strings.TrimSpace(tmp.Kind) == "" || strings.TrimSpace(tmp.MetaData.Name) == "" {
+				err = log.ErrorPrint("create app " + appName + " fail for resource kind or name not set")
+				return err
+			}
+
+			res.Name = tmp.MetaData.Name
+			res.Kind = tmp.Kind
+		}
+		key := generateResourceKey("Pod", res.Name)
+
+		if _, ok := s.Resources[key]; ok {
+			err = log.ErrorPrint("duplicate resource")
+			return err
+		}
+
+		var rcud resource.RCUD
+		rcud, err = resource.GetResourceCUD(res.Kind)
+		if err != nil {
+			return log.DebugPrint(err)
+		}
+
+		opt := resource.CreateOption{}
+		opt.App = &appName
+		err = rcud.Create(groupName, workspaceName, v.Raw, opt)
+		if err != nil {
+			return log.DebugPrint(err)
+		}
+		s.Resources[key] = res
+
+		if flush {
+			err = be.UpdateResource(backendKind, groupName, workspaceName, appName, s)
+			if err != nil {
+				err2 := rcud.Delete(groupName, workspaceName, res.Name, resource.DeleteOption{})
+				if err2 != nil {
+					log.ErrorPrint(err2)
+				}
+				return log.DebugPrint(err)
+			}
+		}
+
+	}
+	return nil
+}
 
 func (s *App) Info() App {
 	return *s
 }
 
 //更新etcd的数据
+//如果flush==true,则说明是一个删除应用触发的删除资源操作,
+//不需要刷新到etcd,触发eventWatcher
 func (s *App) RemoveResource(kind string, name string, flush bool) error {
 	key := generateResourceKey(kind, name)
 	_, ok := s.Resources[key]
@@ -63,24 +136,22 @@ func (s *App) RemoveResource(kind string, name string, flush bool) error {
 		return ErrResourceNotFound
 	}
 
-	rc, err := resource.GetResourceControllerFromKind(kind)
+	rcud, err := resource.GetResourceCUD(kind)
 	if err != nil {
 		return err
 	}
 
-	opt := option.DeleteOption{}
-	opt.Group = s.Group
-	opt.Workspace = s.Name
-	opt.Name = name
-	err = rc.Delete(opt)
-	//忽略not found
-	if err != nil || !resource.IsErrorNotFound(err) {
-		return log.DebugPrint(err)
+	opt := resource.DeleteOption{}
+	if !flush {
+		opt.DontCallApp = true
 	}
-	delete(s.Resources, key)
-
-	//flush - 刷新到后端存储
+	err = rcud.Delete(s.Group, s.Workspace, name, opt)
+	if err != nil && !resource.IsErrorNotFound(err) {
+		return err
+	}
 	if flush {
+		delete(s.Resources, key)
+
 		be := backend.NewBackendHandler()
 		//		err := storer.Update(s.Group, s.Workspace, s.Name, s)
 		err := be.UpdateResource(backendKind, s.Group, s.Workspace, s.Name, s)
@@ -88,8 +159,8 @@ func (s *App) RemoveResource(kind string, name string, flush bool) error {
 			return log.DebugPrint(err)
 		}
 	}
-
 	return nil
+
 }
 
 type AppGroup struct {
@@ -101,7 +172,6 @@ type AppWorkspace struct {
 }
 
 type App struct {
-	Templates []string            `json:"templates"` //各个resource的模板集合,yaml
 	Name      string              `json:"name"`
 	Group     string              `json:"group"`
 	Workspace string              `json:"workspace"`

@@ -32,7 +32,7 @@ func (this *AppController) NewApp() {
 		return
 	}
 
-	var opt app.CreateOptions
+	var opt app.CreateOption
 	err := app.Controller.NewApp(group, workspace, appName, this.Ctx.Input.RequestBody, opt)
 	if err != nil {
 		this.errReturn(err, 500)
@@ -58,7 +58,7 @@ func (this *AppController) DeleteApp() {
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
 
-	err := app.Controller.DeleteApp(group, workspace, appName, app.DeleteOptions{})
+	err := app.Controller.DeleteApp(group, workspace, appName, app.DeleteOption{})
 	if err != nil {
 		this.errReturn(err, 500)
 		return
@@ -104,7 +104,7 @@ func (this *AppController) ListGroupApp() {
 
 	group := this.Ctx.Input.Param(":group")
 
-	ais, err := app.Controller.List(group, app.ListOptions{})
+	ais, err := app.Controller.List(group, app.ListOption{})
 	if err != nil {
 		this.errReturn(err, 500)
 		return

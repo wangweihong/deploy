@@ -3,6 +3,7 @@ package controllers
 import (
 	"encoding/json"
 	"fmt"
+	"ufleet-deploy/pkg/resource"
 	pk "ufleet-deploy/pkg/resource/pod"
 	//	"ufleet-deploy/util/user"
 )
@@ -200,7 +201,7 @@ func (this *PodController) CreatePod() {
 		ui.GetUserName()
 	*/
 
-	var opt pk.CreateOptions
+	var opt resource.CreateOption
 	err := pk.Controller.Create(group, workspace, this.Ctx.Input.RequestBody, opt)
 	if err != nil {
 		this.errReturn(err, 500)
@@ -226,7 +227,7 @@ func (this *PodController) DeletePod() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	pod := this.Ctx.Input.Param(":pod")
 
-	err := pk.Controller.Delete(group, workspace, pod, pk.DeleteOption{})
+	err := pk.Controller.Delete(group, workspace, pod, resource.DeleteOption{})
 	if err != nil {
 		this.errReturn(err, 500)
 		return

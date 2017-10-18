@@ -9,6 +9,7 @@ import (
 	"ufleet-deploy/pkg/backend"
 	"ufleet-deploy/pkg/cluster"
 	"ufleet-deploy/pkg/log"
+	"ufleet-deploy/pkg/resource"
 	"ufleet-deploy/pkg/resource/util"
 	cadvisor "ufleet-deploy/util/cadvisor"
 
@@ -34,8 +35,8 @@ var (
 )
 
 type PodController interface {
-	Create(group, workspace string, data []byte, opt CreateOptions) error
-	Delete(group, workspace, pod string, opt DeleteOption) error
+	Create(group, workspace string, data []byte, opt resource.CreateOption) error
+	Delete(group, workspace, pod string, opt resource.DeleteOption) error
 	Get(group, workspace, pod string) (PodInterface, error)
 	Update(group, workspace, resource string, newdata []byte) error
 	List(group, workspace string) ([]PodInterface, error)
@@ -86,6 +87,7 @@ type Pod struct {
 	memoryOnly bool
 }
 
+/*
 type GetOptions struct{}
 type DeleteOption struct{}
 
@@ -95,6 +97,7 @@ type CreateOptions struct {
 	App  *string //所属app
 	User string  //创建的用户
 }
+*/
 
 //注意这里没锁
 func (p *PodManager) get(groupName, workspaceName, podName string) (*Pod, error) {
@@ -172,7 +175,7 @@ func (p *PodManager) ListGroup(groupName string) ([]PodInterface, error) {
 	return pis, nil
 }
 
-func (p *PodManager) Create(groupName, workspaceName string, data []byte, opt CreateOptions) error {
+func (p *PodManager) Create(groupName, workspaceName string, data []byte, opt resource.CreateOption) error {
 
 	p.locker.Lock()
 	defer p.locker.Unlock()
@@ -281,7 +284,7 @@ func (p *PodManager) delete(groupName, workspaceName, podName string) error {
 	return nil
 }
 
-func (p *PodManager) Delete(group, workspace, podName string, opt DeleteOption) error {
+func (p *PodManager) Delete(group, workspace, podName string, opt resource.DeleteOption) error {
 	ph, err := cluster.NewPodHandler(group, workspace)
 	if err != nil {
 		return log.DebugPrint(err)
@@ -308,12 +311,27 @@ func (p *PodManager) Delete(group, workspace, podName string, opt DeleteOption) 
 		if err != nil {
 			return log.DebugPrint(err)
 		}
+
 		err = ph.Delete(workspace, podName)
 		if err != nil {
 			if !apierrors.IsNotFound(err) {
 				return log.DebugPrint(err)
 			}
 		}
+		if !opt.DontCallApp && pod.AppStack != "" {
+			go func() {
+				var re resource.ResourceEvent
+				re.Group = group
+				re.Workspace = workspace
+				re.Kind = resourceKind
+				re.Action = resource.ResourceActionDelete
+				re.Resource = podName
+				re.App = pod.AppStack
+
+				resource.ResourceEventChan <- re
+			}()
+		}
+
 		return nil
 	}
 }

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"ufleet-deploy/pkg/backend"
 	"ufleet-deploy/pkg/log"
+	"ufleet-deploy/pkg/resource"
 )
 
 const (
@@ -29,6 +30,7 @@ func EventHandler(e backend.ResourceEvent) {
 			etype = eWorkspace
 		}
 	}
+	log.DebugPrint("recieve app event", e)
 	switch e.Action {
 	case backend.ActionDelete:
 		//这是一个组事件
@@ -119,4 +121,31 @@ func EventHandler(e backend.ResourceEvent) {
 		log.ErrorPrint("app watcher:ingore invalid action:", e.Action)
 		return
 	}
+}
+
+func ResourceEventHandler() {
+	for {
+		e := <-resource.ResourceEventChan
+		go rehandler(e)
+	}
+
+}
+
+func rehandler(e resource.ResourceEvent) {
+	sm.Locker.Lock()
+	defer sm.Locker.Unlock()
+
+	app, err := sm.get(e.Group, e.Workspace, e.App)
+	if err != nil {
+		log.ErrorPrint(err)
+		return
+	}
+
+	err = app.RemoveResource(e.Kind, e.Resource, true)
+	if err != nil {
+		log.ErrorPrint(err)
+		return
+	}
+
+	return
 }

@@ -28,4 +28,6 @@ func Init() {
 	//注册事件,一旦etcd后端出现事件,进行清理
 	backend.RegisterEventHandler(backend.ResourceApps, EventHandler)
 
+	go ResourceEventHandler()
+
 }
