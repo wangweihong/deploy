@@ -179,7 +179,6 @@ func (this *PodController) ListGroupPods() {
 // @Param Token header string true 'Token'
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
-// @Param app path string true "栈名"
 // @Param body body string true "资源描述"
 // @Success 201 {string} create success!
 // @Failure 500

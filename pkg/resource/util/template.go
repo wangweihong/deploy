@@ -17,6 +17,20 @@ import (
 )
 
 func GetObjectFromYamlTemplate(template []byte, obj interface{}) error {
+	exts, err := ParseJsonOrYaml(template)
+	if err != nil {
+		return log.DebugPrint(err)
+	}
+	if len(exts) != 1 {
+		return log.DebugPrint("must  offer only one  resource json/yaml data")
+	}
+
+	err = json.Unmarshal(exts[0].Raw, &obj)
+	if err != nil {
+		return err
+	}
+	return nil
+
 	/*
 		f := cmdutil.NewFactory(nil)
 		decoder := f.Decoder(false)
@@ -26,12 +40,14 @@ func GetObjectFromYamlTemplate(template []byte, obj interface{}) error {
 		}
 		return nil
 	*/
-	data, err := ghyaml.JSONToYAML(template)
-	if err != nil {
-		return err
-	}
+	/*
+		data, err := ghyaml.JSONToYAML(template)
+		if err != nil {
+			return log.DebugPrint(err)
+		}
 
-	return json.Unmarshal(data, &obj)
+		return json.Unmarshal(data, &obj)
+	*/
 
 }
 

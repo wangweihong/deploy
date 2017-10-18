@@ -242,9 +242,19 @@ func (p *PodManager) Update(groupName, workspaceName string, resourceName string
 		return err
 	}
 
+	exts, err := util.ParseJsonOrYaml(data)
+	if err != nil {
+		return log.DebugPrint(err)
+	}
+	if len(exts) != 1 {
+		return log.DebugPrint("must  offer only one  resource json/yaml data")
+	}
+
 	//说明是主动创建的..
 	var newr corev1.Pod
-	err = util.GetObjectFromYamlTemplate(data, &newr)
+	//	err = util.GetObjectFromYamlTemplate(data, &newr)
+	//	err = util.GetObjectFromYamlTemplate(exts[0].Raw, &newr)
+	err = json.Unmarshal(exts[0].Raw, &newr)
 	if err != nil {
 		return log.DebugPrint(err)
 	}
