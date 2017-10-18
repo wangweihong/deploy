@@ -3,6 +3,7 @@ package controllers
 import (
 	"encoding/json"
 	"fmt"
+	"ufleet-deploy/pkg/resource"
 	sk "ufleet-deploy/pkg/resource/secret"
 	pk "ufleet-deploy/pkg/resource/statefulset"
 )
@@ -151,7 +152,7 @@ func (this *SecretController) CreateSecret() {
 		ui.GetUserName()
 	*/
 
-	var opt pk.CreateOptions
+	var opt resource.CreateOption
 	err := pk.Controller.Create(group, workspace, this.Ctx.Input.RequestBody, opt)
 	if err != nil {
 		this.errReturn(err, 500)
@@ -215,7 +216,7 @@ func (this *SecretController) DeleteSecret() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	secret := this.Ctx.Input.Param(":secret")
 
-	err := sk.Controller.Delete(group, workspace, secret, sk.DeleteOption{})
+	err := sk.Controller.Delete(group, workspace, secret, resource.DeleteOption{})
 	if err != nil {
 		this.errReturn(err, 500)
 		return

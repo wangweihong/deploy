@@ -8,6 +8,7 @@ import (
 	"ufleet-deploy/pkg/backend"
 	"ufleet-deploy/pkg/cluster"
 	"ufleet-deploy/pkg/log"
+	"ufleet-deploy/pkg/resource"
 	"ufleet-deploy/pkg/resource/util"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -30,8 +31,8 @@ var (
 )
 
 type StatefulSetController interface {
-	Create(group, workspace string, data []byte, opt CreateOptions) error
-	Delete(group, workspace, statefulset string, opt DeleteOption) error
+	Create(group, workspace string, data []byte, opt resource.CreateOption) error
+	Delete(group, workspace, statefulset string, opt resource.DeleteOption) error
 	Update(group, workspace, resource string, newdata []byte) error
 	Get(group, workspace, statefulset string) (StatefulSetInterface, error)
 	List(group, workspace string) ([]StatefulSetInterface, error)
@@ -72,17 +73,6 @@ type StatefulSet struct {
 	CreateTime int64  `json:"createtime"`
 	Template   string `json:"template"`
 	memoryOnly bool
-}
-
-type GetOptions struct {
-}
-type DeleteOption struct{}
-
-type CreateOptions struct {
-	//	MemoryOnly bool    //只在内存中创建,不创建k8s资源/也不保存在etcd中.由k8s daemonset/statefulset等主动创建的资源.
-	//废弃,直接通过StatefulSetManager来调用
-	App  *string //所属app
-	User string  //创建的用户
 }
 
 //注意这里没锁
@@ -138,7 +128,7 @@ func (p *StatefulSetManager) List(groupName, workspaceName string) ([]StatefulSe
 	return pis, nil
 }
 
-func (p *StatefulSetManager) Create(groupName, workspaceName string, data []byte, opt CreateOptions) error {
+func (p *StatefulSetManager) Create(groupName, workspaceName string, data []byte, opt resource.CreateOption) error {
 
 	p.locker.Lock()
 	defer p.locker.Unlock()
@@ -213,7 +203,7 @@ func (p *StatefulSetManager) delete(groupName, workspaceName, resourceName strin
 	return nil
 }
 
-func (p *StatefulSetManager) Delete(group, workspace, resourceName string, opt DeleteOption) error {
+func (p *StatefulSetManager) Delete(group, workspace, resourceName string, opt resource.DeleteOption) error {
 	p.locker.Lock()
 	defer p.locker.Unlock()
 	ph, err := cluster.NewStatefulSetHandler(group, workspace)

@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"fmt"
+	"ufleet-deploy/pkg/resource"
 	pk "ufleet-deploy/pkg/resource/deployment"
 )
 
@@ -64,7 +65,7 @@ func (this *DeploymentController) CreateDeployment() {
 		ui.GetUserName()
 	*/
 
-	var opt pk.CreateOptions
+	var opt resource.CreateOption
 	err := pk.Controller.Create(group, workspace, this.Ctx.Input.RequestBody, opt)
 	if err != nil {
 		this.errReturn(err, 500)
@@ -128,7 +129,7 @@ func (this *DeploymentController) DeleteDeployment() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	deployment := this.Ctx.Input.Param(":deployment")
 
-	err := pk.Controller.Delete(group, workspace, deployment, pk.DeleteOption{})
+	err := pk.Controller.Delete(group, workspace, deployment, resource.DeleteOption{})
 	if err != nil {
 		this.errReturn(err, 500)
 		return

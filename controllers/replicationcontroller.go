@@ -3,6 +3,7 @@ package controllers
 import (
 	"encoding/json"
 	"fmt"
+	"ufleet-deploy/pkg/resource"
 	pk "ufleet-deploy/pkg/resource/pod"
 	jk "ufleet-deploy/pkg/resource/replicationcontroller"
 )
@@ -178,7 +179,7 @@ func (this *ReplicationControllerController) CreateReplicationController() {
 		ui.GetUserName()
 	*/
 
-	var opt jk.CreateOptions
+	var opt resource.CreateOption
 	err := jk.Controller.Create(group, workspace, this.Ctx.Input.RequestBody, opt)
 	if err != nil {
 		this.errReturn(err, 500)
@@ -242,7 +243,7 @@ func (this *ReplicationControllerController) DeleteReplicationController() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	replicationcontroller := this.Ctx.Input.Param(":replicationcontroller")
 
-	err := jk.Controller.Delete(group, workspace, replicationcontroller, jk.DeleteOption{})
+	err := jk.Controller.Delete(group, workspace, replicationcontroller, resource.DeleteOption{})
 	if err != nil {
 		this.errReturn(err, 500)
 		return

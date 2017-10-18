@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"fmt"
+	"ufleet-deploy/pkg/resource"
 	pk "ufleet-deploy/pkg/resource/statefulset"
 )
 
@@ -64,7 +65,7 @@ func (this *StatefulSetController) CreateStatefulSet() {
 		ui.GetUserName()
 	*/
 
-	var opt pk.CreateOptions
+	var opt resource.CreateOption
 	err := pk.Controller.Create(group, workspace, this.Ctx.Input.RequestBody, opt)
 	if err != nil {
 		this.errReturn(err, 500)
@@ -128,7 +129,7 @@ func (this *StatefulSetController) DeleteStatefulSet() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	statefulset := this.Ctx.Input.Param(":statefulset")
 
-	err := pk.Controller.Delete(group, workspace, statefulset, pk.DeleteOption{})
+	err := pk.Controller.Delete(group, workspace, statefulset, resource.DeleteOption{})
 	if err != nil {
 		this.errReturn(err, 500)
 		return

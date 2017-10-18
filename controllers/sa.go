@@ -3,6 +3,7 @@ package controllers
 import (
 	"encoding/json"
 	"fmt"
+	"ufleet-deploy/pkg/resource"
 	pk "ufleet-deploy/pkg/resource/serviceaccount"
 )
 
@@ -148,7 +149,7 @@ func (this *ServiceAccountController) CreateServiceAccount() {
 		ui.GetUserName()
 	*/
 
-	var opt pk.CreateOptions
+	var opt resource.CreateOption
 	err := pk.Controller.Create(group, workspace, this.Ctx.Input.RequestBody, opt)
 	if err != nil {
 		this.errReturn(err, 500)
@@ -212,7 +213,7 @@ func (this *ServiceAccountController) DeleteServiceAccount() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	serviceaccount := this.Ctx.Input.Param(":serviceaccount")
 
-	err := pk.Controller.Delete(group, workspace, serviceaccount, pk.DeleteOption{})
+	err := pk.Controller.Delete(group, workspace, serviceaccount, resource.DeleteOption{})
 	if err != nil {
 		this.errReturn(err, 500)
 		return

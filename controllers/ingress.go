@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"fmt"
+	"ufleet-deploy/pkg/resource"
 	pk "ufleet-deploy/pkg/resource/ingress"
 )
 
@@ -64,7 +65,7 @@ func (this *IngressController) CreateIngress() {
 		ui.GetUserName()
 	*/
 
-	var opt pk.CreateOptions
+	var opt resource.CreateOption
 	err := pk.Controller.Create(group, workspace, this.Ctx.Input.RequestBody, opt)
 	if err != nil {
 		this.errReturn(err, 500)
@@ -128,7 +129,7 @@ func (this *IngressController) DeleteIngress() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	ingress := this.Ctx.Input.Param(":ingress")
 
-	err := pk.Controller.Delete(group, workspace, ingress, pk.DeleteOption{})
+	err := pk.Controller.Delete(group, workspace, ingress, resource.DeleteOption{})
 	if err != nil {
 		this.errReturn(err, 500)
 		return

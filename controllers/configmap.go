@@ -3,6 +3,7 @@ package controllers
 import (
 	"encoding/json"
 	"fmt"
+	"ufleet-deploy/pkg/resource"
 	sk "ufleet-deploy/pkg/resource/configmap"
 	pk "ufleet-deploy/pkg/resource/statefulset"
 )
@@ -151,7 +152,7 @@ func (this *ConfigMapController) CreateConfigMap() {
 		ui.GetUserName()
 	*/
 
-	var opt sk.CreateOptions
+	var opt resource.CreateOption
 	err := sk.Controller.Create(group, workspace, this.Ctx.Input.RequestBody, opt)
 	if err != nil {
 		this.errReturn(err, 500)
@@ -177,7 +178,7 @@ func (this *ConfigMapController) DeleteConfigMap() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	configmap := this.Ctx.Input.Param(":configmap")
 
-	err := sk.Controller.Delete(group, workspace, configmap, sk.DeleteOption{})
+	err := sk.Controller.Delete(group, workspace, configmap, resource.DeleteOption{})
 	if err != nil {
 		this.errReturn(err, 500)
 		return

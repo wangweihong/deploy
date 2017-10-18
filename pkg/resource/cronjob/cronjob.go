@@ -7,6 +7,7 @@ import (
 	"ufleet-deploy/pkg/backend"
 	"ufleet-deploy/pkg/cluster"
 	"ufleet-deploy/pkg/log"
+	"ufleet-deploy/pkg/resource"
 	jk "ufleet-deploy/pkg/resource/job"
 	"ufleet-deploy/pkg/resource/util"
 
@@ -31,8 +32,8 @@ var (
 )
 
 type CronJobController interface {
-	Create(group, workspace string, data []byte, opt CreateOptions) error
-	Delete(group, workspace, cronjob string, opt DeleteOption) error
+	Create(group, workspace string, data []byte, opt resource.CreateOption) error
+	Delete(group, workspace, cronjob string, opt resource.DeleteOption) error
 	Update(groupName, workspaceName string, resourceName string, data []byte) error
 	Get(group, workspace, cronjob string) (CronJobInterface, error)
 	List(group, workspace string) ([]CronJobInterface, error)
@@ -77,17 +78,6 @@ type CronJob struct {
 	Cluster    string `json:"cluster"`
 	Template   string `json:"template"`
 	memoryOnly bool
-}
-
-type GetOptions struct {
-}
-type DeleteOption struct{}
-
-type CreateOptions struct {
-	//	MemoryOnly bool    //只在内存中创建,不创建k8s资源/也不保存在etcd中.由k8s daemonset/cronjob等主动创建的资源.
-	//废弃,直接通过CronJobManager来调用
-	App  *string //所属app
-	User string  //创建的用户
 }
 
 //注意这里没锁
@@ -166,7 +156,7 @@ func (p *CronJobManager) ListGroup(groupName string) ([]CronJobInterface, error)
 	return pis, nil
 }
 
-func (p *CronJobManager) Create(groupName, workspaceName string, data []byte, opt CreateOptions) error {
+func (p *CronJobManager) Create(groupName, workspaceName string, data []byte, opt resource.CreateOption) error {
 
 	p.locker.Lock()
 	defer p.locker.Unlock()
@@ -273,7 +263,7 @@ func (p *CronJobManager) delete(groupName, workspaceName, resourceName string) e
 	return nil
 }
 
-func (p *CronJobManager) Delete(group, workspace, resourceName string, opt DeleteOption) error {
+func (p *CronJobManager) Delete(group, workspace, resourceName string, opt resource.DeleteOption) error {
 	p.locker.Lock()
 	defer p.locker.Unlock()
 	ph, err := cluster.NewCronJobHandler(group, workspace)

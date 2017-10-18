@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"fmt"
+	"ufleet-deploy/pkg/resource"
 	pk "ufleet-deploy/pkg/resource/daemonset"
 )
 
@@ -64,7 +65,7 @@ func (this *DaemonSetController) CreateDaemonSet() {
 		ui.GetUserName()
 	*/
 
-	var opt pk.CreateOptions
+	var opt resource.CreateOption
 	err := pk.Controller.Create(group, workspace, this.Ctx.Input.RequestBody, opt)
 	if err != nil {
 		this.errReturn(err, 500)
@@ -128,7 +129,7 @@ func (this *DaemonSetController) DeleteDaemonSet() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	daemonset := this.Ctx.Input.Param(":daemonset")
 
-	err := pk.Controller.Delete(group, workspace, daemonset, pk.DeleteOption{})
+	err := pk.Controller.Delete(group, workspace, daemonset, resource.DeleteOption{})
 	if err != nil {
 		this.errReturn(err, 500)
 		return

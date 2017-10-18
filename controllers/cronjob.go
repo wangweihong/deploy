@@ -3,6 +3,7 @@ package controllers
 import (
 	"encoding/json"
 	"fmt"
+	"ufleet-deploy/pkg/resource"
 	ck "ufleet-deploy/pkg/resource/cronjob"
 	jk "ufleet-deploy/pkg/resource/job"
 )
@@ -180,7 +181,7 @@ func (this *CronJobController) CreateCronJob() {
 		ui.GetUserName()
 	*/
 
-	var opt ck.CreateOptions
+	var opt resource.CreateOption
 	err := ck.Controller.Create(group, workspace, this.Ctx.Input.RequestBody, opt)
 	if err != nil {
 		this.errReturn(err, 500)
@@ -244,7 +245,7 @@ func (this *CronJobController) DeleteCronJob() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	cronjob := this.Ctx.Input.Param(":cronjob")
 
-	err := ck.Controller.Delete(group, workspace, cronjob, ck.DeleteOption{})
+	err := ck.Controller.Delete(group, workspace, cronjob, resource.DeleteOption{})
 	if err != nil {
 		this.errReturn(err, 500)
 		return

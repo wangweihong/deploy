@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"fmt"
+	"ufleet-deploy/pkg/resource"
 	pk "ufleet-deploy/pkg/resource/endpoint"
 )
 
@@ -64,7 +65,7 @@ func (this *EndpointController) CreateEndpoint() {
 		ui.GetUserName()
 	*/
 
-	var opt pk.CreateOptions
+	var opt resource.CreateOption
 	err := pk.Controller.Create(group, workspace, this.Ctx.Input.RequestBody, opt)
 	if err != nil {
 		this.errReturn(err, 500)
@@ -128,7 +129,7 @@ func (this *EndpointController) DeleteEndpoint() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	endpoint := this.Ctx.Input.Param(":endpoint")
 
-	err := pk.Controller.Delete(group, workspace, endpoint, pk.DeleteOption{})
+	err := pk.Controller.Delete(group, workspace, endpoint, resource.DeleteOption{})
 	if err != nil {
 		this.errReturn(err, 500)
 		return

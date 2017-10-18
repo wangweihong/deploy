@@ -8,6 +8,7 @@ import (
 	"ufleet-deploy/pkg/backend"
 	"ufleet-deploy/pkg/cluster"
 	"ufleet-deploy/pkg/log"
+	"ufleet-deploy/pkg/resource"
 	pk "ufleet-deploy/pkg/resource/pod"
 	"ufleet-deploy/pkg/resource/util"
 
@@ -33,8 +34,8 @@ var (
 )
 
 type JobController interface {
-	Create(group, workspace string, data []byte, opt CreateOptions) error
-	Delete(group, workspace, job string, opt DeleteOption) error
+	Create(group, workspace string, data []byte, opt resource.CreateOption) error
+	Delete(group, workspace, job string, opt resource.DeleteOption) error
 	Get(group, workspace, job string) (JobInterface, error)
 	List(group, workspace string) ([]JobInterface, error)
 	Update(group, workspace, resource string, newdata []byte) error
@@ -81,15 +82,6 @@ type Job struct {
 	Template   string `json:"template"`
 	CreateTime int64  `json:"createtime"`
 	memoryOnly bool   //用于判定pod是否由k8s自动创建
-}
-
-type GetOptions struct{}
-type DeleteOption struct{}
-type CreateOptions struct {
-	//	MemoryOnly bool    //只在内存中创建,不创建k8s资源/也不保存在etcd中.由k8s daemonset/job等主动创建的资源.
-	//废弃,直接通过JobManager来调用
-	App  *string //所属app
-	User string  //创建的用户
 }
 
 //注意这里没锁
@@ -164,7 +156,7 @@ func (p *JobManager) List(groupName, workspaceName string) ([]JobInterface, erro
 	return pis, nil
 }
 
-func (p *JobManager) Create(groupName, workspaceName string, data []byte, opt CreateOptions) error {
+func (p *JobManager) Create(groupName, workspaceName string, data []byte, opt resource.CreateOption) error {
 
 	p.locker.Lock()
 	defer p.locker.Unlock()
@@ -236,7 +228,7 @@ func (p *JobManager) delete(groupName, workspaceName, resourceName string) error
 	return nil
 }
 
-func (p *JobManager) Delete(group, workspace, resourceName string, opt DeleteOption) error {
+func (p *JobManager) Delete(group, workspace, resourceName string, opt resource.DeleteOption) error {
 	p.locker.Lock()
 	defer p.locker.Unlock()
 	ph, err := cluster.NewJobHandler(group, workspace)

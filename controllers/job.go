@@ -3,6 +3,7 @@ package controllers
 import (
 	"encoding/json"
 	"fmt"
+	"ufleet-deploy/pkg/resource"
 	jk "ufleet-deploy/pkg/resource/job"
 	pk "ufleet-deploy/pkg/resource/pod"
 )
@@ -179,7 +180,7 @@ func (this *JobController) CreateJob() {
 		ui.GetUserName()
 	*/
 
-	var opt jk.CreateOptions
+	var opt resource.CreateOption
 	err := jk.Controller.Create(group, workspace, this.Ctx.Input.RequestBody, opt)
 	if err != nil {
 		this.errReturn(err, 500)
@@ -243,7 +244,7 @@ func (this *JobController) DeleteJob() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	job := this.Ctx.Input.Param(":job")
 
-	err := jk.Controller.Delete(group, workspace, job, jk.DeleteOption{})
+	err := jk.Controller.Delete(group, workspace, job, resource.DeleteOption{})
 	if err != nil {
 		this.errReturn(err, 500)
 		return
