@@ -391,6 +391,7 @@ type Status struct {
 	StartTime         int64             `json:"starttime"`
 	Running           int               `json:"running"`
 	Total             int               `json:"total"`
+	ID                string            `json:"id"`
 	Restarts          int               `json:"restarts"`
 	Labels            map[string]string `json:"labels"`
 	Annotations       map[string]string `json:"annotations"`
@@ -514,6 +515,7 @@ func V1PodToPodStatus(pod corev1.Pod) *Status {
 	ps := pod.Status
 	s.Phase = string(ps.Phase)
 	s.IP = ps.PodIP
+	s.ID = string(pod.UID)
 	s.Total = len(pod.Spec.Containers)
 	s.HostIP = ps.HostIP
 	s.Labels = make(map[string]string)
