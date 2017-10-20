@@ -47,6 +47,7 @@ type JobInterface interface {
 	GetRuntime() (*Runtime, error)
 	GetStatus() (*Status, error)
 	GetTemplate() (string, error)
+	Event() ([]corev1.Event, error)
 	//	Runtime()
 }
 
@@ -342,7 +343,8 @@ type Status struct {
 	StartTime   int64    `json:"starttime"`
 	Reason      string   `json:"reason"`
 	//	Pods       []string `json:"pods"`
-	PodStatus []pk.Status `json:"podstatus"`
+	PodStatus      []pk.Status        `json:"podstatus"`
+	ContainerSpecs []pk.ContainerSpec `json:"containerspec"`
 }
 
 //不包含PodStatus的信息
@@ -366,9 +368,11 @@ func K8sJobToJobStatus(job *batchv1.Job) *Status {
 	js.Succeeded = int(job.Status.Succeeded)
 	js.Failed = int(job.Status.Failed)
 
+	js.ContainerSpecs = make([]pk.ContainerSpec, 0)
 	for _, v := range job.Spec.Template.Spec.Containers {
 		js.Containers = append(js.Containers, v.Name)
 		js.Images = append(js.Images, v.Image)
+		js.ContainerSpecs = append(js.ContainerSpecs, *pk.K8sContainerSpecTran(&v))
 	}
 	return &js
 
@@ -413,6 +417,14 @@ func (j *Job) GetTemplate() (string, error) {
 	return *t, nil
 
 }
+func (j *Job) Event() ([]corev1.Event, error) {
+	ph, err := cluster.NewJobHandler(j.Group, j.Workspace)
+	if err != nil {
+		return nil, log.DebugPrint(err)
+	}
+
+	return ph.Event(j.Workspace, j.Name)
+}
 
 func InitJobController(be backend.BackendHandler) (JobController, error) {
 	rm = &JobManager{}
@@ -442,7 +454,6 @@ func InitJobController(be backend.BackendHandler) (JobController, error) {
 		}
 		rm.Groups[k] = group
 	}
-	log.DebugPrint(rm)
 	return rm, nil
 
 }

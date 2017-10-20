@@ -45,6 +45,9 @@ type ReplicationControllerInterface interface {
 	Info() *ReplicationController
 	GetRuntime() (*Runtime, error)
 	GetStatus() (*Status, error)
+	Scale(num int) error
+	Event() ([]corev1.Event, error)
+	GetTemplate() (string, error)
 	//	Runtime()
 }
 
@@ -327,28 +330,34 @@ func (j *ReplicationController) GetRuntime() (*Runtime, error) {
 }
 
 type Status struct {
-	Name        string            `json:"name"`
-	User        string            `json:"user"`
-	Workspace   string            `json:"workspace"`
-	Group       string            `json:"group"`
-	Images      []string          `json:"images"`
-	Containers  []string          `json:"containers"`
-	PodNum      int               `json:"podnum"`
-	ClusterIP   string            `json:"clusterip"`
-	CreateTime  int64             `json:"createtime"`
-	Replicas    int32             `json:"replicas"`
+	Name       string   `json:"name"`
+	User       string   `json:"user"`
+	Workspace  string   `json:"workspace"`
+	Group      string   `json:"group"`
+	Images     []string `json:"images"`
+	Containers []string `json:"containers"`
+	PodNum     int      `json:"podnum"`
+	ClusterIP  string   `json:"clusterip"`
+	CreateTime int64    `json:"createtime"`
+	//Replicas    int32             `json:"replicas"`
+	Desire      int               `json:"desire"`
+	Current     int               `json:"current"`
+	Available   int               `json:"available"`
+	Ready       int               `json:"ready"`
 	Labels      map[string]string `json:"labels"`
 	Annotatiosn map[string]string `json:"annotations"`
 	Selectors   map[string]string `json:"selectors"`
 	Reason      string            `json:"reason"`
 	//	Pods       []string `json:"pods"`
-	PodStatus []pk.Status `json:"podstatus"`
+	ContainerSpecs []pk.ContainerSpec `json:"containerspec"`
+	PodStatus      []pk.Status        `json:"podstatus"`
 	corev1.ReplicationControllerStatus
 }
 
 //不包含PodStatus的信息
 func K8sReplicationControllerToReplicationControllerStatus(replicationcontroller *corev1.ReplicationController) *Status {
 	js := Status{ReplicationControllerStatus: replicationcontroller.Status}
+	js.ContainerSpecs = make([]pk.ContainerSpec, 0)
 	js.Name = replicationcontroller.Name
 	js.Images = make([]string, 0)
 	js.PodStatus = make([]pk.Status, 0)
@@ -372,12 +381,38 @@ func K8sReplicationControllerToReplicationControllerStatus(replicationcontroller
 		js.Selectors = replicationcontroller.Spec.Selector
 	}
 
+	if replicationcontroller.Spec.Replicas != nil {
+		js.Desire = int(*replicationcontroller.Spec.Replicas)
+	} else {
+		js.Desire = 1
+
+	}
+	js.Current = int(replicationcontroller.Status.AvailableReplicas)
+	js.Ready = int(replicationcontroller.Status.ReadyReplicas)
+	js.Available = int(replicationcontroller.Status.AvailableReplicas)
+
 	for _, v := range replicationcontroller.Spec.Template.Spec.Containers {
 		js.Containers = append(js.Containers, v.Name)
 		js.Images = append(js.Images, v.Image)
+		js.ContainerSpecs = append(js.ContainerSpecs, *pk.K8sContainerSpecTran(&v))
 	}
 	return &js
 
+}
+
+func (j *ReplicationController) Scale(num int) error {
+
+	jh, err := cluster.NewReplicationControllerHandler(j.Group, j.Workspace)
+	if err != nil {
+		return err
+	}
+
+	err = jh.Scale(j.Workspace, j.Name, int32(num))
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (j *ReplicationController) GetStatus() (*Status, error) {
@@ -403,6 +438,29 @@ func (j *ReplicationController) GetStatus() (*Status, error) {
 	}
 
 	return js, nil
+}
+
+func (j *ReplicationController) Event() ([]corev1.Event, error) {
+	ph, err := cluster.NewReplicationControllerHandler(j.Group, j.Workspace)
+	if err != nil {
+		return nil, log.DebugPrint(err)
+	}
+
+	return ph.Event(j.Workspace, j.Name)
+}
+
+func (j *ReplicationController) GetTemplate() (string, error) {
+	runtime, err := j.GetRuntime()
+	if err != nil {
+		return "", log.DebugPrint(err)
+	}
+
+	t, err := util.GetYamlTemplateFromObject(runtime.ReplicationController)
+	if err != nil {
+		return "", log.DebugPrint(err)
+	}
+
+	return *t, nil
 }
 
 func InitReplicationControllerController(be backend.BackendHandler) (ReplicationControllerController, error) {

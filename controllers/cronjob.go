@@ -53,6 +53,51 @@ func (this *CronJobController) ListGroupWorkspaceCronJobs() {
 	this.normalReturn(cronjobs)
 }
 
+// GetCronJob
+// @Title CronJob
+// @Description   CronJob
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Param workspace path string true "工作区"
+// @Param cronjob path string true "任务"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /:cronjob/group/:group/workspace/:workspace [Get]
+func (this *CronJobController) GetCronJob() {
+
+	group := this.Ctx.Input.Param(":group")
+	workspace := this.Ctx.Input.Param(":workspace")
+	cronjob := this.Ctx.Input.Param(":cronjob")
+
+	pi, err := ck.Controller.Get(group, workspace, cronjob)
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+	v := pi
+	var s *ck.Status
+	s, err = v.GetStatus()
+	if err != nil {
+		info := v.Info()
+		s = &ck.Status{}
+		s.JobStatus = make([]jk.Status, 0)
+		s.Name = info.Name
+		s.Group = info.Group
+		s.Workspace = info.Workspace
+		s.User = info.User
+		s.Reason = err.Error()
+
+	}
+
+	this.normalReturn(s)
+}
+
+// ListGroupsCronJobs
+// @Title CronJob
+// @Description   CronJob
+// @Param Token header string true 'Token'
+// @Param body body string true "组数组"
+// @Success 201 {string} create success!
 // ListGroupsCronJobs
 // @Title CronJob
 // @Description   CronJob

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"ufleet-deploy/pkg/resource"
 	pk "ufleet-deploy/pkg/resource/daemonset"
+	jk "ufleet-deploy/pkg/resource/pod"
 )
 
 type DaemonSetController struct {
@@ -36,6 +37,84 @@ func (this *DaemonSetController) ListDaemonSets() {
 	}
 
 	this.normalReturn(daemonsets)
+}
+
+// ListGroupDaemonSets
+// @Title DaemonSet
+// @Description   DaemonSet
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /group/:group [Get]
+func (this *DaemonSetController) ListGroupDaemonSets() {
+
+	group := this.Ctx.Input.Param(":group")
+
+	pis, err := pk.Controller.ListGroup(group)
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+	jss := make([]pk.Status, 0)
+	for _, v := range pis {
+		js := &pk.Status{}
+		var err error
+		js, err = v.GetStatus()
+		if err != nil {
+			daemonset := v.Info()
+			js.Name = daemonset.Name
+			js.User = daemonset.User
+			js.Workspace = daemonset.Workspace
+			js.Group = daemonset.Group
+			js.Reason = err.Error()
+			js.PodStatus = make([]jk.Status, 0)
+			jss = append(jss, *js)
+			continue
+		}
+		jss = append(jss, *js)
+	}
+
+	this.normalReturn(jss)
+
+}
+
+// GetDaemonSets
+// @Title DaemonSet
+// @Description   DaemonSet
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Param workspace path string true "工作区名"
+// @Param daemonset path string true "部署"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /:daemonset/group/:group/workspace/:workspce [Get]
+func (this *DaemonSetController) GetDaemonSet() {
+
+	group := this.Ctx.Input.Param(":group")
+	workspace := this.Ctx.Input.Param(":workspace")
+	daemonset := this.Ctx.Input.Param(":daemonset")
+
+	pi, err := pk.Controller.Get(group, workspace, daemonset)
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+	v := pi
+	js := &pk.Status{}
+	js, err = v.GetStatus()
+	if err != nil {
+		daemonset := v.Info()
+		js.Name = daemonset.Name
+		js.User = daemonset.User
+		js.Workspace = daemonset.Workspace
+		js.Group = daemonset.Group
+		js.Reason = err.Error()
+		js.PodStatus = make([]jk.Status, 0)
+	}
+
+	this.normalReturn(js)
+
 }
 
 // CreateDaemonSet
@@ -136,4 +215,65 @@ func (this *DaemonSetController) DeleteDaemonSet() {
 	}
 
 	this.normalReturn("ok")
+}
+
+// GetDaemonSetContainerEvents
+// @Title DaemonSet
+// @Description   DaemonSet container event
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Param workspace path string true "工作区"
+// @Param daemonset path string true "容器组"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /:daemonset/group/:group/workspace/:workspace/event [Get]
+func (this *DaemonSetController) GetDaemonSetEvent() {
+
+	group := this.Ctx.Input.Param(":group")
+	workspace := this.Ctx.Input.Param(":workspace")
+	daemonset := this.Ctx.Input.Param(":daemonset")
+
+	pi, err := pk.Controller.Get(group, workspace, daemonset)
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+	es, err := pi.Event()
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+
+	this.normalReturn(es)
+}
+
+// GetDaemonSetTemplate
+// @Title DaemonSet
+// @Description   DaemonSet
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Param workspace path string true "工作区"
+// @Param daemonset path string true "容器组"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /:daemonset/group/:group/workspace/:workspace/template [Get]
+func (this *DaemonSetController) GetDaemonSetTemplate() {
+
+	group := this.Ctx.Input.Param(":group")
+	workspace := this.Ctx.Input.Param(":workspace")
+	daemonset := this.Ctx.Input.Param(":daemonset")
+
+	pi, err := pk.Controller.Get(group, workspace, daemonset)
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+
+	t, err := pi.GetTemplate()
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+
+	this.normalReturn(t)
 }

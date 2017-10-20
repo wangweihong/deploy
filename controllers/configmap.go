@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"ufleet-deploy/pkg/resource"
 	sk "ufleet-deploy/pkg/resource/configmap"
-	pk "ufleet-deploy/pkg/resource/statefulset"
 )
 
 type ConfigMapController struct {
@@ -13,11 +12,13 @@ type ConfigMapController struct {
 }
 
 type ConfigMapState struct {
-	Name       string `json:"name"`
-	Group      string `json:"group"`
-	Workspace  string `json:"workspace"`
-	User       string `json:"user"`
-	CreateTime int64  `json:"createtime"`
+	Name       string            `json:"name"`
+	Group      string            `json:"group"`
+	Workspace  string            `json:"workspace"`
+	User       string            `json:"user"`
+	Data       map[string]string `json:"data"`
+	Reason     string            `json:"reason"`
+	CreateTime int64             `json:"createtime"`
 }
 
 // ListConfigMaps
@@ -39,13 +40,25 @@ func (this *ConfigMapController) ListGroupWorkspaceConfigMaps() {
 		this.errReturn(err, 500)
 		return
 	}
-	configmaps := make([]sk.ConfigMap, 0)
+	pss := make([]ConfigMapState, 0)
 	for _, v := range pis {
-		t := v.Info()
-		configmaps = append(configmaps, *t)
+		var ps ConfigMapState
+		ps.Name = v.Info().Name
+		ps.Group = v.Info().Group
+		ps.Workspace = v.Info().Workspace
+		ps.User = v.Info().User
+		runtime, err := v.GetRuntime()
+		if err != nil {
+			ps.Reason = err.Error()
+			pss = append(pss, ps)
+		}
+		ps.Data = runtime.Data
+
+		pss = append(pss, ps)
+
 	}
 
-	this.normalReturn(configmaps)
+	this.normalReturn(pss)
 }
 
 // ListGroupsConfigMaps
@@ -89,6 +102,14 @@ func (this *ConfigMapController) ListGroupsConfigMaps() {
 		ps.Group = v.Info().Group
 		ps.Workspace = v.Info().Workspace
 		ps.User = v.Info().User
+		runtime, err := v.GetRuntime()
+		if err != nil {
+			ps.Reason = err.Error()
+			pss = append(pss, ps)
+		}
+		ps.Data = runtime.Data
+
+		pss = append(pss, ps)
 
 	}
 
@@ -119,7 +140,15 @@ func (this *ConfigMapController) ListGroupConfigMaps() {
 		ps.Group = v.Info().Group
 		ps.Workspace = v.Info().Workspace
 		ps.User = v.Info().User
+		ps.CreateTime = v.Info().CreateTime
+		runtime, err := v.GetRuntime()
+		if err != nil {
+			ps.Reason = err.Error()
+			pss = append(pss, ps)
+		}
+		ps.Data = runtime.Data
 
+		pss = append(pss, ps)
 	}
 
 	this.normalReturn(pss)
@@ -216,7 +245,7 @@ func (this *ConfigMapController) UpdateConfigMap() {
 		ui.GetUserName()
 	*/
 
-	err := pk.Controller.Update(group, workspace, configmap, this.Ctx.Input.RequestBody)
+	err := sk.Controller.Update(group, workspace, configmap, this.Ctx.Input.RequestBody)
 	if err != nil {
 		this.errReturn(err, 500)
 		return

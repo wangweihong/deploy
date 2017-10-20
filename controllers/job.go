@@ -56,6 +56,44 @@ func (this *JobController) ListGroupWorkspaceJobs() {
 	this.normalReturn(jss)
 }
 
+// GetJob
+// @Title Job
+// @Description   Job
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Param workspace path string true "工作区"
+// @Param job path string true "任务"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /:job/group/:group/workspace/:workspace [Get]
+func (this *JobController) GetJob() {
+
+	group := this.Ctx.Input.Param(":group")
+	workspace := this.Ctx.Input.Param(":workspace")
+	job := this.Ctx.Input.Param(":job")
+
+	pi, err := jk.Controller.Get(group, workspace, job)
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+	v := pi
+
+	js := &jk.Status{}
+	js, err = v.GetStatus()
+	if err != nil {
+		job := v.Info()
+		js.Name = job.Name
+		js.User = job.User
+		js.Workspace = job.Workspace
+		js.Group = job.Group
+		js.Reason = err.Error()
+		js.PodStatus = make([]pk.Status, 0)
+	}
+
+	this.normalReturn(js)
+}
+
 // ListGroupsJobs
 // @Title Job
 // @Description   Job
@@ -281,4 +319,34 @@ func (this *JobController) GetJobTemplate() {
 	}
 
 	this.normalReturn(t)
+}
+
+// GetJobEvent
+// @Title Job
+// @Description   Job container event
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Param workspace path string true "工作区"
+// @Param job path string true "容器组"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /:job/group/:group/workspace/:workspace/event [Get]
+func (this *JobController) GetJobEvent() {
+
+	group := this.Ctx.Input.Param(":group")
+	workspace := this.Ctx.Input.Param(":workspace")
+	job := this.Ctx.Input.Param(":job")
+
+	pi, err := jk.Controller.Get(group, workspace, job)
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+	es, err := pi.Event()
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+
+	this.normalReturn(es)
 }

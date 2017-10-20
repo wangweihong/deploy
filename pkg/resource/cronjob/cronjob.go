@@ -434,7 +434,6 @@ func InitCronJobController(be backend.BackendHandler) (CronJobController, error)
 		}
 		rm.Groups[k] = group
 	}
-	log.DebugPrint(rm)
 	return rm, nil
 
 }

@@ -43,7 +43,7 @@ func init() {
 				&controllers.SecretController{},
 			),
 		),
-		beego.NSNamespace("/configap",
+		beego.NSNamespace("/configmap",
 			beego.NSInclude(
 				&controllers.ConfigMapController{},
 			),

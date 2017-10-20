@@ -43,6 +43,7 @@ type ConfigMapInterface interface {
 	Info() *ConfigMap
 	GetRuntime() (*Runtime, error)
 	GetTemplate() (string, error)
+	GetStatus() (*Status, error)
 }
 
 type ConfigMapManager struct {
@@ -329,6 +330,27 @@ func (s *ConfigMap) GetTemplate() (string, error) {
 
 }
 
+type Status struct {
+	Name string            `json:"name"`
+	Data map[string]string `json:"data"`
+}
+
+func k8sConfigmapToStatus(cm corev1.ConfigMap) *Status {
+	var s Status
+	s.Name = cm.Name
+	s.Data = cm.Data
+	return &s
+}
+
+func (s *ConfigMap) GetStatus() (*Status, error) {
+	runtime, err := s.GetRuntime()
+	if err != nil {
+		return nil, err
+	}
+	status := k8sConfigmapToStatus(*runtime.ConfigMap)
+	return status, nil
+}
+
 func InitConfigMapController(be backend.BackendHandler) (ConfigMapController, error) {
 	rm = &ConfigMapManager{}
 	rm.Groups = make(map[string]ConfigMapGroup)
@@ -357,6 +379,7 @@ func InitConfigMapController(be backend.BackendHandler) (ConfigMapController, er
 		}
 		rm.Groups[k] = group
 	}
+	log.DebugPrint(rs)
 	return rm, nil
 
 }

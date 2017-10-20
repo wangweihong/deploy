@@ -3,6 +3,7 @@ package controllers
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"ufleet-deploy/pkg/resource"
 	pk "ufleet-deploy/pkg/resource/pod"
 	jk "ufleet-deploy/pkg/resource/replicationcontroller"
@@ -54,6 +55,45 @@ func (this *ReplicationControllerController) ListGroupWorkspaceReplicationContro
 	}
 
 	this.normalReturn(jss)
+}
+
+// GetReplicationController
+// @Title ReplicationController
+// @Description   ReplicationController
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Param workspace path string true "工作区"
+// @Param rc path string true "副本控制器"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /:rc/group/:group/workspace/:workspace [Get]
+func (this *ReplicationControllerController) GetReplicationController() {
+
+	group := this.Ctx.Input.Param(":group")
+	workspace := this.Ctx.Input.Param(":workspace")
+	rc := this.Ctx.Input.Param(":rc")
+
+	pi, err := jk.Controller.Get(group, workspace, rc)
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+	//replicationcontrollers := make([]jk.ReplicationController, 0)
+	v := pi
+
+	js := &jk.Status{}
+	js, err = v.GetStatus()
+	if err != nil {
+		replicationcontroller := v.Info()
+		js.Name = replicationcontroller.Name
+		js.User = replicationcontroller.User
+		js.Workspace = replicationcontroller.Workspace
+		js.Group = replicationcontroller.Group
+		js.Reason = err.Error()
+		js.PodStatus = make([]pk.Status, 0)
+	}
+
+	this.normalReturn(js)
 }
 
 // ListGroupsReplicationControllers
@@ -120,7 +160,7 @@ func (this *ReplicationControllerController) ListGroupsReplicationControllers() 
 // @Param group path string true "组名"
 // @Success 201 {string} create success!
 // @Failure 500
-// @router /groups [Post]
+// @router /group/:group [Get]
 func (this *ReplicationControllerController) ListGroupReplicationControllers() {
 	group := this.Ctx.Input.Param(":group")
 	pis, err := jk.Controller.ListGroup(group)
@@ -154,7 +194,7 @@ func (this *ReplicationControllerController) ListGroupReplicationControllers() {
 
 // CreateReplicationController
 // @Title ReplicationController
-// @Description  创建容器组
+// @Description  创建副本控制器
 // @Param Token header string true 'Token'
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
@@ -191,11 +231,11 @@ func (this *ReplicationControllerController) CreateReplicationController() {
 
 // UpdateReplicationController
 // @Title ReplicationController
-// @Description  更新容器组
+// @Description  更新副本控制器
 // @Param Token header string true 'Token'
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
-// @Param replicationcontroller path string true "容器组"
+// @Param replicationcontroller path string true "副本控制器"
 // @Param body body string true "资源描述"
 // @Success 201 {string} create success!
 // @Failure 500
@@ -218,13 +258,54 @@ func (this *ReplicationControllerController) UpdateReplicationController() {
 		ui.GetUserName()
 	*/
 
-	err := pk.Controller.Update(group, workspace, replicationcontroller, this.Ctx.Input.RequestBody)
+	err := jk.Controller.Update(group, workspace, replicationcontroller, this.Ctx.Input.RequestBody)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
 	}
 
 	this.normalReturn("ok")
+}
+
+// ScaleReplicationController
+// @Title ReplicationController
+// @Description  扩容副本控制器
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Param workspace path string true "工作区"
+// @Param replicationcontroller path string true "副本控制器"
+// @Param replicas path string true "副本数"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /:replicationcontroller/group/:group/workspace/:workspace/replicas/:replicas [Put]
+func (this *ReplicationControllerController) ScaleReplicationController() {
+
+	//token := this.Ctx.Request.Header.Get("token")
+	group := this.Ctx.Input.Param(":group")
+	workspace := this.Ctx.Input.Param(":workspace")
+	replicationcontroller := this.Ctx.Input.Param(":replicationcontroller")
+	replicasStr := this.Ctx.Input.Param(":replicas")
+
+	ri, err := jk.Controller.Get(group, workspace, replicationcontroller)
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+
+	replicas, err := strconv.ParseInt(replicasStr, 10, 32)
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+
+	err = ri.Scale(int(replicas))
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+
+	this.normalReturn("ok")
+
 }
 
 // DeleteReplicationController
@@ -250,4 +331,65 @@ func (this *ReplicationControllerController) DeleteReplicationController() {
 	}
 
 	this.normalReturn("ok")
+}
+
+// GetReplicationControllerContainerEvents
+// @Title ReplicationController
+// @Description   ReplicationController container event
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Param workspace path string true "工作区"
+// @Param replicationcontroller path string true "容器组"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /:replicationcontroller/group/:group/workspace/:workspace/event [Get]
+func (this *ReplicationControllerController) GetReplicationControllerEvent() {
+
+	group := this.Ctx.Input.Param(":group")
+	workspace := this.Ctx.Input.Param(":workspace")
+	replicationcontroller := this.Ctx.Input.Param(":replicationcontroller")
+
+	pi, err := jk.Controller.Get(group, workspace, replicationcontroller)
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+	es, err := pi.Event()
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+
+	this.normalReturn(es)
+}
+
+// GetReplicationControllerTemplate
+// @Title ReplicationController
+// @Description   ReplicationController
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Param workspace path string true "工作区"
+// @Param replicationcontroller path string true "容器组"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /:replicationcontroller/group/:group/workspace/:workspace/template [Get]
+func (this *ReplicationControllerController) GetReplicationControllerTemplate() {
+
+	group := this.Ctx.Input.Param(":group")
+	workspace := this.Ctx.Input.Param(":workspace")
+	replicationcontroller := this.Ctx.Input.Param(":replicationcontroller")
+
+	pi, err := jk.Controller.Get(group, workspace, replicationcontroller)
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+
+	t, err := pi.GetTemplate()
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+
+	this.normalReturn(t)
 }

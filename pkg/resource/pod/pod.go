@@ -87,18 +87,6 @@ type Pod struct {
 	memoryOnly bool
 }
 
-/*
-type GetOptions struct{}
-type DeleteOption struct{}
-
-type CreateOptions struct {
-	//	MemoryOnly bool    //只在内存中创建,不创建k8s资源/也不保存在etcd中.由k8s daemonset/deployment等主动创建的资源.
-	//废弃,直接通过PodManager来调用
-	App  *string //所属app
-	User string  //创建的用户
-}
-*/
-
 //注意这里没锁
 func (p *PodManager) get(groupName, workspaceName, podName string) (*Pod, error) {
 
@@ -237,9 +225,10 @@ func (p *PodManager) Update(groupName, workspaceName string, resourceName string
 	p.locker.Lock()
 	defer p.locker.Unlock()
 
+	log.DebugPrint("%v %v %v", groupName, workspaceName, resourceName)
 	_, err := p.get(groupName, workspaceName, resourceName)
 	if err != nil {
-		return err
+		return log.DebugPrint(err)
 	}
 
 	exts, err := util.ParseJsonOrYaml(data)
@@ -432,7 +421,7 @@ type Probe struct {
 	Type string `json:"type"`
 }
 
-func k8sContainerSpecTran(cspec *corev1.Container) *ContainerSpec {
+func K8sContainerSpecTran(cspec *corev1.Container) *ContainerSpec {
 	cs := new(ContainerSpec)
 	cs.Command = make([]string, 0)
 	cs.Args = make([]string, 0)
@@ -534,7 +523,7 @@ func V1PodToPodStatus(pod corev1.Pod) *Status {
 		s.StartTime = ps.StartTime.Unix()
 	}
 	for _, v := range pod.Spec.Containers {
-		cs := k8sContainerSpecTran(&v)
+		cs := K8sContainerSpecTran(&v)
 		s.ContainerSpecs = append(s.ContainerSpecs, *cs)
 
 	}

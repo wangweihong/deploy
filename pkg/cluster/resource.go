@@ -13,6 +13,7 @@ import (
 	batchv1 "k8s.io/client-go/pkg/apis/batch/v1"
 	batchv2alpha1 "k8s.io/client-go/pkg/apis/batch/v2alpha1"
 	extensionsv1beta1 "k8s.io/client-go/pkg/apis/extensions/v1beta1"
+	deploymentutil "k8s.io/kubernetes/pkg/controller/deployment/util"
 )
 
 var (
@@ -32,7 +33,7 @@ type PodHandler interface {
 	Delete(namespace string, name string) error
 	Create(namespace string, pod *corev1.Pod) error
 	Log(namespace, podName string, containerName string, opt LogOption) (string, error)
-	Event(namespace, podName string) ([]corev1.Event, error)
+	Event(namespace, resourceName string) ([]corev1.Event, error)
 	Update(namespace string, pod *corev1.Pod) error
 }
 
@@ -203,6 +204,8 @@ type ReplicationControllerHandler interface {
 	Delete(namespace string, name string) error
 	GetPods(namespace, name string) ([]*corev1.Pod, error)
 	Update(namespace string, resource *corev1.ReplicationController) error
+	Scale(namespace, name string, num int32) error
+	Event(namespace, resourceName string) ([]corev1.Event, error)
 }
 
 func NewReplicationControllerHandler(group, workspace string) (ReplicationControllerHandler, error) {
@@ -232,6 +235,20 @@ func (h *replicationcontrollerHandler) Update(namespace string, resource *corev1
 	return err
 }
 
+func (h *replicationcontrollerHandler) Event(namespace, resourceName string) ([]corev1.Event, error) {
+	//	pod, err := h.clientset.Pods(namespace).Get(podName, metav1.GetOptions{})
+	selector := h.clientset.CoreV1().Events(namespace).GetFieldSelector(&resourceName, &namespace, nil, nil)
+	options := metav1.ListOptions{FieldSelector: selector.String()}
+	events, err2 := h.clientset.CoreV1().Events(namespace).List(options)
+	if err2 != nil {
+		return nil, err2
+	}
+
+	//获取不到Pod,但有Pod事件
+	sort.Sort(SortableEvents(events.Items))
+	return events.Items, nil
+}
+
 func (h *replicationcontrollerHandler) Delete(namespace, replicationcontrollerName string) error {
 	return h.clientset.CoreV1().ReplicationControllers(namespace).Delete(replicationcontrollerName, nil)
 }
@@ -252,6 +269,54 @@ func (h *replicationcontrollerHandler) GetPods(namespace, name string) ([]*corev
 	}
 
 	return pos, nil
+}
+func (h *replicationcontrollerHandler) Scale(namespace, replicationcontrollerName string, num int32) error {
+	rc, err := h.Get(namespace, replicationcontrollerName)
+	if err != nil {
+		return err
+	}
+
+	if rc.Spec.Replicas != nil {
+		if *rc.Spec.Replicas == num {
+			return nil
+		}
+	} else {
+		if num == 1 {
+			return nil
+		}
+	}
+
+	rc.Spec.Replicas = &num
+	oldrv := rc.ResourceVersion
+	rc.ResourceVersion = ""
+	err = h.Update(namespace, rc)
+	if err != nil {
+		return err
+	}
+
+	for {
+		newrc, err := h.Get(namespace, replicationcontrollerName)
+		if err != nil {
+			return err
+		}
+		if newrc.ResourceVersion == oldrv {
+			time.Sleep(500 * time.Microsecond)
+			continue
+		}
+
+		if *newrc.Spec.Replicas > newrc.Status.Replicas {
+			for _, v := range newrc.Status.Conditions {
+				if v.Type == corev1.ReplicationControllerReplicaFailure {
+					if v.Status == corev1.ConditionTrue {
+						return fmt.Errorf(v.Message)
+					}
+				}
+			}
+		} else {
+			return nil
+		}
+	}
+	return nil
 }
 
 /* ------------------------ ServiceAccount ----------------------------*/
@@ -383,6 +448,8 @@ type DeploymentHandler interface {
 	Update(namespace string, resource *extensionsv1beta1.Deployment) error
 	Scale(namespace, name string, num int32) error
 	GetPods(namespace, name string) ([]*corev1.Pod, error)
+	Event(namespace, resourceName string) ([]corev1.Event, error)
+	Revision(namespace, name string) (*string, error)
 }
 
 func NewDeploymentHandler(group, workspace string) (DeploymentHandler, error) {
@@ -469,6 +536,40 @@ func (h *deploymentHandler) GetPods(namespace, name string) ([]*corev1.Pod, erro
 	return pos, nil
 }
 
+func (h *deploymentHandler) Event(namespace, resourceName string) ([]corev1.Event, error) {
+	//	pod, err := h.clientset.Pods(namespace).Get(podName, metav1.GetOptions{})
+	selector := h.clientset.CoreV1().Events(namespace).GetFieldSelector(&resourceName, &namespace, nil, nil)
+	options := metav1.ListOptions{FieldSelector: selector.String()}
+	events, err2 := h.clientset.CoreV1().Events(namespace).List(options)
+	if err2 != nil {
+		return nil, err2
+	}
+
+	//获取不到Pod,但有Pod事件
+	sort.Sort(SortableEvents(events.Items))
+	return events.Items, nil
+}
+
+func (h *deploymentHandler) Revision(namespace, name string) (*string, error) {
+	d, err := h.Get(namespace, name)
+	if err != nil {
+		return nil, err
+	}
+	revision, err := getCurrentRevision(d)
+	if err != nil {
+		return nil, err
+	}
+	return &revision, nil
+}
+
+func getCurrentRevision(d *extensionsv1beta1.Deployment) (string, error) {
+	revision, ok := d.Annotations[deploymentutil.RevisionAnnotation]
+	if !ok {
+		return "", fmt.Errorf("revision doesn't exists")
+	}
+	return revision, nil
+}
+
 /*----------------- DaemonSet -----------------*/
 
 type DaemonSetHandler interface {
@@ -476,6 +577,8 @@ type DaemonSetHandler interface {
 	Create(namespace string, ds *extensionsv1beta1.DaemonSet) error
 	Delete(namespace string, name string) error
 	Update(namespace string, resource *extensionsv1beta1.DaemonSet) error
+	GetPods(namespace, name string) ([]*corev1.Pod, error)
+	Event(namespace, resourceName string) ([]corev1.Event, error)
 }
 
 func NewDaemonSetHandler(group, workspace string) (DaemonSetHandler, error) {
@@ -507,6 +610,37 @@ func (h *daemonsetHandler) Delete(namespace, daemonsetName string) error {
 func (h *daemonsetHandler) Update(namespace string, resource *extensionsv1beta1.DaemonSet) error {
 	_, err := h.clientset.ExtensionsV1beta1().DaemonSets(namespace).Update(resource)
 	return err
+}
+
+func (h *daemonsetHandler) GetPods(namespace, name string) ([]*corev1.Pod, error) {
+	d, err := h.informerController.daemonsetInformer.Lister().DaemonSets(namespace).Get(name)
+	if err != nil {
+		return nil, nil
+	}
+	rsSelector := d.Spec.Selector.MatchLabels
+	selector := labels.Set(rsSelector).AsSelector()
+	//opts := corev1.ListOptions{LabelSelector: selector.String()}
+	//po, err := h.clientset.CoreV1().Pods(namespace).List(opts)
+	pos, err := h.informerController.podInformer.Lister().List(selector)
+	if err != nil {
+		return nil, err
+	}
+
+	return pos, nil
+}
+
+func (h *daemonsetHandler) Event(namespace, resourceName string) ([]corev1.Event, error) {
+	//	pod, err := h.clientset.Pods(namespace).Get(podName, metav1.GetOptions{})
+	selector := h.clientset.CoreV1().Events(namespace).GetFieldSelector(&resourceName, &namespace, nil, nil)
+	options := metav1.ListOptions{FieldSelector: selector.String()}
+	events, err2 := h.clientset.CoreV1().Events(namespace).List(options)
+	if err2 != nil {
+		return nil, err2
+	}
+
+	//获取不到Pod,但有Pod事件
+	sort.Sort(SortableEvents(events.Items))
+	return events.Items, nil
 }
 
 /* --------------- Ingress --------------*/
@@ -597,6 +731,7 @@ type CronJobHandler interface {
 	Delete(namespace string, name string) error
 	Update(namespace string, resource *batchv2alpha1.CronJob) error
 	GetJobs(namespace, name string) ([]*batchv1.Job, error)
+	Event(namespace, resourceName string) ([]corev1.Event, error)
 }
 
 func NewCronJobHandler(group, workspace string) (CronJobHandler, error) {
@@ -678,6 +813,20 @@ func (h *cronjobHandler) GetJobs(namespace, cronjobName string) ([]*batchv1.Job,
 	return jobs, nil
 }
 
+func (h *cronjobHandler) Event(namespace, resourceName string) ([]corev1.Event, error) {
+	//	pod, err := h.clientset.Pods(namespace).Get(podName, metav1.GetOptions{})
+	selector := h.clientset.CoreV1().Events(namespace).GetFieldSelector(&resourceName, &namespace, nil, nil)
+	options := metav1.ListOptions{FieldSelector: selector.String()}
+	events, err2 := h.clientset.CoreV1().Events(namespace).List(options)
+	if err2 != nil {
+		return nil, err2
+	}
+
+	//获取不到Pod,但有Pod事件
+	sort.Sort(SortableEvents(events.Items))
+	return events.Items, nil
+}
+
 /* ------------------------- Job ---------------------*/
 type JobHandler interface {
 	Get(namespace, name string) (*batchv1.Job, error)
@@ -685,6 +834,7 @@ type JobHandler interface {
 	Delete(namespace string, name string) error
 	Update(namespace string, resource *batchv1.Job) error
 	GetPods(Namespace, name string) ([]*corev1.Pod, error)
+	Event(namespace, resourceName string) ([]corev1.Event, error)
 }
 
 func NewJobHandler(group, workspace string) (JobHandler, error) {
@@ -756,7 +906,19 @@ func (h *jobHandler) GetPods(namespace, jobName string) ([]*corev1.Pod, error) {
 	}
 
 	return pods, nil
+}
+func (h *jobHandler) Event(namespace, resourceName string) ([]corev1.Event, error) {
+	//	pod, err := h.clientset.Pods(namespace).Get(podName, metav1.GetOptions{})
+	selector := h.clientset.CoreV1().Events(namespace).GetFieldSelector(&resourceName, &namespace, nil, nil)
+	options := metav1.ListOptions{FieldSelector: selector.String()}
+	events, err2 := h.clientset.CoreV1().Events(namespace).List(options)
+	if err2 != nil {
+		return nil, err2
+	}
 
+	//获取不到Pod,但有Pod事件
+	sort.Sort(SortableEvents(events.Items))
+	return events.Items, nil
 }
 
 /*  helpers */

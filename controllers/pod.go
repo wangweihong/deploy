@@ -86,6 +86,7 @@ func (this *PodController) ListPods() {
 // @router /:pod/group/:group/workspace/:workspace [Get]
 func (this *PodController) GetPod() {
 
+	fmt.Println(this.Ctx.Request.RequestURI)
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
 	pod := this.Ctx.Input.Param(":pod")
