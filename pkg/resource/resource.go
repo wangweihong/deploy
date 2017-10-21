@@ -25,8 +25,9 @@ type ResourceEvent struct {
 }
 
 type CreateOption struct {
-	App  *string //所属app
-	User string  //创建的用户
+	App     *string //所属app
+	User    string  //创建的用户
+	Comment string
 }
 type ListOption struct{}
 type DeleteOption struct {

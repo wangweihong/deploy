@@ -183,6 +183,7 @@ func (p *JobManager) Create(groupName, workspaceName string, data []byte, opt re
 	if job.Kind != "Job" {
 		return log.DebugPrint("must offer one  resource json/yaml data")
 	}
+	job.ResourceVersion = ""
 
 	var cp Job
 	cp.CreateTime = time.Now().Unix()
@@ -327,21 +328,23 @@ func (j *Job) GetRuntime() (*Runtime, error) {
 }
 
 type Status struct {
-	Name        string   `json:"name"`
-	User        string   `json:"user"`
-	Workspace   string   `json:"workspace"`
-	Group       string   `json:"group"`
-	Images      []string `json:"images"`
-	Containers  []string `json:"containers"`
-	PodNum      int      `json:"podnum"`
-	ClusterIP   string   `json:"clusterip"`
-	CompleteNum int      `json:"completenum"`
-	ParamNum    int      `json:"paramnum"`
-	Succeeded   int      `json:"succeeded"`
-	Failed      int      `json:"failed"`
-	CreateTime  int64    `json:"createtime"`
-	StartTime   int64    `json:"starttime"`
-	Reason      string   `json:"reason"`
+	Name        string            `json:"name"`
+	User        string            `json:"user"`
+	Workspace   string            `json:"workspace"`
+	Group       string            `json:"group"`
+	Images      []string          `json:"images"`
+	Containers  []string          `json:"containers"`
+	PodNum      int               `json:"podnum"`
+	ClusterIP   string            `json:"clusterip"`
+	CompleteNum int               `json:"completenum"`
+	ParamNum    int               `json:"paramnum"`
+	Succeeded   int               `json:"succeeded"`
+	Failed      int               `json:"failed"`
+	CreateTime  int64             `json:"createtime"`
+	StartTime   int64             `json:"starttime"`
+	Labels      map[string]string `json:"labels"`
+	Selector    map[string]string `json:"selector"`
+	Reason      string            `json:"reason"`
 	//	Pods       []string `json:"pods"`
 	PodStatus      []pk.Status        `json:"podstatus"`
 	ContainerSpecs []pk.ContainerSpec `json:"containerspec"`
@@ -353,6 +356,13 @@ func K8sJobToJobStatus(job *batchv1.Job) *Status {
 	js.Name = job.Name
 	js.Images = make([]string, 0)
 	js.PodStatus = make([]pk.Status, 0)
+	js.Labels = make(map[string]string)
+	js.Selector = make(map[string]string)
+
+	js.Labels = job.Labels
+	if job.Spec.Selector != nil {
+		js.Selector = job.Spec.Selector.MatchLabels
+	}
 	js.CreateTime = job.CreationTimestamp.Unix()
 	if job.Spec.Parallelism != nil {
 		js.ParamNum = int(*job.Spec.Parallelism)
@@ -413,6 +423,8 @@ func (j *Job) GetTemplate() (string, error) {
 	if err != nil {
 		return "", log.DebugPrint(err)
 	}
+	prefix := "apiVersion: batch/v1\nkind: Job"
+	*t = fmt.Sprintf("%v\n%v", prefix, *t)
 
 	return *t, nil
 

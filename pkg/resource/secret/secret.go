@@ -182,6 +182,7 @@ func (p *SecretManager) Create(groupName, workspaceName string, data []byte, opt
 	if svc.Kind != "Secret" {
 		return log.DebugPrint("must and  offer one resource json/yaml data")
 	}
+	svc.ResourceVersion = ""
 
 	var cp Secret
 	cp.CreateTime = time.Now().Unix()
@@ -317,20 +318,19 @@ func (s *Secret) GetRuntime() (*Runtime, error) {
 }
 
 func (s *Secret) GetTemplate() (string, error) {
-	if !s.memoryOnly {
-		return s.Template, nil
-	} else {
-		runtime, err := s.GetRuntime()
-		if err != nil {
-			return "", err
-		}
-		t, err := util.GetYamlTemplateFromObject(runtime.Secret)
-		if err != nil {
-			return "", log.DebugPrint(err)
-		}
-		return *t, nil
-
+	runtime, err := s.GetRuntime()
+	if err != nil {
+		return "", err
 	}
+	t, err := util.GetYamlTemplateFromObject(runtime.Secret)
+	if err != nil {
+		return "", log.DebugPrint(err)
+	}
+
+	prefix := "apiVersion: v1\nkind: Secret"
+	*t = fmt.Sprintf("%v\n%v", prefix, *t)
+	return *t, nil
+
 }
 
 func InitSecretController(be backend.BackendHandler) (SecretController, error) {

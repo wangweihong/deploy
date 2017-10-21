@@ -75,8 +75,7 @@ func (this *CronJobController) GetCronJob() {
 		return
 	}
 	v := pi
-	var s *ck.Status
-	s, err = v.GetStatus()
+	s, err := v.GetStatus()
 	if err != nil {
 		info := v.Info()
 		s = &ck.Status{}
@@ -134,9 +133,7 @@ func (this *CronJobController) ListGroupsCronJobs() {
 	}
 	pss := make([]ck.Status, 0)
 	for _, v := range pis {
-		var s *ck.Status
-		var err error
-		s, err = v.GetStatus()
+		s, err := v.GetStatus()
 		if err != nil {
 			info := v.Info()
 			s = &ck.Status{}
@@ -176,9 +173,7 @@ func (this *CronJobController) ListGroupCronJobs() {
 	}
 	pss := make([]ck.Status, 0)
 	for _, v := range pis {
-		var s *ck.Status
-		var err error
-		s, err = v.GetStatus()
+		s, err := v.GetStatus()
 		if err != nil {
 			info := v.Info()
 			s = &ck.Status{}
@@ -201,7 +196,7 @@ func (this *CronJobController) ListGroupCronJobs() {
 
 // CreateCronJob
 // @Title CronJob
-// @Description  创建容器组
+// @Description  创建定时任务
 // @Param Token header string true 'Token'
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
@@ -238,11 +233,11 @@ func (this *CronJobController) CreateCronJob() {
 
 // UpdateCronJob
 // @Title CronJob
-// @Description  更新容器组
+// @Description  更新定时任务
 // @Param Token header string true 'Token'
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
-// @Param cronjob path string true "容器组"
+// @Param cronjob path string true "定时任务"
 // @Param body body string true "资源描述"
 // @Success 201 {string} create success!
 // @Failure 500
@@ -280,7 +275,7 @@ func (this *CronJobController) UpdateCronJob() {
 // @Param Token header string true 'Token'
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
-// @Param cronjob path string true "容器组"
+// @Param cronjob path string true "定时任务"
 // @Success 201 {string} create success!
 // @Failure 500
 // @router /:cronjob/group/:group/workspace/:workspace [Delete]
@@ -305,7 +300,7 @@ func (this *CronJobController) DeleteCronJob() {
 // @Param Token header string true 'Token'
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
-// @Param cronjob path string true "容器组"
+// @Param cronjob path string true "定时任务"
 // @Success 201 {string} create success!
 // @Failure 500
 // @router /:cronjob/group/:group/workspace/:workspace/template [Get]
@@ -328,4 +323,66 @@ func (this *CronJobController) GetCronJobTemplate() {
 	}
 
 	this.normalReturn(t)
+}
+
+// GetCronJobEvent
+// @Title CronJob
+// @Description   CronJob container event
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Param workspace path string true "工作区"
+// @Param cronjob path string true "定时任务"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /:cronjob/group/:group/workspace/:workspace/event [Get]
+func (this *CronJobController) GetCronJobEvent() {
+
+	group := this.Ctx.Input.Param(":group")
+	workspace := this.Ctx.Input.Param(":workspace")
+	cronjob := this.Ctx.Input.Param(":cronjob")
+
+	pi, err := ck.Controller.Get(group, workspace, cronjob)
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+	es, err := pi.Event()
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+
+	this.normalReturn(es)
+}
+
+// SuspendCronJob
+// @Title CronJob
+// @Description  暂停定时任务
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Param workspace path string true "工作区"
+// @Param cronjob path string true "定时任务"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /:cronjob/group/:group/workspace/:workspace/suspendandresume [Put]
+func (this *CronJobController) SuspendOrResumeCronJob() {
+
+	//token := this.Ctx.Request.Header.Get("token")
+	group := this.Ctx.Input.Param(":group")
+	workspace := this.Ctx.Input.Param(":workspace")
+	cronjob := this.Ctx.Input.Param(":cronjob")
+
+	pi, err := ck.Controller.Get(group, workspace, cronjob)
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+	err = pi.SuspendOrResume()
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+
+	}
+
+	this.normalReturn("ok")
 }

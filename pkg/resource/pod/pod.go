@@ -190,6 +190,7 @@ func (p *PodManager) Create(groupName, workspaceName string, data []byte, opt re
 	if pod.Kind != "Pod" {
 		return log.DebugPrint("must and  offer one resource json/yaml data")
 	}
+	pod.ResourceVersion = ""
 
 	var cp Pod
 	cp.CreateTime = time.Now().Unix()
@@ -563,6 +564,8 @@ func (p *Pod) GetTemplate() (string, error) {
 	if err != nil {
 		return "", log.DebugPrint(err)
 	}
+	prefix := "apiVersion: v1\nkind: Pod"
+	*t = fmt.Sprintf("%v\n%v", prefix, *t)
 
 	return *t, nil
 }

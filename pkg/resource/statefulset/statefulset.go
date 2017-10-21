@@ -40,6 +40,9 @@ type StatefulSetController interface {
 
 type StatefulSetInterface interface {
 	Info() *StatefulSet
+	GetRuntime() (*Runtime, error)
+	GetTemplate() (string, error)
+	GetStatus() (*Status, error)
 }
 
 type StatefulSetManager struct {
@@ -55,8 +58,8 @@ type StatefulSetWorkspace struct {
 	StatefulSets map[string]StatefulSet `json:"statefulsets"`
 }
 
-type StatefulSetRuntime struct {
-	*appv1beta1.StatefulSet
+type Runtime struct {
+	StatefulSet *appv1beta1.StatefulSet
 }
 
 //TODO:是否可以添加一个特定的只存于内存的标记位
@@ -155,6 +158,7 @@ func (p *StatefulSetManager) Create(groupName, workspaceName string, data []byte
 	if svc.Kind != "StatefulSet" {
 		return log.DebugPrint("must and  offer one resource json/yaml data")
 	}
+	svc.ResourceVersion = ""
 
 	var cp StatefulSet
 	cp.CreateTime = time.Now().Unix()
@@ -275,6 +279,53 @@ func (p *StatefulSetManager) Update(groupName, workspaceName string, resourceNam
 
 func (statefulset *StatefulSet) Info() *StatefulSet {
 	return statefulset
+}
+func (s *StatefulSet) GetRuntime() (*Runtime, error) {
+	ph, err := cluster.NewStatefulSetHandler(s.Group, s.Workspace)
+	if err != nil {
+		return nil, err
+	}
+
+	svc, err := ph.Get(s.Workspace, s.Name)
+	if err != nil {
+		return nil, err
+	}
+	return &Runtime{StatefulSet: svc}, nil
+}
+
+func (s *StatefulSet) GetTemplate() (string, error) {
+	runtime, err := s.GetRuntime()
+	if err != nil {
+		return "", err
+	}
+	t, err := util.GetYamlTemplateFromObject(runtime.StatefulSet)
+	if err != nil {
+		return "", log.DebugPrint(err)
+	}
+
+	prefix := "apiVersion: app/v1beta1\nkind: StatefulSet"
+	*t = fmt.Sprintf("%v\n%v", prefix, *t)
+	return *t, nil
+
+}
+
+type Status struct {
+	Name string `json:"name"`
+}
+
+func k8sStatefulSetToStatus(cm appv1beta1.StatefulSet) *Status {
+	var s Status
+	s.Name = cm.Name
+	return &s
+}
+
+func (s *StatefulSet) GetStatus() (*Status, error) {
+	runtime, err := s.GetRuntime()
+	if err != nil {
+		return nil, err
+	}
+	status := k8sStatefulSetToStatus(*runtime.StatefulSet)
+	return status, nil
 }
 
 func InitStatefulSetController(be backend.BackendHandler) (StatefulSetController, error) {

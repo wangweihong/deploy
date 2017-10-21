@@ -86,7 +86,7 @@
                 "tags": [
                     "configmap"
                 ],
-                "description": "创建容器组",
+                "description": "创建配置",
                 "operationId": "ConfigMapController.ConfigMap",
                 "parameters": [
                     {
@@ -239,7 +239,7 @@
                     {
                         "in": "path",
                         "name": "configmap",
-                        "description": "容器组",
+                        "description": "配置",
                         "required": true,
                         "type": "string"
                     }
@@ -284,7 +284,7 @@
                     {
                         "in": "path",
                         "name": "configmap",
-                        "description": "容器组",
+                        "description": "配置",
                         "required": true,
                         "type": "string"
                     }
@@ -369,7 +369,7 @@
                 "tags": [
                     "cronjob"
                 ],
-                "description": "创建容器组",
+                "description": "创建定时任务",
                 "operationId": "CronJobController.CronJob",
                 "parameters": [
                     {
@@ -502,7 +502,7 @@
                 "tags": [
                     "cronjob"
                 ],
-                "description": "更新容器组",
+                "description": "更新定时任务",
                 "operationId": "CronJobController.CronJob",
                 "parameters": [
                     {
@@ -529,7 +529,7 @@
                     {
                         "in": "path",
                         "name": "cronjob",
-                        "description": "容器组",
+                        "description": "定时任务",
                         "required": true,
                         "type": "string"
                     },
@@ -579,7 +579,97 @@
                     {
                         "in": "path",
                         "name": "cronjob",
-                        "description": "容器组",
+                        "description": "定时任务",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "{string} create success!"
+                    },
+                    "500": {}
+                }
+            }
+        },
+        "/cronjob/{cronjob}/group/{group}/workspace/{workspace}/event": {
+            "get": {
+                "tags": [
+                    "cronjob"
+                ],
+                "description": "CronJob container event",
+                "operationId": "CronJobController.CronJob",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Token",
+                        "description": "'Token'",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "group",
+                        "description": "组名",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "workspace",
+                        "description": "工作区",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "cronjob",
+                        "description": "定时任务",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "{string} create success!"
+                    },
+                    "500": {}
+                }
+            }
+        },
+        "/cronjob/{cronjob}/group/{group}/workspace/{workspace}/suspendandresume": {
+            "put": {
+                "tags": [
+                    "cronjob"
+                ],
+                "description": "暂停定时任务",
+                "operationId": "CronJobController.CronJob",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Token",
+                        "description": "'Token'",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "group",
+                        "description": "组名",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "workspace",
+                        "description": "工作区",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "cronjob",
+                        "description": "定时任务",
                         "required": true,
                         "type": "string"
                     }
@@ -624,7 +714,7 @@
                     {
                         "in": "path",
                         "name": "cronjob",
-                        "description": "容器组",
+                        "description": "定时任务",
                         "required": true,
                         "type": "string"
                     }

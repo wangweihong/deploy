@@ -139,6 +139,20 @@ func init() {
 			AllowHTTPMethods: []string{"Get"},
 			Params: nil})
 
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:CronJobController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:CronJobController"],
+		beego.ControllerComments{
+			Method: "GetCronJobEvent",
+			Router: `/:cronjob/group/:group/workspace/:workspace/event`,
+			AllowHTTPMethods: []string{"Get"},
+			Params: nil})
+
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:CronJobController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:CronJobController"],
+		beego.ControllerComments{
+			Method: "SuspendOrResumeCronJob",
+			Router: `/:cronjob/group/:group/workspace/:workspace/suspendandresume`,
+			AllowHTTPMethods: []string{"Put"},
+			Params: nil})
+
 	beego.GlobalControllerRouter["ufleet-deploy/controllers:DaemonSetController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:DaemonSetController"],
 		beego.ControllerComments{
 			Method: "ListDaemonSets",

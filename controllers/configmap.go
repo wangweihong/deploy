@@ -3,6 +3,7 @@ package controllers
 import (
 	"encoding/json"
 	"fmt"
+	"ufleet-deploy/models"
 	"ufleet-deploy/pkg/resource"
 	sk "ufleet-deploy/pkg/resource/configmap"
 )
@@ -156,7 +157,7 @@ func (this *ConfigMapController) ListGroupConfigMaps() {
 
 // CreateConfigMap
 // @Title ConfigMap
-// @Description  创建容器组
+// @Description  创建配置
 // @Param Token header string true 'Token'
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
@@ -166,7 +167,6 @@ func (this *ConfigMapController) ListGroupConfigMaps() {
 // @router /group/:group/workspace/:workspace [Post]
 func (this *ConfigMapController) CreateConfigMap() {
 
-	//token := this.Ctx.Request.Header.Get("token")
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
 
@@ -175,14 +175,16 @@ func (this *ConfigMapController) CreateConfigMap() {
 		this.errReturn(err, 500)
 		return
 	}
-
-	/*
-		ui := user.NewUserClient(token)
-		ui.GetUserName()
-	*/
+	var co models.CreateOption
+	err := json.Unmarshal(this.Ctx.Input.RequestBody, &co)
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
 
 	var opt resource.CreateOption
-	err := sk.Controller.Create(group, workspace, this.Ctx.Input.RequestBody, opt)
+	opt.Comment = co.Comment
+	err = sk.Controller.Create(group, workspace, []byte(co.Data), opt)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
@@ -197,7 +199,7 @@ func (this *ConfigMapController) CreateConfigMap() {
 // @Param Token header string true 'Token'
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
-// @Param configmap path string true "容器组"
+// @Param configmap path string true "配置"
 // @Success 201 {string} create success!
 // @Failure 500
 // @router /:configmap/group/:group/workspace/:workspace [Delete]
@@ -260,7 +262,7 @@ func (this *ConfigMapController) UpdateConfigMap() {
 // @Param Token header string true 'Token'
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
-// @Param configmap path string true "容器组"
+// @Param configmap path string true "配置"
 // @Success 201 {string} create success!
 // @Failure 500
 // @router /:configmap/group/:group/workspace/:workspace/template [Get]

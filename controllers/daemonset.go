@@ -58,10 +58,9 @@ func (this *DaemonSetController) ListGroupDaemonSets() {
 	}
 	jss := make([]pk.Status, 0)
 	for _, v := range pis {
-		js := &pk.Status{}
-		var err error
-		js, err = v.GetStatus()
+		js, err := v.GetStatus()
 		if err != nil {
+			js = &pk.Status{}
 			daemonset := v.Info()
 			js.Name = daemonset.Name
 			js.User = daemonset.User
@@ -101,9 +100,9 @@ func (this *DaemonSetController) GetDaemonSet() {
 		return
 	}
 	v := pi
-	js := &pk.Status{}
-	js, err = v.GetStatus()
+	js, err := v.GetStatus()
 	if err != nil {
+		js = &pk.Status{}
 		daemonset := v.Info()
 		js.Name = daemonset.Name
 		js.User = daemonset.User

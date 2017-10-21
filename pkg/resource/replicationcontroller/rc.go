@@ -185,6 +185,7 @@ func (p *ReplicationControllerManager) Create(groupName, workspaceName string, d
 	if svc.Kind != "ReplicationController" {
 		return log.DebugPrint("must and  offer one rc json/yaml data")
 	}
+	svc.ResourceVersion = ""
 
 	var cp ReplicationController
 	cp.CreateTime = time.Now().Unix()
@@ -460,6 +461,8 @@ func (j *ReplicationController) GetTemplate() (string, error) {
 		return "", log.DebugPrint(err)
 	}
 
+	prefix := "apiVersion: v1\nkind: ReplicationController"
+	*t = fmt.Sprintf("%v\n%v", prefix, *t)
 	return *t, nil
 }
 

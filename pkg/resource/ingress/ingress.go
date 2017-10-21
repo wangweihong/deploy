@@ -40,6 +40,9 @@ type IngressController interface {
 
 type IngressInterface interface {
 	Info() *Ingress
+	GetRuntime() (*Runtime, error)
+	GetTemplate() (string, error)
+	GetStatus() (*Status, error)
 }
 
 type IngressManager struct {
@@ -55,8 +58,8 @@ type IngressWorkspace struct {
 	Ingresss map[string]Ingress `json:"ingresss"`
 }
 
-type IngressRuntime struct {
-	*extensionsv1beta1.Ingress
+type Runtime struct {
+	Ingress *extensionsv1beta1.Ingress
 }
 
 //TODO:是否可以添加一个特定的只存于内存的标记位
@@ -155,6 +158,7 @@ func (p *IngressManager) Create(groupName, workspaceName string, data []byte, op
 	if svc.Kind != "Ingress" {
 		return log.DebugPrint("must and  offer one resource json/yaml data")
 	}
+	svc.ResourceVersion = ""
 
 	var cp Ingress
 	cp.CreateTime = time.Now().Unix()
@@ -276,6 +280,53 @@ func (p *IngressManager) Update(groupName, workspaceName string, resourceName st
 }
 func (ingress *Ingress) Info() *Ingress {
 	return ingress
+}
+func (s *Ingress) GetRuntime() (*Runtime, error) {
+	ph, err := cluster.NewIngressHandler(s.Group, s.Workspace)
+	if err != nil {
+		return nil, err
+	}
+
+	svc, err := ph.Get(s.Workspace, s.Name)
+	if err != nil {
+		return nil, err
+	}
+	return &Runtime{Ingress: svc}, nil
+}
+
+func (s *Ingress) GetTemplate() (string, error) {
+	runtime, err := s.GetRuntime()
+	if err != nil {
+		return "", err
+	}
+	t, err := util.GetYamlTemplateFromObject(runtime.Ingress)
+	if err != nil {
+		return "", log.DebugPrint(err)
+	}
+
+	prefix := "apiVersion: extensions/v1beta1\nkind: Ingress"
+	*t = fmt.Sprintf("%v\n%v", prefix, *t)
+	return *t, nil
+
+}
+
+type Status struct {
+	Name string `json:"name"`
+}
+
+func k8sIngressToStatus(cm extensionsv1beta1.Ingress) *Status {
+	var s Status
+	s.Name = cm.Name
+	return &s
+}
+
+func (s *Ingress) GetStatus() (*Status, error) {
+	runtime, err := s.GetRuntime()
+	if err != nil {
+		return nil, err
+	}
+	status := k8sIngressToStatus(*runtime.Ingress)
+	return status, nil
 }
 
 func InitIngressController(be backend.BackendHandler) (IngressController, error) {

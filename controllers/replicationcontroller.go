@@ -36,10 +36,9 @@ func (this *ReplicationControllerController) ListGroupWorkspaceReplicationContro
 	jss := make([]jk.Status, 0)
 
 	for _, v := range pis {
-		js := &jk.Status{}
-		var err error
-		js, err = v.GetStatus()
+		js, err := v.GetStatus()
 		if err != nil {
+			js := &jk.Status{}
 			replicationcontroller := v.Info()
 			js.Name = replicationcontroller.Name
 			js.User = replicationcontroller.User
@@ -81,9 +80,9 @@ func (this *ReplicationControllerController) GetReplicationController() {
 	//replicationcontrollers := make([]jk.ReplicationController, 0)
 	v := pi
 
-	js := &jk.Status{}
-	js, err = v.GetStatus()
+	js, err := v.GetStatus()
 	if err != nil {
+		js := &jk.Status{}
 		replicationcontroller := v.Info()
 		js.Name = replicationcontroller.Name
 		js.User = replicationcontroller.User
@@ -132,10 +131,9 @@ func (this *ReplicationControllerController) ListGroupsReplicationControllers() 
 	//replicationcontrollers := make([]jk.ReplicationController, 0)
 	jss := make([]jk.Status, 0)
 	for _, v := range pis {
-		js := &jk.Status{}
-		var err error
-		js, err = v.GetStatus()
+		js, err := v.GetStatus()
 		if err != nil {
+			js = &jk.Status{}
 			replicationcontroller := v.Info()
 			js.Name = replicationcontroller.Name
 			js.User = replicationcontroller.User
@@ -171,10 +169,9 @@ func (this *ReplicationControllerController) ListGroupReplicationControllers() {
 	//replicationcontrollers := make([]jk.ReplicationController, 0)
 	jss := make([]jk.Status, 0)
 	for _, v := range pis {
-		js := &jk.Status{}
-		var err error
-		js, err = v.GetStatus()
+		js, err := v.GetStatus()
 		if err != nil {
+			js = &jk.Status{}
 			replicationcontroller := v.Info()
 			js.Name = replicationcontroller.Name
 			js.User = replicationcontroller.User

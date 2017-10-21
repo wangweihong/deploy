@@ -35,10 +35,9 @@ func (this *JobController) ListGroupWorkspaceJobs() {
 	jss := make([]jk.Status, 0)
 
 	for _, v := range pis {
-		js := &jk.Status{}
-		var err error
-		js, err = v.GetStatus()
+		js, err := v.GetStatus()
 		if err != nil {
+			js := &jk.Status{}
 			job := v.Info()
 			js.Name = job.Name
 			js.User = job.User
@@ -79,9 +78,9 @@ func (this *JobController) GetJob() {
 	}
 	v := pi
 
-	js := &jk.Status{}
-	js, err = v.GetStatus()
+	js, err := v.GetStatus()
 	if err != nil {
+		js = &jk.Status{}
 		job := v.Info()
 		js.Name = job.Name
 		js.User = job.User
@@ -130,10 +129,9 @@ func (this *JobController) ListGroupsJobs() {
 	//jobs := make([]jk.Job, 0)
 	jss := make([]jk.Status, 0)
 	for _, v := range pis {
-		js := &jk.Status{}
-		var err error
-		js, err = v.GetStatus()
+		js, err := v.GetStatus()
 		if err != nil {
+			js := &jk.Status{}
 			job := v.Info()
 			js.Name = job.Name
 			js.User = job.User
@@ -170,10 +168,9 @@ func (this *JobController) ListGroupJobs() {
 	//jobs := make([]jk.Job, 0)
 	jss := make([]jk.Status, 0)
 	for _, v := range pis {
-		js := &jk.Status{}
-		var err error
-		js, err = v.GetStatus()
+		js, err := v.GetStatus()
 		if err != nil {
+			js := &jk.Status{}
 			job := v.Info()
 			js.Name = job.Name
 			js.User = job.User

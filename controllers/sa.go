@@ -3,6 +3,7 @@ package controllers
 import (
 	"encoding/json"
 	"fmt"
+	"ufleet-deploy/models"
 	"ufleet-deploy/pkg/resource"
 	pk "ufleet-deploy/pkg/resource/serviceaccount"
 )
@@ -144,13 +145,20 @@ func (this *ServiceAccountController) CreateServiceAccount() {
 		return
 	}
 
+	var co models.CreateOption
+	err := json.Unmarshal(this.Ctx.Input.RequestBody, &co)
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
 	/*
 		ui := user.NewUserClient(token)
 		ui.GetUserName()
 	*/
 
 	var opt resource.CreateOption
-	err := pk.Controller.Create(group, workspace, this.Ctx.Input.RequestBody, opt)
+	opt.Comment = co.Comment
+	err = pk.Controller.Create(group, workspace, []byte(co.Data), opt)
 	if err != nil {
 		this.errReturn(err, 500)
 		return

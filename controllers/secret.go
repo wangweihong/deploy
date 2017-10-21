@@ -3,9 +3,9 @@ package controllers
 import (
 	"encoding/json"
 	"fmt"
+	"ufleet-deploy/models"
 	"ufleet-deploy/pkg/resource"
 	sk "ufleet-deploy/pkg/resource/secret"
-	pk "ufleet-deploy/pkg/resource/statefulset"
 )
 
 type SecretController struct {
@@ -147,13 +147,20 @@ func (this *SecretController) CreateSecret() {
 		return
 	}
 
+	var co models.CreateOption
+	err := json.Unmarshal(this.Ctx.Input.RequestBody, &co)
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
 	/*
 		ui := user.NewUserClient(token)
 		ui.GetUserName()
 	*/
 
 	var opt resource.CreateOption
-	err := pk.Controller.Create(group, workspace, this.Ctx.Input.RequestBody, opt)
+	opt.Comment = co.Comment
+	err = sk.Controller.Create(group, workspace, []byte(co.Data), opt)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
@@ -191,7 +198,7 @@ func (this *SecretController) UpdateSecret() {
 		ui.GetUserName()
 	*/
 
-	err := pk.Controller.Update(group, workspace, secret, this.Ctx.Input.RequestBody)
+	err := sk.Controller.Update(group, workspace, secret, this.Ctx.Input.RequestBody)
 	if err != nil {
 		this.errReturn(err, 500)
 		return

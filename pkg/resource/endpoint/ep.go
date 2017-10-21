@@ -40,6 +40,9 @@ type EndpointController interface {
 
 type EndpointInterface interface {
 	Info() *Endpoint
+	GetRuntime() (*Runtime, error)
+	GetTemplate() (string, error)
+	GetStatus() (*Status, error)
 }
 
 type EndpointManager struct {
@@ -55,8 +58,8 @@ type EndpointWorkspace struct {
 	Endpoints map[string]Endpoint `json:"endpoints"`
 }
 
-type EndpointRuntime struct {
-	*corev1.Endpoints
+type Runtime struct {
+	Endpoint *corev1.Endpoints
 }
 
 //TODO:是否可以添加一个特定的只存于内存的标记位
@@ -156,6 +159,7 @@ func (p *EndpointManager) Create(groupName, workspaceName string, data []byte, o
 	if svc.Kind != "Endpoint" {
 		return log.DebugPrint("must and  offer one resource json/yaml data")
 	}
+	svc.ResourceVersion = ""
 
 	var cp Endpoint
 	cp.CreateTime = time.Now().Unix()
@@ -277,6 +281,53 @@ func (p *EndpointManager) Update(groupName, workspaceName string, resourceName s
 
 func (endpoint *Endpoint) Info() *Endpoint {
 	return endpoint
+}
+func (s *Endpoint) GetRuntime() (*Runtime, error) {
+	ph, err := cluster.NewEndpointHandler(s.Group, s.Workspace)
+	if err != nil {
+		return nil, err
+	}
+
+	svc, err := ph.Get(s.Workspace, s.Name)
+	if err != nil {
+		return nil, err
+	}
+	return &Runtime{Endpoint: svc}, nil
+}
+
+func (s *Endpoint) GetTemplate() (string, error) {
+	runtime, err := s.GetRuntime()
+	if err != nil {
+		return "", err
+	}
+	t, err := util.GetYamlTemplateFromObject(runtime.Endpoint)
+	if err != nil {
+		return "", log.DebugPrint(err)
+	}
+
+	prefix := "apiVersion: v1\nkind: Endpoints"
+	*t = fmt.Sprintf("%v\n%v", prefix, *t)
+	return *t, nil
+
+}
+
+type Status struct {
+	Name string `json:"name"`
+}
+
+func k8sEndpointToStatus(cm corev1.Endpoints) *Status {
+	var s Status
+	s.Name = cm.Name
+	return &s
+}
+
+func (s *Endpoint) GetStatus() (*Status, error) {
+	runtime, err := s.GetRuntime()
+	if err != nil {
+		return nil, err
+	}
+	status := k8sEndpointToStatus(*runtime.Endpoint)
+	return status, nil
 }
 
 func InitEndpointController(be backend.BackendHandler) (EndpointController, error) {

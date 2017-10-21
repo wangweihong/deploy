@@ -184,6 +184,7 @@ func (p *DaemonSetManager) Create(groupName, workspaceName string, data []byte, 
 	if svc.Kind != "DaemonSet" {
 		return log.DebugPrint("must and  offer one resource json/yaml data")
 	}
+	svc.ResourceVersion = ""
 
 	var cp DaemonSet
 	cp.CreateTime = time.Now().Unix()
@@ -424,6 +425,10 @@ func (j *DaemonSet) GetTemplate() (string, error) {
 	if err != nil {
 		return "", log.DebugPrint(err)
 	}
+
+	prefix := "apiVersion: extensions/v1beta1\nkind: DaemonSet"
+	*t = fmt.Sprintf("%v\n%v", prefix, *t)
+	return *t, nil
 
 	return *t, nil
 }

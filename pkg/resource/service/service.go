@@ -181,6 +181,7 @@ func (p *ServiceManager) Create(groupName, workspaceName string, data []byte, op
 	if svc.Kind != "Service" {
 		return log.DebugPrint("must and  offer one resource json/yaml data")
 	}
+	svc.ResourceVersion = ""
 
 	var cp Service
 	cp.CreateTime = time.Now().Unix()
@@ -327,6 +328,8 @@ func (s *Service) GetTemplate() (string, error) {
 	if err != nil {
 		return "", log.DebugPrint(err)
 	}
+	prefix := "apiVersion: v1\nkind: Service"
+	*t = fmt.Sprintf("%v\n%v", prefix, *t)
 	return *t, nil
 
 }

@@ -184,6 +184,7 @@ func (p *DeploymentManager) Create(groupName, workspaceName string, data []byte,
 	if svc.Kind != "Deployment" {
 		return log.DebugPrint("must and  offer one resource json/yaml data")
 	}
+	svc.ResourceVersion = ""
 
 	var cp Deployment
 	cp.CreateTime = time.Now().Unix()
@@ -337,15 +338,17 @@ type Status struct {
 	ClusterIP  string   `json:"clusterip"`
 	CreateTime int64    `json:"createtime"`
 	//Replicas    int32             `json:"replicas"`
-	Desire      int               `json:"desire"`
-	Current     int               `json:"current"`
-	Available   int               `json:"available"`
-	UpToDate    int               `json:"uptodate"`
-	Ready       int               `json:"ready"`
-	Labels      map[string]string `json:"labels"`
-	Annotatiosn map[string]string `json:"annotations"`
-	Selectors   map[string]string `json:"selectors"`
-	Reason      string            `json:"reason"`
+	Strategy    extensionsv1beta1.DeploymentStrategy `json:"Strategy"`
+	Desire      int                                  `json:"desire"`
+	Current     int                                  `json:"current"`
+	Available   int                                  `json:"available"`
+	UpToDate    int                                  `json:"uptodate"`
+	Ready       int                                  `json:"ready"`
+	Labels      map[string]string                    `json:"labels"`
+	Annotatiosn map[string]string                    `json:"annotations"`
+	Selectors   map[string]string                    `json:"selectors"`
+	Reason      string                               `json:"reason"`
+	timeout     int64                                `json:"timemout"`
 	//	Pods       []string `json:"pods"`
 	PodStatus      []pk.Status        `json:"podstatus"`
 	ContainerSpecs []pk.ContainerSpec `json:"containerspecs"`
@@ -364,6 +367,7 @@ func K8sDeploymentToDeploymentStatus(deployment *extensionsv1beta1.Deployment) *
 		js.Replicas = *deployment.Spec.Replicas
 	}
 
+	js.Strategy = deployment.Spec.Strategy
 	js.Labels = make(map[string]string)
 	if deployment.Labels != nil {
 		js.Labels = deployment.Labels
@@ -458,6 +462,8 @@ func (j *Deployment) GetTemplate() (string, error) {
 	if err != nil {
 		return "", log.DebugPrint(err)
 	}
+	prefix := "apiVersion: extensions/v1beta1\nkind: Deployment"
+	*t = fmt.Sprintf("%v\n%v", prefix, *t)
 
 	return *t, nil
 }

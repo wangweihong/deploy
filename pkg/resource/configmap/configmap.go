@@ -75,6 +75,7 @@ type ConfigMap struct {
 	User       string `json:"user"`
 	Cluster    string `json:"cluster"`
 	CreateTime int64  `json:"createtime"`
+	Comment    string `json:"comment"`
 	Template   string `json:"template"`
 	memoryOnly bool
 }
@@ -183,9 +184,11 @@ func (p *ConfigMapManager) Create(groupName, workspaceName string, data []byte, 
 		return log.DebugPrint("must and  offer one resource json/yaml data")
 	}
 
+	svc.ResourceVersion = ""
 	var cp ConfigMap
 	cp.CreateTime = time.Now().Unix()
 	cp.Name = svc.Name
+	cp.Comment = opt.Comment
 	cp.Workspace = workspaceName
 	cp.Group = groupName
 	cp.Template = string(data)
@@ -326,6 +329,9 @@ func (s *ConfigMap) GetTemplate() (string, error) {
 	if err != nil {
 		return "", log.DebugPrint(err)
 	}
+
+	prefix := "apiVersion: v1\nkind: ConfigMap"
+	*t = fmt.Sprintf("%v\n%v", prefix, *t)
 	return *t, nil
 
 }
@@ -379,7 +385,6 @@ func InitConfigMapController(be backend.BackendHandler) (ConfigMapController, er
 		}
 		rm.Groups[k] = group
 	}
-	log.DebugPrint(rs)
 	return rm, nil
 
 }

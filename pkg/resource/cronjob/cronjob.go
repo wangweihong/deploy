@@ -9,9 +9,11 @@ import (
 	"ufleet-deploy/pkg/log"
 	"ufleet-deploy/pkg/resource"
 	jk "ufleet-deploy/pkg/resource/job"
+	pk "ufleet-deploy/pkg/resource/pod"
 	"ufleet-deploy/pkg/resource/util"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	corev1 "k8s.io/client-go/pkg/api/v1"
 	batchv1 "k8s.io/client-go/pkg/apis/batch/v1"
 	batchv2alpha1 "k8s.io/client-go/pkg/apis/batch/v2alpha1"
 )
@@ -45,6 +47,8 @@ type CronJobInterface interface {
 	GetRuntime() (*Runtime, error)
 	GetStatus() (*Status, error)
 	GetTemplate() (string, error)
+	Event() ([]corev1.Event, error)
+	SuspendOrResume() error
 }
 
 type CronJobManager struct {
@@ -183,6 +187,7 @@ func (p *CronJobManager) Create(groupName, workspaceName string, data []byte, op
 	if cj.Kind != "CronJob" {
 		return log.DebugPrint("must offer one  cronjob resource json/yaml data")
 	}
+	cj.ResourceVersion = ""
 
 	var cp CronJob
 	cp.Name = cj.Name
@@ -336,20 +341,84 @@ func (p *CronJob) GetTemplate() (string, error) {
 		return "", log.DebugPrint(err)
 	}
 
+	prefix := "apiVersion: batch/v2alpha1\nkind: CronJob"
+	*t = fmt.Sprintf("%v\n%v", prefix, *t)
+
 	return *t, nil
 }
 
+func (p *CronJob) Event() ([]corev1.Event, error) {
+	ph, err := cluster.NewCronJobHandler(p.Group, p.Workspace)
+	if err != nil {
+		return nil, log.DebugPrint(err)
+	}
+
+	return ph.Event(p.Workspace, p.Name)
+}
+
+func (p *CronJob) SuspendOrResume() error {
+	ph, err := cluster.NewCronJobHandler(p.Group, p.Workspace)
+	if err != nil {
+		return log.DebugPrint(err)
+	}
+
+	runtime, err := p.GetRuntime()
+	if err != nil {
+		return log.DebugPrint(err)
+	}
+
+	var suspend bool
+	cronjob := runtime.CronJob
+
+	if cronjob.Spec.Suspend == nil {
+		log.DebugPrint("--------------empty")
+	} else {
+		log.DebugPrint(*cronjob.Spec.Suspend)
+
+	}
+
+	if cronjob.Spec.Suspend == nil {
+		suspend = false
+	} else {
+		if *cronjob.Spec.Suspend {
+			suspend = false
+		} else {
+			suspend = true
+		}
+	}
+	log.DebugPrint(suspend)
+	cronjob.ResourceVersion = ""
+	cronjob.Spec.Suspend = &suspend
+	err = ph.Update(p.Workspace, cronjob)
+	if err != nil {
+		return log.DebugPrint(err)
+	}
+	return nil
+
+}
+
 type Status struct {
-	Name             string      `json:"name"`
-	User             string      `json:"user"`
-	Workspace        string      `json:"workspace"`
-	Group            string      `json:"group"`
-	Total            int         `json:"total"`
-	Active           int         `json:"active"`
-	LastScheduleTime int64       `json:"lastscheduletime"`
-	Period           string      `json:"period"`
-	JobStatus        []jk.Status `json:"jobstatuses"`
-	Reason           string      `json:"reason"`
+	Name      string `json:"name"`
+	User      string `json:"user"`
+	Workspace string `json:"workspace"`
+	Group     string `json:"group"`
+	Total     int    `json:"total"`
+	Active    int    `json:"active"`
+	Suspend   bool   `json:"suspend"`
+	//-1表示没有指定
+	StartingDeadlineSeconds    int64              `json:"startingDeadlineSeconds"`
+	SuccessfulJobsHistoryLimit int                `json:"successfulJobsHistoryLimit"`
+	FailedJobsHistoryLimit     int                `json:"failedJobsHistoryLimit"`
+	ConcurrencyPolicy          string             `json:"concurrencyPolicy"`
+	CreateTime                 int64              `json:"createtime"`
+	LastScheduleTime           int64              `json:"lastscheduletime"`
+	Period                     string             `json:"period"`
+	Labels                     map[string]string  `json:"labels"`
+	Seletors                   map[string]string  `json:"selectors"`
+	JobStatus                  []jk.Status        `json:"jobstatuses"`
+	ContainerSpecs             []pk.ContainerSpec `json:"containerspec"`
+
+	Reason string `json:"reason"`
 }
 
 /*
@@ -366,6 +435,10 @@ func K8sCronJobToStatus(job *batchv2alpha1.CronJob) *Status {
 
 func (p *CronJob) GetStatus() (*Status, error) {
 	var s Status
+	s.JobStatus = make([]jk.Status, 0)
+	s.Labels = make(map[string]string)
+	s.Seletors = make(map[string]string)
+	s.ContainerSpecs = make([]pk.ContainerSpec, 0)
 	runtime, err := p.GetRuntime()
 	if err != nil {
 		return nil, err
@@ -381,6 +454,45 @@ func (p *CronJob) GetStatus() (*Status, error) {
 	rs := runtime.CronJob.Status
 	if rs.LastScheduleTime != nil {
 		s.LastScheduleTime = rs.LastScheduleTime.Unix()
+	}
+
+	if runtime.CronJob.Spec.Suspend != nil {
+		s.Suspend = *runtime.CronJob.Spec.Suspend
+	} else {
+		s.Suspend = false
+	}
+
+	s.Labels = runtime.CronJob.Spec.JobTemplate.Labels
+	if runtime.CronJob.Spec.JobTemplate.Spec.Selector != nil {
+		s.Seletors = runtime.CronJob.Spec.JobTemplate.Spec.Selector.MatchLabels
+
+	}
+
+	s.ConcurrencyPolicy = string(runtime.CronJob.Spec.ConcurrencyPolicy)
+	s.CreateTime = runtime.CronJob.CreationTimestamp.Unix()
+	//-1表示没有设置
+	if runtime.CronJob.Spec.SuccessfulJobsHistoryLimit != nil {
+		s.SuccessfulJobsHistoryLimit = int(*runtime.CronJob.Spec.SuccessfulJobsHistoryLimit)
+	} else {
+		s.SuccessfulJobsHistoryLimit = -1
+	}
+
+	if runtime.CronJob.Spec.FailedJobsHistoryLimit != nil {
+		s.FailedJobsHistoryLimit = int(*runtime.CronJob.Spec.FailedJobsHistoryLimit)
+	} else {
+		s.FailedJobsHistoryLimit = -1
+	}
+
+	if runtime.CronJob.Spec.StartingDeadlineSeconds != nil {
+
+		s.StartingDeadlineSeconds = *runtime.CronJob.Spec.StartingDeadlineSeconds
+	} else {
+		s.StartingDeadlineSeconds = -1
+
+	}
+
+	for _, v := range runtime.CronJob.Spec.JobTemplate.Spec.Template.Spec.Containers {
+		s.ContainerSpecs = append(s.ContainerSpecs, *pk.K8sContainerSpecTran(&v))
 	}
 
 	s.Total = len(runtime.Jobs)

@@ -34,11 +34,10 @@ func (this *DeploymentController) ListGroupWorkspaceDeployments() {
 
 	jss := make([]pk.Status, 0)
 	for _, v := range pis {
-		js := &pk.Status{}
-		var err error
-		js, err = v.GetStatus()
+		js, err := v.GetStatus()
 		if err != nil {
 			deployment := v.Info()
+			js = &pk.Status{}
 			js.Name = deployment.Name
 			js.User = deployment.User
 			js.Workspace = deployment.Workspace
@@ -73,10 +72,9 @@ func (this *DeploymentController) ListGroupDeployments() {
 	}
 	jss := make([]pk.Status, 0)
 	for _, v := range pis {
-		js := &pk.Status{}
-		var err error
-		js, err = v.GetStatus()
+		js, err := v.GetStatus()
 		if err != nil {
+			js := &pk.Status{}
 			deployment := v.Info()
 			js.Name = deployment.Name
 			js.User = deployment.User
@@ -116,9 +114,9 @@ func (this *DeploymentController) GetDeployment() {
 		return
 	}
 	v := pi
-	js := &pk.Status{}
-	js, err = v.GetStatus()
+	js, err := v.GetStatus()
 	if err != nil {
+		js = &pk.Status{}
 		deployment := v.Info()
 		js.Name = deployment.Name
 		js.User = deployment.User
