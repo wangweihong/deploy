@@ -4,8 +4,10 @@ import (
 	"fmt"
 	"sort"
 	"time"
+	"ufleet-deploy/deploy/uerr"
 	"ufleet-deploy/pkg/log"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	corev1 "k8s.io/client-go/pkg/api/v1"
@@ -13,6 +15,11 @@ import (
 	batchv1 "k8s.io/client-go/pkg/apis/batch/v1"
 	batchv2alpha1 "k8s.io/client-go/pkg/apis/batch/v2alpha1"
 	extensionsv1beta1 "k8s.io/client-go/pkg/apis/extensions/v1beta1"
+	k8sextensions "k8s.io/kubernetes/pkg/apis/extensions/v1beta1"
+	externalclientset "k8s.io/kubernetes/pkg/client/clientset_generated/clientset"
+	core "k8s.io/kubernetes/pkg/client/clientset_generated/clientset/typed/core/v1"
+	extensions "k8s.io/kubernetes/pkg/client/clientset_generated/clientset/typed/extensions/v1beta1"
+
 	deploymentutil "k8s.io/kubernetes/pkg/controller/deployment/util"
 )
 
@@ -480,7 +487,44 @@ func (h *deploymentHandler) Update(namespace string, resource *extensionsv1beta1
 }
 
 func (h *deploymentHandler) Delete(namespace, deploymentName string) error {
-	return h.clientset.ExtensionsV1beta1().Deployments(namespace).Delete(deploymentName, nil)
+	//	return h.clientset.ExtensionsV1beta1().Deployments(namespace).Delete(deploymentName, nil)
+	d, err := h.Get(namespace, deploymentName)
+	if err != nil {
+		return err
+	}
+	allOldRSs, newRs, err := h.GetAllReplicaSets(namespace, deploymentName)
+	allRSs := allOldRSs
+	if newRs != nil {
+		allRSs = append(allRSs, newRs)
+	}
+
+	err = h.clientset.ExtensionsV1beta1().Deployments(namespace).Delete(deploymentName, nil)
+	if err != nil {
+		return err
+	}
+
+	for _, v := range allRSs {
+		err := h.clientset.ExtensionsV1beta1().ReplicaSets(namespace).Delete(v.Name, nil)
+		if err != nil {
+			if !apierrors.IsNotFound(err) {
+				uerr.ErrorPrint(fmt.Sprintf("try to delete rs %v fail for %v", v.Name, err))
+			}
+		}
+	}
+
+	selector, err := metav1.LabelSelectorAsSelector(d.Spec.Selector)
+	if err != nil {
+		uerr.ErrorPrint(fmt.Sprintf("try to delete pods fail for %v", err))
+	}
+
+	opt := metav1.ListOptions{LabelSelector: selector.String()}
+	err = h.clientset.CoreV1().Pods(namespace).DeleteCollection(nil, opt)
+	if err != nil {
+
+		uerr.ErrorPrint(fmt.Sprintf("try to delete pods fail for %v", err))
+	}
+	return nil
+
 }
 
 func (h *deploymentHandler) Scale(namespace, name string, num int32) error {
@@ -560,6 +604,28 @@ func (h *deploymentHandler) Revision(namespace, name string) (*string, error) {
 		return nil, err
 	}
 	return &revision, nil
+}
+
+//func (h *deploymentHandler) GetAllReplicaSets(namespace string, deployment *extensionsv1beta1.Deployment) ([]*extensionsv1beta1.ReplicaSet, []*extensionsv1beta1.ReplicaSet, *extensionsv1beta1.ReplicaSet, error) {
+func (h *deploymentHandler) GetAllReplicaSets(namespace string, name string) ([]*k8sextensions.ReplicaSet, *k8sextensions.ReplicaSet, error) {
+
+	internalExtensionClientset := extensions.New(h.clientset.ExtensionsV1beta1().RESTClient())
+	internalCoreClientset := core.New(h.clientset.CoreV1().RESTClient())
+	versionedClient := &externalclientset.Clientset{
+		CoreV1Client:            internalCoreClientset,
+		ExtensionsV1beta1Client: internalExtensionClientset,
+	}
+
+	deployment, err := versionedClient.Extensions().Deployments(namespace).Get(name, metav1.GetOptions{})
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to retrieve deployment %s: %v", name, err)
+	}
+	_, allOldRSs, newRS, err := deploymentutil.GetAllReplicaSets(deployment, versionedClient)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to retrieve replica sets from deployment %s: %v", name, err)
+	}
+
+	return allOldRSs, newRS, nil
 }
 
 func getCurrentRevision(d *extensionsv1beta1.Deployment) (string, error) {
