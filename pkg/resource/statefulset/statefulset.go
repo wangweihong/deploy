@@ -36,13 +36,14 @@ type StatefulSetController interface {
 	Update(group, workspace, resource string, newdata []byte) error
 	Get(group, workspace, statefulset string) (StatefulSetInterface, error)
 	List(group, workspace string) ([]StatefulSetInterface, error)
+	ListGroup(group string) ([]StatefulSetInterface, error)
 }
 
 type StatefulSetInterface interface {
 	Info() *StatefulSet
 	GetRuntime() (*Runtime, error)
 	GetTemplate() (string, error)
-	GetStatus() (*Status, error)
+	GetStatus() *Status
 }
 
 type StatefulSetManager struct {
@@ -67,14 +68,7 @@ type Runtime struct {
 //在StatefulSet构建到内存的时候,就开始绑定K8s资源,
 //可以根据事件及时更新StatefulSet的信息
 type StatefulSet struct {
-	Name       string `json:"name"`
-	Workspace  string `json:"workspace"`
-	Group      string `json:"group"`
-	AppStack   string `json:"app"`
-	User       string `json:"user"`
-	Cluster    string `json:"cluster"`
-	CreateTime int64  `json:"createtime"`
-	Template   string `json:"template"`
+	resource.ObjectMeta
 	memoryOnly bool
 }
 
@@ -131,6 +125,28 @@ func (p *StatefulSetManager) List(groupName, workspaceName string) ([]StatefulSe
 	return pis, nil
 }
 
+func (p *StatefulSetManager) ListGroup(groupName string) ([]StatefulSetInterface, error) {
+
+	p.locker.Lock()
+	defer p.locker.Unlock()
+
+	group, ok := p.Groups[groupName]
+	if !ok {
+		return nil, fmt.Errorf("%v:%v", ErrGroupNotFound, groupName)
+	}
+
+	pis := make([]StatefulSetInterface, 0)
+
+	//不能够直接使用k,v来赋值,会出现值都是同一个的问题
+	for _, v := range group.Workspaces {
+		for k := range v.StatefulSets {
+			t := v.StatefulSets[k]
+			pis = append(pis, &t)
+		}
+	}
+
+	return pis, nil
+}
 func (p *StatefulSetManager) Create(groupName, workspaceName string, data []byte, opt resource.CreateOption) error {
 
 	p.locker.Lock()
@@ -167,7 +183,7 @@ func (p *StatefulSetManager) Create(groupName, workspaceName string, data []byte
 	cp.Group = groupName
 	cp.Template = string(data)
 	if opt.App != nil {
-		cp.AppStack = *opt.App
+		cp.App = *opt.App
 	}
 	cp.User = opt.User
 	//因为pod创建时,触发informer,所以优先创建etcd
@@ -310,22 +326,14 @@ func (s *StatefulSet) GetTemplate() (string, error) {
 }
 
 type Status struct {
-	Name string `json:"name"`
+	resource.ObjectMeta
+	Reason string `json:"reason"`
 }
 
-func k8sStatefulSetToStatus(cm appv1beta1.StatefulSet) *Status {
-	var s Status
-	s.Name = cm.Name
-	return &s
-}
+func (s *StatefulSet) GetStatus() *Status {
+	js := Status{ObjectMeta: s.ObjectMeta}
+	return &js
 
-func (s *StatefulSet) GetStatus() (*Status, error) {
-	runtime, err := s.GetRuntime()
-	if err != nil {
-		return nil, err
-	}
-	status := k8sStatefulSetToStatus(*runtime.StatefulSet)
-	return status, nil
 }
 
 func InitStatefulSetController(be backend.BackendHandler) (StatefulSetController, error) {

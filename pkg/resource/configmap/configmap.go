@@ -43,7 +43,7 @@ type ConfigMapInterface interface {
 	Info() *ConfigMap
 	GetRuntime() (*Runtime, error)
 	GetTemplate() (string, error)
-	GetStatus() (*Status, error)
+	GetStatus() *Status
 }
 
 type ConfigMapManager struct {
@@ -68,15 +68,8 @@ type Runtime struct {
 //在ConfigMap构建到内存的时候,就开始绑定K8s资源,
 //可以根据事件及时更新ConfigMap的信息
 type ConfigMap struct {
-	Name       string `json:"name"`
-	Workspace  string `json:"workspace"`
-	Group      string `json:"group"`
-	AppStack   string `json:"app"`
-	User       string `json:"user"`
+	resource.ObjectMeta
 	Cluster    string `json:"cluster"`
-	CreateTime int64  `json:"createtime"`
-	Comment    string `json:"comment"`
-	Template   string `json:"template"`
 	memoryOnly bool
 }
 
@@ -193,7 +186,7 @@ func (p *ConfigMapManager) Create(groupName, workspaceName string, data []byte, 
 	cp.Group = groupName
 	cp.Template = string(data)
 	if opt.App != nil {
-		cp.AppStack = *opt.App
+		cp.App = *opt.App
 	}
 	cp.User = opt.User
 	//因为pod创建时,触发informer,所以优先创建etcd
@@ -337,24 +330,24 @@ func (s *ConfigMap) GetTemplate() (string, error) {
 }
 
 type Status struct {
-	Name string            `json:"name"`
-	Data map[string]string `json:"data"`
+	resource.ObjectMeta
+	Reason string            `json:"reason"`
+	Data   map[string]string `json:"data"`
 }
 
-func k8sConfigmapToStatus(cm corev1.ConfigMap) *Status {
-	var s Status
-	s.Name = cm.Name
-	s.Data = cm.Data
-	return &s
-}
+func (s *ConfigMap) GetStatus() *Status {
 
-func (s *ConfigMap) GetStatus() (*Status, error) {
+	js := Status{ObjectMeta: s.ObjectMeta}
+	js.Data = make(map[string]string)
+
 	runtime, err := s.GetRuntime()
 	if err != nil {
-		return nil, err
+		js.Reason = err.Error()
+		return &js
 	}
-	status := k8sConfigmapToStatus(*runtime.ConfigMap)
-	return status, nil
+
+	js.Data = runtime.Data
+	return &js
 }
 
 func InitConfigMapController(be backend.BackendHandler) (ConfigMapController, error) {

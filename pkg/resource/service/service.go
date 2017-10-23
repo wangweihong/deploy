@@ -9,6 +9,7 @@ import (
 	"ufleet-deploy/pkg/cluster"
 	"ufleet-deploy/pkg/log"
 	"ufleet-deploy/pkg/resource"
+	pk "ufleet-deploy/pkg/resource/pod"
 	"ufleet-deploy/pkg/resource/util"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -43,6 +44,7 @@ type ServiceInterface interface {
 	Info() *Service
 	GetRuntime() (*Runtime, error)
 	GetTemplate() (string, error)
+	GetStatus() *Status
 }
 
 type ServiceManager struct {
@@ -59,7 +61,8 @@ type ServiceWorkspace struct {
 }
 
 type Runtime struct {
-	*corev1.Service
+	Service *corev1.Service
+	Pods    []*corev1.Pod
 }
 
 //TODO:是否可以添加一个特定的只存于内存的标记位
@@ -67,14 +70,7 @@ type Runtime struct {
 //在Service构建到内存的时候,就开始绑定K8s资源,
 //可以根据事件及时更新Service的信息
 type Service struct {
-	Name       string `json:"name"`
-	Workspace  string `json:"workspace"`
-	Group      string `json:"group"`
-	AppStack   string `json:"app"`
-	CreateTime int64  `json:"createtime"`
-	User       string `json:"user"`
-	Cluster    string `json:"cluster"`
-	Template   string `json:"template"`
+	resource.ObjectMeta
 	memoryOnly bool
 }
 
@@ -109,6 +105,7 @@ func (p *ServiceManager) List(groupName, workspaceName string) ([]ServiceInterfa
 
 	p.locker.Lock()
 	defer p.locker.Unlock()
+	log.DebugPrint(p.Groups)
 
 	group, ok := p.Groups[groupName]
 	if !ok {
@@ -190,7 +187,7 @@ func (p *ServiceManager) Create(groupName, workspaceName string, data []byte, op
 	cp.Group = groupName
 	cp.Template = string(data)
 	if opt.App != nil {
-		cp.AppStack = *opt.App
+		cp.App = *opt.App
 	}
 	cp.User = opt.User
 	//因为pod创建时,触发informer,所以优先创建etcd
@@ -316,7 +313,12 @@ func (s *Service) GetRuntime() (*Runtime, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Runtime{Service: svc}, nil
+
+	pods, err := ph.GetPods(s.Workspace, s.Name)
+	if err != nil {
+		return nil, err
+	}
+	return &Runtime{Service: svc, Pods: pods}, nil
 }
 
 func (s *Service) GetTemplate() (string, error) {
@@ -332,6 +334,53 @@ func (s *Service) GetTemplate() (string, error) {
 	*t = fmt.Sprintf("%v\n%v", prefix, *t)
 	return *t, nil
 
+}
+
+type Status struct {
+	resource.ObjectMeta
+	ClusterIP   string                       `json:"clusterip"`
+	ExternalIPs []string                     `json:"externalips"`
+	Reason      string                       `json:"reason"`
+	Selector    map[string]string            `json:"selector"`
+	Labels      map[string]string            `json:"labels"`
+	Ports       []corev1.ServicePort         `json:"ports"`
+	Type        string                       `json:"type"`
+	PodStatus   []pk.Status                  `json:"podstatus"`
+	Ingress     []corev1.LoadBalancerIngress `json:"ingress"`
+}
+
+func (s *Service) GetStatus() *Status {
+	js := Status{ObjectMeta: s.ObjectMeta}
+	js.PodStatus = make([]pk.Status, 0)
+	js.ExternalIPs = make([]string, 0)
+	js.Labels = make(map[string]string)
+	js.Selector = make(map[string]string)
+	js.Ports = make([]corev1.ServicePort, 0)
+	js.Ingress = make([]corev1.LoadBalancerIngress, 0)
+
+	runtime, err := s.GetRuntime()
+	if err != nil {
+		js.Reason = err.Error()
+		return &js
+	}
+
+	svc := runtime.Service
+
+	js.ExternalIPs = append(js.ExternalIPs, svc.Spec.ExternalIPs...)
+	js.ClusterIP = svc.Spec.ClusterIP
+	js.Labels = svc.Labels
+	js.Selector = svc.Spec.Selector
+	js.Ports = append(js.Ports, svc.Spec.Ports...)
+	js.Type = string(svc.Spec.Type)
+	js.Ingress = append(js.Ingress, svc.Status.LoadBalancer.Ingress...)
+
+	for _, v := range runtime.Pods {
+		ps := pk.V1PodToPodStatus(*v)
+
+		js.PodStatus = append(js.PodStatus, *ps)
+	}
+
+	return &js
 }
 
 func InitServiceController(be backend.BackendHandler) (ServiceController, error) {
@@ -362,6 +411,7 @@ func InitServiceController(be backend.BackendHandler) (ServiceController, error)
 		}
 		rm.Groups[k] = group
 	}
+	log.DebugPrint(rm)
 	return rm, nil
 
 }

@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"encoding/json"
 	"fmt"
 	"ufleet-deploy/pkg/resource"
 	pk "ufleet-deploy/pkg/resource/statefulset"
@@ -29,13 +30,111 @@ func (this *StatefulSetController) ListStatefulSets() {
 		this.errReturn(err, 500)
 		return
 	}
-	statefulsets := make([]pk.StatefulSet, 0)
+	jss := make([]pk.Status, 0)
 	for _, v := range pis {
-		t := v.Info()
-		statefulsets = append(statefulsets, *t)
+		js := v.GetStatus()
+		jss = append(jss, *js)
 	}
 
-	this.normalReturn(statefulsets)
+	this.normalReturn(jss)
+}
+
+// GetStatefulSets
+// @Title StatefulSet
+// @Description  StatefulSet
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Param workspace path string true "工作区"
+// @Param statefulset path string true "服务"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /:statefulset/group/:group/workspace/:workspace [Get]
+func (this *StatefulSetController) GetGroupWorkspaceStatefulSet() {
+
+	group := this.Ctx.Input.Param(":group")
+	workspace := this.Ctx.Input.Param(":workspace")
+	statefulset := this.Ctx.Input.Param(":statefulset")
+
+	pi, err := pk.Controller.Get(group, workspace, statefulset)
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+	v := pi
+
+	var js *pk.Status
+	js = v.GetStatus()
+
+	this.normalReturn(js)
+}
+
+// ListGroupsStatefulSets
+// @Title StatefulSet
+// @Description   StatefulSet
+// @Param Token header string true 'Token'
+// @Param body body string true "组数组"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /groups [Post]
+func (this *StatefulSetController) ListGroupsStatefulSets() {
+
+	groups := make([]string, 0)
+	if this.Ctx.Input.RequestBody == nil {
+		err := fmt.Errorf("must commit groups name")
+		this.errReturn(err, 500)
+		return
+	}
+
+	err := json.Unmarshal(this.Ctx.Input.RequestBody, &groups)
+	if err != nil {
+		err = fmt.Errorf("try to unmarshal data \"%v\" fail for %v", string(this.Ctx.Input.RequestBody), err)
+		this.errReturn(err, 500)
+		return
+	}
+
+	pis := make([]pk.StatefulSetInterface, 0)
+
+	for _, v := range groups {
+		tmp, err := pk.Controller.ListGroup(v)
+		if err != nil {
+			this.errReturn(err, 500)
+			return
+		}
+		pis = append(pis, tmp...)
+	}
+
+	jss := make([]pk.Status, 0)
+	for _, v := range pis {
+		js := v.GetStatus()
+		jss = append(jss, *js)
+	}
+
+	this.normalReturn(jss)
+}
+
+// ListGroupStatefulSets
+// @Title StatefulSet
+// @Description   StatefulSet
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /group/:group [Get]
+func (this *StatefulSetController) ListGroupStatefulSets() {
+
+	group := this.Ctx.Input.Param(":group")
+	pis, err := pk.Controller.ListGroup(group)
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+	jss := make([]pk.Status, 0)
+	for _, v := range pis {
+		js := v.GetStatus()
+		jss = append(jss, *js)
+	}
+
+	this.normalReturn(jss)
 }
 
 // CreateStatefulSet

@@ -43,6 +43,7 @@ type SecretInterface interface {
 	Info() *Secret
 	GetRuntime() (*Runtime, error)
 	GetTemplate() (string, error)
+	GetStatus() *Status
 }
 
 type SecretManager struct {
@@ -67,14 +68,8 @@ type Runtime struct {
 //在Secret构建到内存的时候,就开始绑定K8s资源,
 //可以根据事件及时更新Secret的信息
 type Secret struct {
-	Name       string `json:"name"`
-	Workspace  string `json:"workspace"`
-	Group      string `json:"group"`
-	AppStack   string `json:"app"`
-	User       string `json:"user"`
+	resource.ObjectMeta
 	Cluster    string `json:"cluster"`
-	Template   string `json:"template"`
-	CreateTime int64  `json:"createtime"`
 	memoryOnly bool
 }
 
@@ -191,7 +186,7 @@ func (p *SecretManager) Create(groupName, workspaceName string, data []byte, opt
 	cp.Group = groupName
 	cp.Template = string(data)
 	if opt.App != nil {
-		cp.AppStack = *opt.App
+		cp.App = *opt.App
 	}
 	cp.User = opt.User
 	//因为pod创建时,触发informer,所以优先创建etcd
@@ -331,6 +326,31 @@ func (s *Secret) GetTemplate() (string, error) {
 	*t = fmt.Sprintf("%v\n%v", prefix, *t)
 	return *t, nil
 
+}
+
+type Status struct {
+	resource.ObjectMeta
+	Reason     string            `json:"reason"`
+	Type       string            `json:"type"`
+	Data       map[string][]byte `json:"data"`
+	StringData map[string]string `json:"stringdata"`
+}
+
+func (s *Secret) GetStatus() *Status {
+	runtime, err := s.GetRuntime()
+
+	js := Status{ObjectMeta: s.ObjectMeta}
+	js.Data = make(map[string][]byte)
+	js.StringData = make(map[string]string)
+	if err != nil {
+		js.Reason = err.Error()
+		return &js
+	}
+
+	js.Type = string(runtime.Type)
+	js.StringData = runtime.StringData
+	js.Data = runtime.Data
+	return &js
 }
 
 func InitSecretController(be backend.BackendHandler) (SecretController, error) {

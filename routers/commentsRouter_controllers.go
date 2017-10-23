@@ -64,6 +64,13 @@ func init() {
 
 	beego.GlobalControllerRouter["ufleet-deploy/controllers:ConfigMapController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:ConfigMapController"],
 		beego.ControllerComments{
+			Method: "CreateConfigMapV1",
+			Router: `/group/:group/workspace/:workspace/custom`,
+			AllowHTTPMethods: []string{"Post"},
+			Params: nil})
+
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:ConfigMapController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:ConfigMapController"],
+		beego.ControllerComments{
 			Method: "DeleteConfigMap",
 			Router: `/:configmap/group/:group/workspace/:workspace`,
 			AllowHTTPMethods: []string{"Delete"},
@@ -170,7 +177,7 @@ func init() {
 	beego.GlobalControllerRouter["ufleet-deploy/controllers:DaemonSetController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:DaemonSetController"],
 		beego.ControllerComments{
 			Method: "GetDaemonSet",
-			Router: `/:daemonset/group/:group/workspace/:workspce`,
+			Router: `/:daemonset/group/:group/workspace/:workspace`,
 			AllowHTTPMethods: []string{"Get"},
 			Params: nil})
 
@@ -652,6 +659,13 @@ func init() {
 
 	beego.GlobalControllerRouter["ufleet-deploy/controllers:ServiceAccountController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:ServiceAccountController"],
 		beego.ControllerComments{
+			Method: "CreateServiceAccountCustom",
+			Router: `/group/:group/workspace/:workspace/custom`,
+			AllowHTTPMethods: []string{"Post"},
+			Params: nil})
+
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:ServiceAccountController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:ServiceAccountController"],
+		beego.ControllerComments{
 			Method: "UpdateServiceAccount",
 			Router: `/:serviceaccount/group/:group/workspace/:workspace`,
 			AllowHTTPMethods: []string{"Put"},
@@ -675,6 +689,13 @@ func init() {
 		beego.ControllerComments{
 			Method: "ListGroupWorkspaceServices",
 			Router: `/group/:group/workspace/:workspace`,
+			AllowHTTPMethods: []string{"Get"},
+			Params: nil})
+
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:ServiceController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:ServiceController"],
+		beego.ControllerComments{
+			Method: "GetGroupWorkspaceService",
+			Router: `/:service/group/:group/workspace/:workspace`,
 			AllowHTTPMethods: []string{"Get"},
 			Params: nil})
 
@@ -724,6 +745,27 @@ func init() {
 		beego.ControllerComments{
 			Method: "ListStatefulSets",
 			Router: `/group/:group/workspace/:workspace`,
+			AllowHTTPMethods: []string{"Get"},
+			Params: nil})
+
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:StatefulSetController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:StatefulSetController"],
+		beego.ControllerComments{
+			Method: "GetGroupWorkspaceStatefulSet",
+			Router: `/:statefulset/group/:group/workspace/:workspace`,
+			AllowHTTPMethods: []string{"Get"},
+			Params: nil})
+
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:StatefulSetController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:StatefulSetController"],
+		beego.ControllerComments{
+			Method: "ListGroupsStatefulSets",
+			Router: `/groups`,
+			AllowHTTPMethods: []string{"Post"},
+			Params: nil})
+
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:StatefulSetController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:StatefulSetController"],
+		beego.ControllerComments{
+			Method: "ListGroupStatefulSets",
+			Router: `/group/:group`,
 			AllowHTTPMethods: []string{"Get"},
 			Params: nil})
 

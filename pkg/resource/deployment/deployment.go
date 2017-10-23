@@ -45,7 +45,7 @@ type DeploymentController interface {
 type DeploymentInterface interface {
 	Info() *Deployment
 	GetRuntime() (*Runtime, error)
-	GetStatus() (*Status, error)
+	GetStatus() *Status
 	Scale(num int) error
 	Event() ([]corev1.Event, error)
 	GetTemplate() (string, error)
@@ -74,14 +74,7 @@ type Runtime struct {
 //在Deployment构建到内存的时候,就开始绑定K8s资源,
 //可以根据事件及时更新Deployment的信息
 type Deployment struct {
-	Name       string `json:"name"`
-	Workspace  string `json:"workspace"`
-	Group      string `json:"group"`
-	AppStack   string `json:"app"`
-	User       string `json:"user"`
-	Cluster    string `json:"cluster"`
-	CreateTime int64  `json:"createtime"`
-	Template   string `json:"template"`
+	resource.ObjectMeta
 	memoryOnly bool
 }
 
@@ -193,7 +186,7 @@ func (p *DeploymentManager) Create(groupName, workspaceName string, data []byte,
 	cp.Group = groupName
 	cp.Template = string(data)
 	if opt.App != nil {
-		cp.AppStack = *opt.App
+		cp.App = *opt.App
 	}
 	cp.User = opt.User
 	//因为pod创建时,触发informer,所以优先创建etcd
@@ -328,15 +321,12 @@ func (j *Deployment) GetRuntime() (*Runtime, error) {
 }
 
 type Status struct {
-	Name       string   `json:"name"`
-	User       string   `json:"user"`
-	Workspace  string   `json:"workspace"`
-	Group      string   `json:"group"`
+	resource.ObjectMeta
+
 	Images     []string `json:"images"`
 	Containers []string `json:"containers"`
 	PodNum     int      `json:"podnum"`
 	ClusterIP  string   `json:"clusterip"`
-	CreateTime int64    `json:"createtime"`
 	//Replicas    int32             `json:"replicas"`
 	Strategy    extensionsv1beta1.DeploymentStrategy `json:"Strategy"`
 	Desire      int                                  `json:"desire"`
@@ -345,7 +335,7 @@ type Status struct {
 	UpToDate    int                                  `json:"uptodate"`
 	Ready       int                                  `json:"ready"`
 	Labels      map[string]string                    `json:"labels"`
-	Annotatiosn map[string]string                    `json:"annotations"`
+	Annotations map[string]string                    `json:"annotations"`
 	Selectors   map[string]string                    `json:"selectors"`
 	Reason      string                               `json:"reason"`
 	timeout     int64                                `json:"timemout"`
@@ -373,7 +363,7 @@ func K8sDeploymentToDeploymentStatus(deployment *extensionsv1beta1.Deployment) *
 		js.Labels = deployment.Labels
 	}
 
-	js.Annotatiosn = make(map[string]string)
+	js.Annotations = make(map[string]string)
 	if deployment.Annotations != nil {
 		js.Labels = deployment.Annotations
 	}
@@ -403,6 +393,74 @@ func K8sDeploymentToDeploymentStatus(deployment *extensionsv1beta1.Deployment) *
 
 }
 
+func (j *Deployment) GetStatus() *Status {
+	runtime, err := j.GetRuntime()
+	if err != nil {
+		js := Status{ObjectMeta: j.ObjectMeta}
+		js.Images = make([]string, 0)
+		js.PodStatus = make([]pk.Status, 0)
+		js.ContainerSpecs = make([]pk.ContainerSpec, 0)
+		js.Labels = make(map[string]string)
+		js.Annotations = make(map[string]string)
+		js.Selectors = make(map[string]string)
+		js.Reason = err.Error()
+
+		return &js
+	}
+
+	deployment := runtime.Deployment
+	js := Status{ObjectMeta: j.ObjectMeta, DeploymentStatus: deployment.Status}
+	js.Images = make([]string, 0)
+	js.PodStatus = make([]pk.Status, 0)
+	js.ContainerSpecs = make([]pk.ContainerSpec, 0)
+	js.Labels = make(map[string]string)
+	js.Annotations = make(map[string]string)
+	js.Selectors = make(map[string]string)
+
+	if deployment.Spec.Replicas != nil {
+		js.Replicas = *deployment.Spec.Replicas
+	}
+	if deployment.Labels != nil {
+		js.Labels = deployment.Labels
+	}
+	if deployment.Annotations != nil {
+		js.Annotations = deployment.Annotations
+	}
+
+	if deployment.Spec.Selector != nil {
+		js.Selectors = deployment.Spec.Selector.MatchLabels
+	}
+
+	if deployment.Spec.Replicas != nil {
+		js.Desire = int(*deployment.Spec.Replicas)
+	} else {
+		js.Desire = 1
+
+	}
+	js.Current = int(deployment.Status.AvailableReplicas)
+	js.Ready = int(deployment.Status.ReadyReplicas)
+	js.Available = int(deployment.Status.AvailableReplicas)
+	js.UpToDate = int(deployment.Status.UpdatedReplicas)
+
+	for _, v := range deployment.Spec.Template.Spec.Containers {
+		js.Containers = append(js.Containers, v.Name)
+		js.Images = append(js.Images, v.Image)
+		js.ContainerSpecs = append(js.ContainerSpecs, *pk.K8sContainerSpecTran(&v))
+	}
+	js.PodNum = len(runtime.Pods)
+	if js.PodNum != 0 {
+		pod := runtime.Pods[0]
+		js.ClusterIP = pod.Status.HostIP
+	}
+
+	for _, v := range runtime.Pods {
+		ps := pk.V1PodToPodStatus(*v)
+		js.PodStatus = append(js.PodStatus, *ps)
+	}
+
+	return &js
+}
+
 func (j *Deployment) Scale(num int) error {
 
 	jh, err := cluster.NewDeploymentHandler(j.Group, j.Workspace)
@@ -417,32 +475,6 @@ func (j *Deployment) Scale(num int) error {
 
 	return nil
 }
-
-func (j *Deployment) GetStatus() (*Status, error) {
-	runtime, err := j.GetRuntime()
-	if err != nil {
-		return nil, err
-	}
-
-	js := K8sDeploymentToDeploymentStatus(runtime.Deployment)
-	js.PodNum = len(runtime.Pods)
-	if js.PodNum != 0 {
-		pod := runtime.Pods[0]
-		js.ClusterIP = pod.Status.HostIP
-	}
-	info := j.Info()
-	js.User = info.User
-	js.Group = info.Group
-	js.Workspace = info.Workspace
-
-	for _, v := range runtime.Pods {
-		ps := pk.V1PodToPodStatus(*v)
-		js.PodStatus = append(js.PodStatus, *ps)
-	}
-
-	return js, nil
-}
-
 func (j *Deployment) Event() ([]corev1.Event, error) {
 	ph, err := cluster.NewDeploymentHandler(j.Group, j.Workspace)
 	if err != nil {

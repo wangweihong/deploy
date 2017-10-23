@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"ufleet-deploy/pkg/resource"
-	ck "ufleet-deploy/pkg/resource/cronjob"
-	jk "ufleet-deploy/pkg/resource/job"
+	pk "ufleet-deploy/pkg/resource/cronjob"
+	sk "ufleet-deploy/pkg/resource/job"
 )
 
 type CronJobController struct {
@@ -21,7 +21,7 @@ type CronJobState struct {
 	Running          int         `json:"running"`
 	LastScheduleTime int64       `json:"lastscheduletime"`
 	period           string      `json:"period"`
-	JobStatus        []jk.Status `json:"jobtatus"`
+	JobStatus        []sk.Status `json:"jobtatus"`
 	//	Pods       []string `json:"pods"`
 }
 
@@ -39,18 +39,18 @@ func (this *CronJobController) ListGroupWorkspaceCronJobs() {
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
 
-	pis, err := ck.Controller.List(group, workspace)
+	pis, err := pk.Controller.List(group, workspace)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
 	}
-	cronjobs := make([]ck.CronJob, 0)
+	pss := make([]pk.Status, 0)
 	for _, v := range pis {
-		t := v.Info()
-		cronjobs = append(cronjobs, *t)
+		s := v.GetStatus()
+		pss = append(pss, *s)
 	}
 
-	this.normalReturn(cronjobs)
+	this.normalReturn(pss)
 }
 
 // GetCronJob
@@ -69,24 +69,13 @@ func (this *CronJobController) GetCronJob() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	cronjob := this.Ctx.Input.Param(":cronjob")
 
-	pi, err := ck.Controller.Get(group, workspace, cronjob)
+	pi, err := pk.Controller.Get(group, workspace, cronjob)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
 	}
 	v := pi
-	s, err := v.GetStatus()
-	if err != nil {
-		info := v.Info()
-		s = &ck.Status{}
-		s.JobStatus = make([]jk.Status, 0)
-		s.Name = info.Name
-		s.Group = info.Group
-		s.Workspace = info.Workspace
-		s.User = info.User
-		s.Reason = err.Error()
-
-	}
+	s := v.GetStatus()
 
 	this.normalReturn(s)
 }
@@ -121,32 +110,19 @@ func (this *CronJobController) ListGroupsCronJobs() {
 		return
 	}
 
-	pis := make([]ck.CronJobInterface, 0)
+	pis := make([]pk.CronJobInterface, 0)
 
 	for _, v := range groups {
-		tmp, err := ck.Controller.ListGroup(v)
+		tmp, err := pk.Controller.ListGroup(v)
 		if err != nil {
 			this.errReturn(err, 500)
 			return
 		}
 		pis = append(pis, tmp...)
 	}
-	pss := make([]ck.Status, 0)
+	pss := make([]pk.Status, 0)
 	for _, v := range pis {
-		s, err := v.GetStatus()
-		if err != nil {
-			info := v.Info()
-			s = &ck.Status{}
-			s.JobStatus = make([]jk.Status, 0)
-			s.Name = info.Name
-			s.Group = info.Group
-			s.Workspace = info.Workspace
-			s.User = info.User
-			s.Reason = err.Error()
-
-			pss = append(pss, *s)
-			continue
-		}
+		s := v.GetStatus()
 
 		pss = append(pss, *s)
 	}
@@ -166,28 +142,14 @@ func (this *CronJobController) ListGroupCronJobs() {
 
 	group := this.Ctx.Input.Param(":group")
 
-	pis, err := ck.Controller.ListGroup(group)
+	pis, err := pk.Controller.ListGroup(group)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
 	}
-	pss := make([]ck.Status, 0)
+	pss := make([]pk.Status, 0)
 	for _, v := range pis {
-		s, err := v.GetStatus()
-		if err != nil {
-			info := v.Info()
-			s = &ck.Status{}
-			s.JobStatus = make([]jk.Status, 0)
-			s.Name = info.Name
-			s.Group = info.Group
-			s.Workspace = info.Workspace
-			s.User = info.User
-			s.Reason = err.Error()
-
-			pss = append(pss, *s)
-			continue
-		}
-
+		s := v.GetStatus()
 		pss = append(pss, *s)
 	}
 
@@ -222,7 +184,7 @@ func (this *CronJobController) CreateCronJob() {
 	*/
 
 	var opt resource.CreateOption
-	err := ck.Controller.Create(group, workspace, this.Ctx.Input.RequestBody, opt)
+	err := pk.Controller.Create(group, workspace, this.Ctx.Input.RequestBody, opt)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
@@ -260,7 +222,7 @@ func (this *CronJobController) UpdateCronJob() {
 		ui.GetUserName()
 	*/
 
-	err := ck.Controller.Update(group, workspace, cronjob, this.Ctx.Input.RequestBody)
+	err := pk.Controller.Update(group, workspace, cronjob, this.Ctx.Input.RequestBody)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
@@ -285,7 +247,7 @@ func (this *CronJobController) DeleteCronJob() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	cronjob := this.Ctx.Input.Param(":cronjob")
 
-	err := ck.Controller.Delete(group, workspace, cronjob, resource.DeleteOption{})
+	err := pk.Controller.Delete(group, workspace, cronjob, resource.DeleteOption{})
 	if err != nil {
 		this.errReturn(err, 500)
 		return
@@ -310,7 +272,7 @@ func (this *CronJobController) GetCronJobTemplate() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	cronjob := this.Ctx.Input.Param(":cronjob")
 
-	pi, err := ck.Controller.Get(group, workspace, cronjob)
+	pi, err := pk.Controller.Get(group, workspace, cronjob)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
@@ -341,7 +303,7 @@ func (this *CronJobController) GetCronJobEvent() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	cronjob := this.Ctx.Input.Param(":cronjob")
 
-	pi, err := ck.Controller.Get(group, workspace, cronjob)
+	pi, err := pk.Controller.Get(group, workspace, cronjob)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
@@ -372,7 +334,7 @@ func (this *CronJobController) SuspendOrResumeCronJob() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	cronjob := this.Ctx.Input.Param(":cronjob")
 
-	pi, err := ck.Controller.Get(group, workspace, cronjob)
+	pi, err := pk.Controller.Get(group, workspace, cronjob)
 	if err != nil {
 		this.errReturn(err, 500)
 		return

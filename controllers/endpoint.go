@@ -31,13 +31,13 @@ func (this *EndpointController) ListEndpoints() {
 		this.errReturn(err, 500)
 		return
 	}
-	endpoints := make([]pk.Endpoint, 0)
+	jss := make([]pk.Status, 0)
 	for _, v := range pis {
-		t := v.Info()
-		endpoints = append(endpoints, *t)
+		js := v.GetStatus()
+		jss = append(jss, *js)
 	}
 
-	this.normalReturn(endpoints)
+	this.normalReturn(jss)
 }
 
 // CreateEndpoint

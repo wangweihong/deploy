@@ -45,7 +45,7 @@ type DaemonSetController interface {
 type DaemonSetInterface interface {
 	Info() *DaemonSet
 	GetRuntime() (*Runtime, error)
-	GetStatus() (*Status, error)
+	GetStatus() *Status
 	Event() ([]corev1.Event, error)
 	GetTemplate() (string, error)
 }
@@ -73,14 +73,7 @@ type Runtime struct {
 //在DaemonSet构建到内存的时候,就开始绑定K8s资源,
 //可以根据事件及时更新DaemonSet的信息
 type DaemonSet struct {
-	Name       string `json:"name"`
-	Workspace  string `json:"workspace"`
-	Group      string `json:"group"`
-	AppStack   string `json:"app"`
-	User       string `json:"user"`
-	Cluster    string `json:"cluster"`
-	CreateTime int64  `json:"createtime"`
-	Template   string `json:"template"`
+	resource.ObjectMeta
 	memoryOnly bool
 }
 
@@ -193,7 +186,7 @@ func (p *DaemonSetManager) Create(groupName, workspaceName string, data []byte, 
 	cp.Group = groupName
 	cp.Template = string(data)
 	if opt.App != nil {
-		cp.AppStack = *opt.App
+		cp.App = *opt.App
 	}
 	cp.User = opt.User
 	//因为pod创建时,触发informer,所以优先创建etcd
@@ -328,82 +321,76 @@ func (j *DaemonSet) GetRuntime() (*Runtime, error) {
 }
 
 type Status struct {
-	Name       string   `json:"name"`
-	User       string   `json:"user"`
-	Workspace  string   `json:"workspace"`
-	Group      string   `json:"group"`
-	Images     []string `json:"images"`
-	Containers []string `json:"containers"`
-	PodNum     int      `json:"podnum"`
-	ClusterIP  string   `json:"clusterip"`
-	CreateTime int64    `json:"createtime"`
-	//Replicas    int32             `json:"replicas"`
-	Labels      map[string]string `json:"labels"`
-	Annotatiosn map[string]string `json:"annotations"`
-	Selectors   map[string]string `json:"selectors"`
-	Reason      string            `json:"reason"`
+	resource.ObjectMeta
+	Images         []string          `json:"images"`
+	Containers     []string          `json:"containers"`
+	PodNum         int               `json:"podnum"`
+	ClusterIP      string            `json:"clusterip"`
+	Labels         map[string]string `json:"labels"`
+	Annotatiosn    map[string]string `json:"annotations"`
+	Selectors      map[string]string `json:"selectors"`
+	Reason         string            `json:"reason"`
+	UpdateStrategy string            `json:"updatestrategy"`
 	//	Pods       []string `json:"pods"`
 	PodStatus      []pk.Status        `json:"podstatus"`
-	ContainerSpecs []pk.ContainerSpec `json:"containerspecs"`
+	ContainerSpecs []pk.ContainerSpec `json:"containerspec"`
 	extensionsv1beta1.DaemonSetStatus
 }
 
-//不包含PodStatus的信息
-func K8sDaemonSetToDaemonSetStatus(daemonset *extensionsv1beta1.DaemonSet) *Status {
-	js := Status{DaemonSetStatus: daemonset.Status}
-	js.Name = daemonset.Name
+func (j *DaemonSet) GetStatus() *Status {
+	runtime, err := j.GetRuntime()
+	if err != nil {
+		js := Status{ObjectMeta: j.ObjectMeta}
+		js.Images = make([]string, 0)
+		js.PodStatus = make([]pk.Status, 0)
+		js.ContainerSpecs = make([]pk.ContainerSpec, 0)
+		js.Labels = make(map[string]string)
+		js.Annotatiosn = make(map[string]string)
+		js.Selectors = make(map[string]string)
+		js.Reason = err.Error()
+		return &js
+	}
+
+	daemonset := runtime.DaemonSet
+	js := Status{ObjectMeta: j.ObjectMeta, DaemonSetStatus: runtime.DaemonSet.Status}
 	js.Images = make([]string, 0)
 	js.PodStatus = make([]pk.Status, 0)
-	js.CreateTime = daemonset.CreationTimestamp.Unix()
 	js.ContainerSpecs = make([]pk.ContainerSpec, 0)
-
 	js.Labels = make(map[string]string)
+	js.Annotatiosn = make(map[string]string)
+	js.Selectors = make(map[string]string)
+
 	if daemonset.Labels != nil {
 		js.Labels = daemonset.Labels
 	}
 
-	js.Annotatiosn = make(map[string]string)
 	if daemonset.Annotations != nil {
 		js.Labels = daemonset.Annotations
 	}
 
-	js.Selectors = make(map[string]string)
 	if daemonset.Spec.Selector != nil {
 		js.Selectors = daemonset.Spec.Selector.MatchLabels
 	}
-
-	for _, v := range daemonset.Spec.Template.Spec.Containers {
-		js.Containers = append(js.Containers, v.Name)
-		js.Images = append(js.Images, v.Image)
-		js.ContainerSpecs = append(js.ContainerSpecs, *pk.K8sContainerSpecTran(&v))
-	}
-	return &js
-
-}
-
-func (j *DaemonSet) GetStatus() (*Status, error) {
-	runtime, err := j.GetRuntime()
-	if err != nil {
-		return nil, err
-	}
-
-	js := K8sDaemonSetToDaemonSetStatus(runtime.DaemonSet)
+	//	js := K8sDaemonSetToDaemonSetStatus(runtime.DaemonSet)
 	js.PodNum = len(runtime.Pods)
 	if js.PodNum != 0 {
 		pod := runtime.Pods[0]
 		js.ClusterIP = pod.Status.HostIP
 	}
-	info := j.Info()
-	js.User = info.User
-	js.Group = info.Group
-	js.Workspace = info.Workspace
+
+	js.UpdateStrategy = string(daemonset.Spec.UpdateStrategy.Type)
+	for _, v := range daemonset.Spec.Template.Spec.Containers {
+		js.Containers = append(js.Containers, v.Name)
+		js.Images = append(js.Images, v.Image)
+		js.ContainerSpecs = append(js.ContainerSpecs, *pk.K8sContainerSpecTran(&v))
+	}
 
 	for _, v := range runtime.Pods {
 		ps := pk.V1PodToPodStatus(*v)
 		js.PodStatus = append(js.PodStatus, *ps)
 	}
 
-	return js, nil
+	return &js
 }
 
 func (j *DaemonSet) Event() ([]corev1.Event, error) {

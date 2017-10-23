@@ -29,13 +29,13 @@ func (this *IngressController) ListIngresss() {
 		this.errReturn(err, 500)
 		return
 	}
-	ingresss := make([]pk.Ingress, 0)
+	jss := make([]pk.Status, 0)
 	for _, v := range pis {
-		t := v.Info()
-		ingresss = append(ingresss, *t)
+		js := v.GetStatus()
+		jss = append(jss, *js)
 	}
 
-	this.normalReturn(ingresss)
+	this.normalReturn(jss)
 }
 
 // CreateIngress

@@ -5,7 +5,6 @@ import (
 	"strconv"
 	"ufleet-deploy/pkg/resource"
 	pk "ufleet-deploy/pkg/resource/deployment"
-	jk "ufleet-deploy/pkg/resource/pod"
 )
 
 type DeploymentController struct {
@@ -34,19 +33,7 @@ func (this *DeploymentController) ListGroupWorkspaceDeployments() {
 
 	jss := make([]pk.Status, 0)
 	for _, v := range pis {
-		js, err := v.GetStatus()
-		if err != nil {
-			deployment := v.Info()
-			js = &pk.Status{}
-			js.Name = deployment.Name
-			js.User = deployment.User
-			js.Workspace = deployment.Workspace
-			js.Group = deployment.Group
-			js.Reason = err.Error()
-			js.PodStatus = make([]jk.Status, 0)
-			jss = append(jss, *js)
-			continue
-		}
+		js := v.GetStatus()
 		jss = append(jss, *js)
 	}
 
@@ -72,19 +59,7 @@ func (this *DeploymentController) ListGroupDeployments() {
 	}
 	jss := make([]pk.Status, 0)
 	for _, v := range pis {
-		js, err := v.GetStatus()
-		if err != nil {
-			js := &pk.Status{}
-			deployment := v.Info()
-			js.Name = deployment.Name
-			js.User = deployment.User
-			js.Workspace = deployment.Workspace
-			js.Group = deployment.Group
-			js.Reason = err.Error()
-			js.PodStatus = make([]jk.Status, 0)
-			jss = append(jss, *js)
-			continue
-		}
+		js := v.GetStatus()
 		jss = append(jss, *js)
 	}
 
@@ -114,17 +89,7 @@ func (this *DeploymentController) GetDeployment() {
 		return
 	}
 	v := pi
-	js, err := v.GetStatus()
-	if err != nil {
-		js = &pk.Status{}
-		deployment := v.Info()
-		js.Name = deployment.Name
-		js.User = deployment.User
-		js.Workspace = deployment.Workspace
-		js.Group = deployment.Group
-		js.Reason = err.Error()
-		js.PodStatus = make([]jk.Status, 0)
-	}
+	js := v.GetStatus()
 
 	this.normalReturn(js)
 

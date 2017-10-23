@@ -130,6 +130,7 @@ type ServiceHandler interface {
 	Delete(namespace string, name string) error
 	Create(namespace string, service *corev1.Service) error
 	Update(namespace string, service *corev1.Service) error
+	GetPods(namespace, name string) ([]*corev1.Pod, error)
 }
 
 func NewServiceHandler(group, workspace string) (ServiceHandler, error) {
@@ -161,6 +162,22 @@ func (h *serviceHandler) Update(namespace string, service *corev1.Service) error
 
 func (h *serviceHandler) Delete(namespace, serviceName string) error {
 	return h.clientset.CoreV1().Services(namespace).Delete(serviceName, nil)
+}
+
+func (h *serviceHandler) GetPods(namespace, name string) ([]*corev1.Pod, error) {
+	svc, err := h.Get(namespace, name)
+	if err != nil {
+		return nil, err
+	}
+
+	selectorStr := svc.Spec.Selector
+	selector := labels.Set(selectorStr).AsSelector()
+	pods, err := h.informerController.podInformer.Lister().List(selector)
+	if err != nil {
+		return nil, err
+	}
+	return pods, nil
+
 }
 
 /* ------------------------ Configmap ----------------------------*/

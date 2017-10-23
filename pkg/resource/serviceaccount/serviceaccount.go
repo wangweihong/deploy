@@ -43,6 +43,7 @@ type ServiceAccountInterface interface {
 	Info() *ServiceAccount
 	GetRuntime() (*Runtime, error)
 	GetTemplate() (string, error)
+	GetStatus() *Status
 }
 
 type ServiceAccountManager struct {
@@ -67,14 +68,8 @@ type Runtime struct {
 //在ServiceAccount构建到内存的时候,就开始绑定K8s资源,
 //可以根据事件及时更新ServiceAccount的信息
 type ServiceAccount struct {
-	Name       string `json:"name"`
-	Workspace  string `json:"workspace"`
-	Group      string `json:"group"`
-	AppStack   string `json:"app"`
-	User       string `json:"user"`
+	resource.ObjectMeta
 	Cluster    string `json:"cluster"`
-	CreateTime int64  `json:"createtime"`
-	Template   string `json:"template"`
 	memoryOnly bool
 }
 
@@ -189,7 +184,7 @@ func (p *ServiceAccountManager) Create(groupName, workspaceName string, data []b
 	cp.Group = groupName
 	cp.Template = string(data)
 	if opt.App != nil {
-		cp.AppStack = *opt.App
+		cp.App = *opt.App
 	}
 	cp.User = opt.User
 	//因为pod创建时,触发informer,所以优先创建etcd
@@ -333,6 +328,28 @@ func (s *ServiceAccount) GetTemplate() (string, error) {
 	*t = fmt.Sprintf("%v\n%v", prefix, *t)
 	return *t, nil
 
+}
+
+type Status struct {
+	resource.ObjectMeta
+	Secrts []string `json:"secrets"`
+	Reason string   `json:"reason"`
+}
+
+func (s *ServiceAccount) GetStatus() *Status {
+	js := Status{ObjectMeta: s.ObjectMeta}
+	js.Secrts = make([]string, 0)
+
+	runtime, err := s.GetRuntime()
+	if err != nil {
+		js.Reason = err.Error()
+		return &js
+	}
+
+	for _, v := range runtime.OwnerReferences {
+		js.Secrts = append(js.Secrts, v.Name)
+	}
+	return &js
 }
 
 func InitServiceAccountController(be backend.BackendHandler) (ServiceAccountController, error) {

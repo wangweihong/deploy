@@ -42,7 +42,7 @@ type IngressInterface interface {
 	Info() *Ingress
 	GetRuntime() (*Runtime, error)
 	GetTemplate() (string, error)
-	GetStatus() (*Status, error)
+	GetStatus() *Status
 }
 
 type IngressManager struct {
@@ -67,14 +67,7 @@ type Runtime struct {
 //在Ingress构建到内存的时候,就开始绑定K8s资源,
 //可以根据事件及时更新Ingress的信息
 type Ingress struct {
-	Name       string `json:"name"`
-	Workspace  string `json:"workspace"`
-	Group      string `json:"group"`
-	AppStack   string `json:"app"`
-	User       string `json:"user"`
-	Cluster    string `json:"cluster"`
-	CreateTime int64  `json:"createne"`
-	Template   string `json:"template"`
+	resource.ObjectMeta
 	memoryOnly bool
 }
 
@@ -167,7 +160,7 @@ func (p *IngressManager) Create(groupName, workspaceName string, data []byte, op
 	cp.Group = groupName
 	cp.Template = string(data)
 	if opt.App != nil {
-		cp.AppStack = *opt.App
+		cp.App = *opt.App
 	}
 	cp.User = opt.User
 	//因为pod创建时,触发informer,所以优先创建etcd
@@ -311,22 +304,13 @@ func (s *Ingress) GetTemplate() (string, error) {
 }
 
 type Status struct {
-	Name string `json:"name"`
+	resource.ObjectMeta
+	Reason string `json:"reason"`
 }
 
-func k8sIngressToStatus(cm extensionsv1beta1.Ingress) *Status {
-	var s Status
-	s.Name = cm.Name
-	return &s
-}
-
-func (s *Ingress) GetStatus() (*Status, error) {
-	runtime, err := s.GetRuntime()
-	if err != nil {
-		return nil, err
-	}
-	status := k8sIngressToStatus(*runtime.Ingress)
-	return status, nil
+func (s *Ingress) GetStatus() *Status {
+	js := Status{ObjectMeta: s.ObjectMeta}
+	return &js
 }
 
 func InitIngressController(be backend.BackendHandler) (IngressController, error) {

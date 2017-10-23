@@ -6,18 +6,12 @@ import (
 	"ufleet-deploy/models"
 	"ufleet-deploy/pkg/resource"
 	pk "ufleet-deploy/pkg/resource/serviceaccount"
+
+	corev1 "k8s.io/client-go/pkg/api/v1"
 )
 
 type ServiceAccountController struct {
 	baseController
-}
-
-type ServiceAccountState struct {
-	Name       string `json:"name"`
-	Group      string `json:"group"`
-	Workspace  string `json:"workspace"`
-	User       string `json:"user"`
-	CreateTime int64  `json:"createtime"`
 }
 
 // ListServiceAccounts
@@ -39,13 +33,13 @@ func (this *ServiceAccountController) ListServiceAccounts() {
 		this.errReturn(err, 500)
 		return
 	}
-	serviceaccounts := make([]pk.ServiceAccount, 0)
+	jss := make([]pk.Status, 0)
 	for _, v := range pis {
-		t := v.Info()
-		serviceaccounts = append(serviceaccounts, *t)
+		js := v.GetStatus()
+		jss = append(jss, *js)
 	}
 
-	this.normalReturn(serviceaccounts)
+	this.normalReturn(jss)
 }
 
 // ListGroupsServiceAccounts
@@ -82,16 +76,13 @@ func (this *ServiceAccountController) ListGroupsServiceAccounts() {
 		}
 		pis = append(pis, tmp...)
 	}
-	pss := make([]ServiceAccountState, 0)
-	for _, v := range pis {
-		var ps ServiceAccountState
-		ps.Name = v.Info().Name
-		ps.Group = v.Info().Group
-		ps.Workspace = v.Info().Workspace
-		ps.User = v.Info().User
-	}
 
-	this.normalReturn(pss)
+	jss := make([]pk.Status, 0)
+	for _, v := range pis {
+		js := v.GetStatus()
+		jss = append(jss, *js)
+	}
+	this.normalReturn(jss)
 }
 
 // ListGroupServiceAccounts
@@ -111,16 +102,14 @@ func (this *ServiceAccountController) ListGroupServiceAccounts() {
 		this.errReturn(err, 500)
 		return
 	}
-	pss := make([]ServiceAccountState, 0)
+
+	jss := make([]pk.Status, 0)
 	for _, v := range pis {
-		var ps ServiceAccountState
-		ps.Name = v.Info().Name
-		ps.Group = v.Info().Group
-		ps.Workspace = v.Info().Workspace
-		ps.User = v.Info().User
+		js := v.GetStatus()
+		jss = append(jss, *js)
 	}
 
-	this.normalReturn(pss)
+	this.normalReturn(jss)
 }
 
 // CreateServiceAccount
@@ -159,6 +148,73 @@ func (this *ServiceAccountController) CreateServiceAccount() {
 	var opt resource.CreateOption
 	opt.Comment = co.Comment
 	err = pk.Controller.Create(group, workspace, []byte(co.Data), opt)
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+
+	this.normalReturn("ok")
+}
+
+type ServiceAccountCreateOption struct {
+	Comment string `json:"comment"`
+	//	Data    string `json:"data"`
+	//Data json.RawMessage `json:"data"`
+	Name    string   `json:"name"`
+	Secrets []string `json:"secrets"`
+}
+
+// CreateServiceAccountCustom
+// @Title ServiceAccount
+// @Description  创建容器组
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Param workspace path string true "工作区"
+// @Param body body string true "资源描述"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /group/:group/workspace/:workspace/custom [Post]
+func (this *ServiceAccountController) CreateServiceAccountCustom() {
+
+	group := this.Ctx.Input.Param(":group")
+	workspace := this.Ctx.Input.Param(":workspace")
+
+	if this.Ctx.Input.RequestBody == nil {
+		err := fmt.Errorf("must commit resource json/yaml data")
+		this.errReturn(err, 500)
+		return
+	}
+
+	var co ServiceAccountCreateOption
+	err := json.Unmarshal(this.Ctx.Input.RequestBody, &co)
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+	/*
+		ui := user.NewUserClient(token)
+		ui.GetUserName()
+	*/
+	cm := corev1.ServiceAccount{}
+	cm.Kind = "ServiceAccount"
+	cm.APIVersion = "v1"
+	cm.Name = co.Name
+	cm.Secrets = make([]corev1.ObjectReference, 0)
+	for _, v := range co.Secrets {
+		var or corev1.ObjectReference
+		or.Name = v
+		cm.Secrets = append(cm.Secrets, or)
+	}
+
+	bytedata, err := json.Marshal(cm)
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+
+	var opt resource.CreateOption
+	opt.Comment = co.Comment
+	err = pk.Controller.Create(group, workspace, bytedata, opt)
 	if err != nil {
 		this.errReturn(err, 500)
 		return

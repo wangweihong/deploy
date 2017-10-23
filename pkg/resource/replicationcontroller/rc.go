@@ -44,7 +44,7 @@ type ReplicationControllerController interface {
 type ReplicationControllerInterface interface {
 	Info() *ReplicationController
 	GetRuntime() (*Runtime, error)
-	GetStatus() (*Status, error)
+	GetStatus() *Status
 	Scale(num int) error
 	Event() ([]corev1.Event, error)
 	GetTemplate() (string, error)
@@ -74,15 +74,8 @@ type Runtime struct {
 //在ReplicationController构建到内存的时候,就开始绑定K8s资源,
 //可以根据事件及时更新ReplicationController的信息
 type ReplicationController struct {
-	Name       string `json:"name"`
-	Workspace  string `json:"workspace"`
-	Group      string `json:"group"`
-	AppStack   string `json:"app"`
-	User       string `json:"user"`
-	Cluster    string `json:"cluster"`
-	CreateTime int64  `json:"createtime"`
-	Template   string `json:"template"`
-	memoryOnly bool   //用于判定pod是否由k8s自动创建
+	resource.ObjectMeta
+	memoryOnly bool //用于判定pod是否由k8s自动创建
 }
 
 //注意这里没锁
@@ -194,7 +187,7 @@ func (p *ReplicationControllerManager) Create(groupName, workspaceName string, d
 	cp.Group = groupName
 	cp.Template = string(data)
 	if opt.App != nil {
-		cp.AppStack = *opt.App
+		cp.App = *opt.App
 	}
 	cp.User = opt.User
 	//因为pod创建时,触发informer,所以优先创建etcd
@@ -331,10 +324,7 @@ func (j *ReplicationController) GetRuntime() (*Runtime, error) {
 }
 
 type Status struct {
-	Name       string   `json:"name"`
-	User       string   `json:"user"`
-	Workspace  string   `json:"workspace"`
-	Group      string   `json:"group"`
+	resource.ObjectMeta
 	Images     []string `json:"images"`
 	Containers []string `json:"containers"`
 	PodNum     int      `json:"podnum"`
@@ -401,28 +391,58 @@ func K8sReplicationControllerToReplicationControllerStatus(replicationcontroller
 
 }
 
-func (j *ReplicationController) Scale(num int) error {
-
-	jh, err := cluster.NewReplicationControllerHandler(j.Group, j.Workspace)
-	if err != nil {
-		return err
-	}
-
-	err = jh.Scale(j.Workspace, j.Name, int32(num))
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (j *ReplicationController) GetStatus() (*Status, error) {
+func (j *ReplicationController) GetStatus() *Status {
 	runtime, err := j.GetRuntime()
 	if err != nil {
-		return nil, err
+		js := Status{ObjectMeta: j.ObjectMeta}
+		js.ContainerSpecs = make([]pk.ContainerSpec, 0)
+		js.Images = make([]string, 0)
+		js.PodStatus = make([]pk.Status, 0)
+		js.Labels = make(map[string]string)
+		js.Annotatiosn = make(map[string]string)
+		js.Selectors = make(map[string]string)
+		js.Reason = err.Error()
+		return &js
+	}
+	replicationcontroller := runtime.ReplicationController
+	js := Status{ObjectMeta: j.ObjectMeta, ReplicationControllerStatus: replicationcontroller.Status}
+	js.ContainerSpecs = make([]pk.ContainerSpec, 0)
+	js.Images = make([]string, 0)
+	js.PodStatus = make([]pk.Status, 0)
+	js.Labels = make(map[string]string)
+	js.Annotatiosn = make(map[string]string)
+	js.Selectors = make(map[string]string)
+
+	if replicationcontroller.Spec.Replicas != nil {
+		js.Replicas = *replicationcontroller.Spec.Replicas
+	}
+	if replicationcontroller.Labels != nil {
+		js.Labels = replicationcontroller.Labels
 	}
 
-	js := K8sReplicationControllerToReplicationControllerStatus(runtime.ReplicationController)
+	if replicationcontroller.Annotations != nil {
+		js.Labels = replicationcontroller.Annotations
+	}
+
+	if replicationcontroller.Spec.Selector != nil {
+		js.Selectors = replicationcontroller.Spec.Selector
+	}
+
+	if replicationcontroller.Spec.Replicas != nil {
+		js.Desire = int(*replicationcontroller.Spec.Replicas)
+	} else {
+		js.Desire = 1
+	}
+	js.Current = int(replicationcontroller.Status.AvailableReplicas)
+	js.Ready = int(replicationcontroller.Status.ReadyReplicas)
+	js.Available = int(replicationcontroller.Status.AvailableReplicas)
+
+	for _, v := range replicationcontroller.Spec.Template.Spec.Containers {
+		js.Containers = append(js.Containers, v.Name)
+		js.Images = append(js.Images, v.Image)
+		js.ContainerSpecs = append(js.ContainerSpecs, *pk.K8sContainerSpecTran(&v))
+	}
+	//	js := K8sReplicationControllerToReplicationControllerStatus(runtime.ReplicationController)
 	js.PodNum = len(runtime.Pods)
 	if js.PodNum != 0 {
 		pod := runtime.Pods[0]
@@ -438,7 +458,21 @@ func (j *ReplicationController) GetStatus() (*Status, error) {
 		js.PodStatus = append(js.PodStatus, *ps)
 	}
 
-	return js, nil
+	return &js
+}
+func (j *ReplicationController) Scale(num int) error {
+
+	jh, err := cluster.NewReplicationControllerHandler(j.Group, j.Workspace)
+	if err != nil {
+		return err
+	}
+
+	err = jh.Scale(j.Workspace, j.Name, int32(num))
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (j *ReplicationController) Event() ([]corev1.Event, error) {

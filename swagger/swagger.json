@@ -126,6 +126,51 @@
                 }
             }
         },
+        "/configmap/group/{group}/workspace/{workspace}/custom": {
+            "post": {
+                "tags": [
+                    "configmap"
+                ],
+                "description": "创建配置",
+                "operationId": "ConfigMapController.ConfigMap",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Token",
+                        "description": "'Token'",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "group",
+                        "description": "组名",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "workspace",
+                        "description": "工作区",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "body",
+                        "name": "body",
+                        "description": "资源描述",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "{string} create success!"
+                    },
+                    "500": {}
+                }
+            }
+        },
         "/configmap/groups": {
             "post": {
                 "tags": [
@@ -840,6 +885,49 @@
             }
         },
         "/daemonset/{daemonset}/group/{group}/workspace/{workspace}": {
+            "get": {
+                "tags": [
+                    "daemonset"
+                ],
+                "description": "DaemonSet",
+                "operationId": "DaemonSetController.DaemonSet",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Token",
+                        "description": "'Token'",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "group",
+                        "description": "组名",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "workspace",
+                        "description": "工作区名",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "daemonset",
+                        "description": "部署",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "{string} create success!"
+                    },
+                    "500": {}
+                }
+            },
             "put": {
                 "tags": [
                     "daemonset"
@@ -1012,51 +1100,6 @@
                         "in": "path",
                         "name": "daemonset",
                         "description": "容器组",
-                        "required": true,
-                        "type": "string"
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "{string} create success!"
-                    },
-                    "500": {}
-                }
-            }
-        },
-        "/daemonset/{daemonset}/group/{group}/workspace/{workspce}": {
-            "get": {
-                "tags": [
-                    "daemonset"
-                ],
-                "description": "DaemonSet",
-                "operationId": "DaemonSetController.DaemonSet",
-                "parameters": [
-                    {
-                        "in": "header",
-                        "name": "Token",
-                        "description": "'Token'",
-                        "required": true,
-                        "type": "string"
-                    },
-                    {
-                        "in": "path",
-                        "name": "group",
-                        "description": "组名",
-                        "required": true,
-                        "type": "string"
-                    },
-                    {
-                        "in": "path",
-                        "name": "workspace",
-                        "description": "工作区名",
-                        "required": true,
-                        "type": "string"
-                    },
-                    {
-                        "in": "path",
-                        "name": "daemonset",
-                        "description": "部署",
                         "required": true,
                         "type": "string"
                     }
@@ -3690,6 +3733,49 @@
             }
         },
         "/service/{service}/group/{group}/workspace/{workspace}": {
+            "get": {
+                "tags": [
+                    "service"
+                ],
+                "description": "Service",
+                "operationId": "ServiceController.Service",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Token",
+                        "description": "'Token'",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "group",
+                        "description": "组名",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "workspace",
+                        "description": "工作区",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "service",
+                        "description": "服务",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "{string} create success!"
+                    },
+                    "500": {}
+                }
+            },
             "put": {
                 "tags": [
                     "service"
@@ -3897,6 +3983,51 @@
                     "500": {}
                 }
             },
+            "post": {
+                "tags": [
+                    "serviceaccount"
+                ],
+                "description": "创建容器组",
+                "operationId": "ServiceAccountController.ServiceAccount",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Token",
+                        "description": "'Token'",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "group",
+                        "description": "组名",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "workspace",
+                        "description": "工作区",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "body",
+                        "name": "body",
+                        "description": "资源描述",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "{string} create success!"
+                    },
+                    "500": {}
+                }
+            }
+        },
+        "/serviceaccount/group/{group}/workspace/{workspace}/custom": {
             "post": {
                 "tags": [
                     "serviceaccount"
@@ -4281,6 +4412,37 @@
                 }
             }
         },
+        "/statefulset/group/{group}": {
+            "get": {
+                "tags": [
+                    "statefulset"
+                ],
+                "description": "StatefulSet",
+                "operationId": "StatefulSetController.StatefulSet",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Token",
+                        "description": "'Token'",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "group",
+                        "description": "组名",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "{string} create success!"
+                    },
+                    "500": {}
+                }
+            }
+        },
         "/statefulset/group/{group}/workspace/{workspace}": {
             "get": {
                 "tags": [
@@ -4362,7 +4524,81 @@
                 }
             }
         },
+        "/statefulset/groups": {
+            "post": {
+                "tags": [
+                    "statefulset"
+                ],
+                "description": "StatefulSet",
+                "operationId": "StatefulSetController.StatefulSet",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Token",
+                        "description": "'Token'",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "body",
+                        "name": "body",
+                        "description": "组数组",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "{string} create success!"
+                    },
+                    "500": {}
+                }
+            }
+        },
         "/statefulset/{statefulset}/group/{group}/workspace/{workspace}": {
+            "get": {
+                "tags": [
+                    "statefulset"
+                ],
+                "description": "StatefulSet",
+                "operationId": "StatefulSetController.StatefulSet",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Token",
+                        "description": "'Token'",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "group",
+                        "description": "组名",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "workspace",
+                        "description": "工作区",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "statefulset",
+                        "description": "服务",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "{string} create success!"
+                    },
+                    "500": {}
+                }
+            },
             "put": {
                 "tags": [
                     "statefulset"

@@ -45,7 +45,7 @@ type CronJobController interface {
 type CronJobInterface interface {
 	Info() *CronJob
 	GetRuntime() (*Runtime, error)
-	GetStatus() (*Status, error)
+	GetStatus() *Status
 	GetTemplate() (string, error)
 	Event() ([]corev1.Event, error)
 	SuspendOrResume() error
@@ -74,13 +74,7 @@ type Runtime struct {
 //在CronJob构建到内存的时候,就开始绑定K8s资源,
 //可以根据事件及时更新CronJob的信息
 type CronJob struct {
-	Name       string `json:"name"`
-	Workspace  string `json:"workspace"`
-	Group      string `json:"group"`
-	AppStack   string `json:"app"`
-	User       string `json:"user"`
-	Cluster    string `json:"cluster"`
-	Template   string `json:"template"`
+	resource.ObjectMeta
 	memoryOnly bool
 }
 
@@ -196,7 +190,7 @@ func (p *CronJobManager) Create(groupName, workspaceName string, data []byte, op
 	cp.Template = string(data)
 	cp.User = opt.User
 	if opt.App != nil {
-		cp.AppStack = *opt.App
+		cp.App = *opt.App
 	}
 
 	be := backend.NewBackendHandler()
@@ -398,19 +392,16 @@ func (p *CronJob) SuspendOrResume() error {
 }
 
 type Status struct {
-	Name      string `json:"name"`
-	User      string `json:"user"`
-	Workspace string `json:"workspace"`
-	Group     string `json:"group"`
-	Total     int    `json:"total"`
-	Active    int    `json:"active"`
-	Suspend   bool   `json:"suspend"`
+	resource.ObjectMeta
+
+	Total   int  `json:"total"`
+	Active  int  `json:"active"`
+	Suspend bool `json:"suspend"`
 	//-1表示没有指定
 	StartingDeadlineSeconds    int64              `json:"startingDeadlineSeconds"`
 	SuccessfulJobsHistoryLimit int                `json:"successfulJobsHistoryLimit"`
 	FailedJobsHistoryLimit     int                `json:"failedJobsHistoryLimit"`
 	ConcurrencyPolicy          string             `json:"concurrencyPolicy"`
-	CreateTime                 int64              `json:"createtime"`
 	LastScheduleTime           int64              `json:"lastscheduletime"`
 	Period                     string             `json:"period"`
 	Labels                     map[string]string  `json:"labels"`
@@ -421,34 +412,20 @@ type Status struct {
 	Reason string `json:"reason"`
 }
 
-/*
-func K8sCronJobToStatus(job *batchv2alpha1.CronJob) *Status {
-	var js Status
-	js.Name = job.Name
-	js.Period = job.Spec.Schedule
-	if job.Status.LastScheduleTime != nil {
-		js.LastScheduleTime = job.Status.LastScheduleTime
-	}
+func (p *CronJob) GetStatus() *Status {
+	s := Status{ObjectMeta: p.ObjectMeta}
 
-}
-*/
-
-func (p *CronJob) GetStatus() (*Status, error) {
-	var s Status
 	s.JobStatus = make([]jk.Status, 0)
 	s.Labels = make(map[string]string)
 	s.Seletors = make(map[string]string)
 	s.ContainerSpecs = make([]pk.ContainerSpec, 0)
+
 	runtime, err := p.GetRuntime()
 	if err != nil {
-		return nil, err
+		s.Reason = err.Error()
+		return &s
 	}
 	info := p.Info()
-
-	s.Name = info.Name
-	s.User = info.User
-	s.Group = info.Group
-	s.Workspace = info.Workspace
 
 	s.Period = runtime.CronJob.Spec.Schedule
 	rs := runtime.CronJob.Status
@@ -469,7 +446,6 @@ func (p *CronJob) GetStatus() (*Status, error) {
 	}
 
 	s.ConcurrencyPolicy = string(runtime.CronJob.Spec.ConcurrencyPolicy)
-	s.CreateTime = runtime.CronJob.CreationTimestamp.Unix()
 	//-1表示没有设置
 	if runtime.CronJob.Spec.SuccessfulJobsHistoryLimit != nil {
 		s.SuccessfulJobsHistoryLimit = int(*runtime.CronJob.Spec.SuccessfulJobsHistoryLimit)
@@ -500,22 +476,19 @@ func (p *CronJob) GetStatus() (*Status, error) {
 
 	s.JobStatus = make([]jk.Status, 0)
 	for _, v := range runtime.Jobs {
-		//		js := jk.K8sJobToJobStatus(v)
-		//		s.JobStatus = append(s.JobStatus, *js)
-
 		ji, err := jk.Controller.Get(info.Group, info.Workspace, v.Name)
 		if err != nil {
 			s.Reason = err.Error()
-			return nil, err
+			return &s
 		}
 		js, err := ji.GetStatus()
 		if err != nil {
-			return nil, err
+			return &s
 		}
 		s.JobStatus = append(s.JobStatus, *js)
 
 	}
-	return &s, nil
+	return &s
 }
 
 func InitCronJobController(be backend.BackendHandler) (CronJobController, error) {

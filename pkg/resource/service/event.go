@@ -16,38 +16,36 @@ const (
 )
 
 func HandleClusterResourceEvent() {
-	//可以考虑ufleet创建的pod直接绑定k8s pod,
-	//在k8s pod更新的时候再更新绑定的k8s  pod.
+	//可以考虑ufleet创建的service直接绑定k8s service,
+	//在k8s service更新的时候再更新绑定的k8s  service.
 	//在删除的,标记底层资源已经被移除.
 
 	for {
 		pe := <-cluster.ServiceEventChan
-		log.DebugPrint("recieve cluster pod event : %v", pe)
+		log.DebugPrint("recieve cluster service event : %v", pe)
 
 		go func(e cluster.Event) {
 			switch e.Action {
 			case cluster.ActionDelete:
 				//忽略ufleet主动创建的资源
 				if e.FromUfleet {
-					log.DebugPrint("pod event %v from ufleet,ignore ", e)
+					log.DebugPrint("service event %v from ufleet,ignore ", e)
 					return
 				}
 
-				log.DebugPrint("start to delete")
 				rm.locker.Lock()
 				defer rm.locker.Unlock()
 				err := rm.delete(e.Group, e.Workspace, e.Name)
 				if err != nil {
-					log.ErrorPrint("cluster pod  event handler/delete:", err)
+					log.ErrorPrint("cluster service  event handler/delete:", err)
 					return
 				}
 
-				log.DebugPrint("delete success")
 				return
 
 			case cluster.ActionCreate:
 				if e.FromUfleet {
-					log.DebugPrint("pod event %v from ufleet,ignore ", e)
+					log.DebugPrint("service event %v from ufleet,ignore ", e)
 					return
 				}
 
@@ -56,20 +54,20 @@ func HandleClusterResourceEvent() {
 
 				group, ok := rm.Groups[e.Group]
 				if !ok {
-					log.ErrorPrint("handle cluster pod event fail: group \"%v\" not exist", e.Group)
+					log.ErrorPrint("handle cluster service event fail: group \"%v\" not exist", e.Group)
 					return
 				}
 
 				workspace, ok := group.Workspaces[e.Workspace]
 				if !ok {
-					log.ErrorPrint("handle cluster pod event fail: workspace \"%v\" not exist", e.Workspace)
+					log.ErrorPrint("handle cluster service event fail: workspace \"%v\" not exist", e.Workspace)
 					return
 				}
 
 				x, ok := workspace.Services[e.Name]
 				if ok {
 					if x.memoryOnly {
-						log.ErrorPrint("handle cluster pod create event fail: pod\"%v\" has exist", e.Name)
+						log.ErrorPrint("handle cluster service create event fail: service\"%v\" has exist", e.Name)
 					}
 					return
 				}
@@ -88,7 +86,7 @@ func HandleClusterResourceEvent() {
 
 			case cluster.ActionUpdate:
 				if e.FromUfleet {
-					log.DebugPrint("pod event %v from ufleet,ignore ", e)
+					log.DebugPrint("service event %v from ufleet,ignore ", e)
 					return
 				}
 

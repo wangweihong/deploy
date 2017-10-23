@@ -64,3 +64,14 @@ func GetResourceCUD(name string) (RCUD, error) {
 	return cud, nil
 
 }
+
+type ObjectMeta struct {
+	Name       string `json:"name"`
+	Workspace  string `json:"workspace"`
+	Group      string `json:"group"`
+	App        string `json:"app"`
+	User       string `json:"user"`
+	Template   string `json:"template"`
+	CreateTime int64  `json:"createtime"`
+	Comment    string `json:"comment"`
+}

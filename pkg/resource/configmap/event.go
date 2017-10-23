@@ -84,7 +84,6 @@ func HandleClusterResourceEvent() {
 
 				group.Workspaces[e.Workspace] = workspace
 				rm.Groups[e.Group] = group
-				log.DebugPrint(rm)
 				return
 
 			case cluster.ActionUpdate:

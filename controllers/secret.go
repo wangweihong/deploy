@@ -5,19 +5,11 @@ import (
 	"fmt"
 	"ufleet-deploy/models"
 	"ufleet-deploy/pkg/resource"
-	sk "ufleet-deploy/pkg/resource/secret"
+	pk "ufleet-deploy/pkg/resource/secret"
 )
 
 type SecretController struct {
 	baseController
-}
-
-type SecretState struct {
-	Name       string `json:"name"`
-	Group      string `json:"group"`
-	Workspace  string `json:"workspace"`
-	User       string `json:"user"`
-	CreateTime int64  `json:"createtime"`
 }
 
 // ListSecrets
@@ -34,18 +26,17 @@ func (this *SecretController) ListSecrets() {
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
 
-	pis, err := sk.Controller.List(group, workspace)
+	pis, err := pk.Controller.List(group, workspace)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
 	}
-	secrets := make([]sk.Secret, 0)
+	jss := make([]pk.Status, 0)
 	for _, v := range pis {
-		t := v.Info()
-		secrets = append(secrets, *t)
+		js := v.GetStatus()
+		jss = append(jss, *js)
 	}
-
-	this.normalReturn(secrets)
+	this.normalReturn(jss)
 }
 
 // ListGroupsSecrets
@@ -72,27 +63,22 @@ func (this *SecretController) ListGroupsSecrets() {
 		return
 	}
 
-	pis := make([]sk.SecretInterface, 0)
+	pis := make([]pk.SecretInterface, 0)
 
 	for _, v := range groups {
-		tmp, err := sk.Controller.ListGroup(v)
+		tmp, err := pk.Controller.ListGroup(v)
 		if err != nil {
 			this.errReturn(err, 500)
 			return
 		}
 		pis = append(pis, tmp...)
 	}
-	pss := make([]SecretState, 0)
+	jss := make([]pk.Status, 0)
 	for _, v := range pis {
-		var ps SecretState
-		ps.Name = v.Info().Name
-		ps.Group = v.Info().Group
-		ps.Workspace = v.Info().Workspace
-		ps.User = v.Info().User
-
+		js := v.GetStatus()
+		jss = append(jss, *js)
 	}
-
-	this.normalReturn(pss)
+	this.normalReturn(jss)
 }
 
 // ListGroupSecrets
@@ -106,23 +92,18 @@ func (this *SecretController) ListGroupsSecrets() {
 func (this *SecretController) ListGroupSecrets() {
 
 	group := this.Ctx.Input.Param(":group")
-	pis, err := sk.Controller.ListGroup(group)
+	pis, err := pk.Controller.ListGroup(group)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
 	}
 
-	pss := make([]SecretState, 0)
+	jss := make([]pk.Status, 0)
 	for _, v := range pis {
-		var ps SecretState
-		ps.Name = v.Info().Name
-		ps.Group = v.Info().Group
-		ps.Workspace = v.Info().Workspace
-		ps.User = v.Info().User
-
+		js := v.GetStatus()
+		jss = append(jss, *js)
 	}
-
-	this.normalReturn(pss)
+	this.normalReturn(jss)
 }
 
 // CreateSecret
@@ -160,7 +141,7 @@ func (this *SecretController) CreateSecret() {
 
 	var opt resource.CreateOption
 	opt.Comment = co.Comment
-	err = sk.Controller.Create(group, workspace, []byte(co.Data), opt)
+	err = pk.Controller.Create(group, workspace, []byte(co.Data), opt)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
@@ -198,7 +179,7 @@ func (this *SecretController) UpdateSecret() {
 		ui.GetUserName()
 	*/
 
-	err := sk.Controller.Update(group, workspace, secret, this.Ctx.Input.RequestBody)
+	err := pk.Controller.Update(group, workspace, secret, this.Ctx.Input.RequestBody)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
@@ -223,7 +204,7 @@ func (this *SecretController) DeleteSecret() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	secret := this.Ctx.Input.Param(":secret")
 
-	err := sk.Controller.Delete(group, workspace, secret, resource.DeleteOption{})
+	err := pk.Controller.Delete(group, workspace, secret, resource.DeleteOption{})
 	if err != nil {
 		this.errReturn(err, 500)
 		return
@@ -248,7 +229,7 @@ func (this *SecretController) GetSecretTemplate() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	secret := this.Ctx.Input.Param(":secret")
 
-	pi, err := sk.Controller.Get(group, workspace, secret)
+	pi, err := pk.Controller.Get(group, workspace, secret)
 	if err != nil {
 		this.errReturn(err, 500)
 		return

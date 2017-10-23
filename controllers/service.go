@@ -4,8 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"ufleet-deploy/pkg/resource"
-	sk "ufleet-deploy/pkg/resource/service"
-	pk "ufleet-deploy/pkg/resource/statefulset"
+	pk "ufleet-deploy/pkg/resource/service"
 )
 
 type ServiceController struct {
@@ -34,18 +33,48 @@ func (this *ServiceController) ListGroupWorkspaceServices() {
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
 
-	pis, err := sk.Controller.List(group, workspace)
+	pis, err := pk.Controller.List(group, workspace)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
 	}
-	services := make([]sk.Service, 0)
+
+	jss := make([]pk.Status, 0)
 	for _, v := range pis {
-		t := v.Info()
-		services = append(services, *t)
+		js := v.GetStatus()
+		jss = append(jss, *js)
 	}
 
-	this.normalReturn(services)
+	this.normalReturn(jss)
+}
+
+// GetServices
+// @Title Service
+// @Description  Service
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Param workspace path string true "工作区"
+// @Param service path string true "服务"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /:service/group/:group/workspace/:workspace [Get]
+func (this *ServiceController) GetGroupWorkspaceService() {
+
+	group := this.Ctx.Input.Param(":group")
+	workspace := this.Ctx.Input.Param(":workspace")
+	service := this.Ctx.Input.Param(":service")
+
+	pi, err := pk.Controller.Get(group, workspace, service)
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+	v := pi
+
+	var js *pk.Status
+	js = v.GetStatus()
+
+	this.normalReturn(js)
 }
 
 // ListGroupsServices
@@ -72,27 +101,24 @@ func (this *ServiceController) ListGroupsServices() {
 		return
 	}
 
-	pis := make([]sk.ServiceInterface, 0)
+	pis := make([]pk.ServiceInterface, 0)
 
 	for _, v := range groups {
-		tmp, err := sk.Controller.ListGroup(v)
+		tmp, err := pk.Controller.ListGroup(v)
 		if err != nil {
 			this.errReturn(err, 500)
 			return
 		}
 		pis = append(pis, tmp...)
 	}
-	pss := make([]ServiceState, 0)
-	for _, v := range pis {
-		var ps ServiceState
-		ps.Name = v.Info().Name
-		ps.Group = v.Info().Group
-		ps.Workspace = v.Info().Workspace
-		ps.User = v.Info().User
 
+	jss := make([]pk.Status, 0)
+	for _, v := range pis {
+		js := v.GetStatus()
+		jss = append(jss, *js)
 	}
 
-	this.normalReturn(pss)
+	this.normalReturn(jss)
 }
 
 // ListGroupServices
@@ -106,22 +132,18 @@ func (this *ServiceController) ListGroupsServices() {
 func (this *ServiceController) ListGroupServices() {
 
 	group := this.Ctx.Input.Param(":group")
-	pis, err := sk.Controller.ListGroup(group)
+	pis, err := pk.Controller.ListGroup(group)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
 	}
-	pss := make([]ServiceState, 0)
+	jss := make([]pk.Status, 0)
 	for _, v := range pis {
-		var ps ServiceState
-		ps.Name = v.Info().Name
-		ps.Group = v.Info().Group
-		ps.Workspace = v.Info().Workspace
-		ps.User = v.Info().User
-
+		js := v.GetStatus()
+		jss = append(jss, *js)
 	}
 
-	this.normalReturn(pss)
+	this.normalReturn(jss)
 }
 
 // CreateService
@@ -215,7 +237,7 @@ func (this *ServiceController) DeleteService() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	service := this.Ctx.Input.Param(":service")
 
-	err := sk.Controller.Delete(group, workspace, service, resource.DeleteOption{})
+	err := pk.Controller.Delete(group, workspace, service, resource.DeleteOption{})
 	if err != nil {
 		this.errReturn(err, 500)
 		return
@@ -240,7 +262,7 @@ func (this *ServiceController) GetServiceTemplate() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	service := this.Ctx.Input.Param(":service")
 
-	pi, err := sk.Controller.Get(group, workspace, service)
+	pi, err := pk.Controller.Get(group, workspace, service)
 	if err != nil {
 		this.errReturn(err, 500)
 		return

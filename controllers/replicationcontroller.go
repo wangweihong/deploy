@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strconv"
 	"ufleet-deploy/pkg/resource"
-	pk "ufleet-deploy/pkg/resource/pod"
 	jk "ufleet-deploy/pkg/resource/replicationcontroller"
 )
 
@@ -36,19 +35,7 @@ func (this *ReplicationControllerController) ListGroupWorkspaceReplicationContro
 	jss := make([]jk.Status, 0)
 
 	for _, v := range pis {
-		js, err := v.GetStatus()
-		if err != nil {
-			js := &jk.Status{}
-			replicationcontroller := v.Info()
-			js.Name = replicationcontroller.Name
-			js.User = replicationcontroller.User
-			js.Workspace = replicationcontroller.Workspace
-			js.Group = replicationcontroller.Group
-			js.Reason = err.Error()
-			js.PodStatus = make([]pk.Status, 0)
-			jss = append(jss, *js)
-			continue
-		}
+		js := v.GetStatus()
 
 		jss = append(jss, *js)
 	}
@@ -80,17 +67,7 @@ func (this *ReplicationControllerController) GetReplicationController() {
 	//replicationcontrollers := make([]jk.ReplicationController, 0)
 	v := pi
 
-	js, err := v.GetStatus()
-	if err != nil {
-		js := &jk.Status{}
-		replicationcontroller := v.Info()
-		js.Name = replicationcontroller.Name
-		js.User = replicationcontroller.User
-		js.Workspace = replicationcontroller.Workspace
-		js.Group = replicationcontroller.Group
-		js.Reason = err.Error()
-		js.PodStatus = make([]pk.Status, 0)
-	}
+	js := v.GetStatus()
 
 	this.normalReturn(js)
 }
@@ -131,19 +108,7 @@ func (this *ReplicationControllerController) ListGroupsReplicationControllers() 
 	//replicationcontrollers := make([]jk.ReplicationController, 0)
 	jss := make([]jk.Status, 0)
 	for _, v := range pis {
-		js, err := v.GetStatus()
-		if err != nil {
-			js = &jk.Status{}
-			replicationcontroller := v.Info()
-			js.Name = replicationcontroller.Name
-			js.User = replicationcontroller.User
-			js.Workspace = replicationcontroller.Workspace
-			js.Group = replicationcontroller.Group
-			js.Reason = err.Error()
-			js.PodStatus = make([]pk.Status, 0)
-			jss = append(jss, *js)
-			continue
-		}
+		js := v.GetStatus()
 
 		jss = append(jss, *js)
 	}
@@ -169,20 +134,7 @@ func (this *ReplicationControllerController) ListGroupReplicationControllers() {
 	//replicationcontrollers := make([]jk.ReplicationController, 0)
 	jss := make([]jk.Status, 0)
 	for _, v := range pis {
-		js, err := v.GetStatus()
-		if err != nil {
-			js = &jk.Status{}
-			replicationcontroller := v.Info()
-			js.Name = replicationcontroller.Name
-			js.User = replicationcontroller.User
-			js.Workspace = replicationcontroller.Workspace
-			js.Group = replicationcontroller.Group
-			js.Reason = err.Error()
-			js.PodStatus = make([]pk.Status, 0)
-			jss = append(jss, *js)
-			continue
-		}
-
+		js := v.GetStatus()
 		jss = append(jss, *js)
 	}
 

@@ -42,7 +42,7 @@ type EndpointInterface interface {
 	Info() *Endpoint
 	GetRuntime() (*Runtime, error)
 	GetTemplate() (string, error)
-	GetStatus() (*Status, error)
+	GetStatus() *Status
 }
 
 type EndpointManager struct {
@@ -67,14 +67,7 @@ type Runtime struct {
 //在Endpoint构建到内存的时候,就开始绑定K8s资源,
 //可以根据事件及时更新Endpoint的信息
 type Endpoint struct {
-	Name       string `json:"name"`
-	Workspace  string `json:"workspace"`
-	Group      string `json:"group"`
-	AppStack   string `json:"app"`
-	User       string `json:"user"`
-	Cluster    string `json:"cluster"`
-	CreateTime int64  `json:"createtime"`
-	Template   string `json:"template"`
+	resource.ObjectMeta
 	memoryOnly bool
 }
 
@@ -168,7 +161,7 @@ func (p *EndpointManager) Create(groupName, workspaceName string, data []byte, o
 	cp.Group = groupName
 	cp.Template = string(data)
 	if opt.App != nil {
-		cp.AppStack = *opt.App
+		cp.App = *opt.App
 	}
 	cp.User = opt.User
 	//因为pod创建时,触发informer,所以优先创建etcd
@@ -312,22 +305,14 @@ func (s *Endpoint) GetTemplate() (string, error) {
 }
 
 type Status struct {
-	Name string `json:"name"`
+	resource.ObjectMeta
+	Reason string `json:"reason"`
 }
 
-func k8sEndpointToStatus(cm corev1.Endpoints) *Status {
-	var s Status
-	s.Name = cm.Name
-	return &s
-}
+func (s *Endpoint) GetStatus() *Status {
+	js := Status{ObjectMeta: s.ObjectMeta}
+	return &js
 
-func (s *Endpoint) GetStatus() (*Status, error) {
-	runtime, err := s.GetRuntime()
-	if err != nil {
-		return nil, err
-	}
-	status := k8sEndpointToStatus(*runtime.Endpoint)
-	return status, nil
 }
 
 func InitEndpointController(be backend.BackendHandler) (EndpointController, error) {

@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"ufleet-deploy/pkg/resource"
 	pk "ufleet-deploy/pkg/resource/daemonset"
-	jk "ufleet-deploy/pkg/resource/pod"
 )
 
 type DaemonSetController struct {
@@ -30,13 +29,13 @@ func (this *DaemonSetController) ListDaemonSets() {
 		this.errReturn(err, 500)
 		return
 	}
-	daemonsets := make([]pk.DaemonSet, 0)
+	jss := make([]pk.Status, 0)
 	for _, v := range pis {
-		t := v.Info()
-		daemonsets = append(daemonsets, *t)
-	}
+		js := v.GetStatus()
 
-	this.normalReturn(daemonsets)
+		jss = append(jss, *js)
+	}
+	this.normalReturn(jss)
 }
 
 // ListGroupDaemonSets
@@ -58,19 +57,7 @@ func (this *DaemonSetController) ListGroupDaemonSets() {
 	}
 	jss := make([]pk.Status, 0)
 	for _, v := range pis {
-		js, err := v.GetStatus()
-		if err != nil {
-			js = &pk.Status{}
-			daemonset := v.Info()
-			js.Name = daemonset.Name
-			js.User = daemonset.User
-			js.Workspace = daemonset.Workspace
-			js.Group = daemonset.Group
-			js.Reason = err.Error()
-			js.PodStatus = make([]jk.Status, 0)
-			jss = append(jss, *js)
-			continue
-		}
+		js := v.GetStatus()
 		jss = append(jss, *js)
 	}
 
@@ -87,7 +74,7 @@ func (this *DaemonSetController) ListGroupDaemonSets() {
 // @Param daemonset path string true "部署"
 // @Success 201 {string} create success!
 // @Failure 500
-// @router /:daemonset/group/:group/workspace/:workspce [Get]
+// @router /:daemonset/group/:group/workspace/:workspace [Get]
 func (this *DaemonSetController) GetDaemonSet() {
 
 	group := this.Ctx.Input.Param(":group")
@@ -100,17 +87,7 @@ func (this *DaemonSetController) GetDaemonSet() {
 		return
 	}
 	v := pi
-	js, err := v.GetStatus()
-	if err != nil {
-		js = &pk.Status{}
-		daemonset := v.Info()
-		js.Name = daemonset.Name
-		js.User = daemonset.User
-		js.Workspace = daemonset.Workspace
-		js.Group = daemonset.Group
-		js.Reason = err.Error()
-		js.PodStatus = make([]jk.Status, 0)
-	}
+	js := v.GetStatus()
 
 	this.normalReturn(js)
 

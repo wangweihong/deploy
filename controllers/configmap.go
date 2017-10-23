@@ -3,23 +3,14 @@ package controllers
 import (
 	"encoding/json"
 	"fmt"
-	"ufleet-deploy/models"
 	"ufleet-deploy/pkg/resource"
-	sk "ufleet-deploy/pkg/resource/configmap"
+	pk "ufleet-deploy/pkg/resource/configmap"
+
+	corev1 "k8s.io/client-go/pkg/api/v1"
 )
 
 type ConfigMapController struct {
 	baseController
-}
-
-type ConfigMapState struct {
-	Name       string            `json:"name"`
-	Group      string            `json:"group"`
-	Workspace  string            `json:"workspace"`
-	User       string            `json:"user"`
-	Data       map[string]string `json:"data"`
-	Reason     string            `json:"reason"`
-	CreateTime int64             `json:"createtime"`
 }
 
 // ListConfigMaps
@@ -36,30 +27,19 @@ func (this *ConfigMapController) ListGroupWorkspaceConfigMaps() {
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
 
-	pis, err := sk.Controller.List(group, workspace)
+	pis, err := pk.Controller.List(group, workspace)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
 	}
-	pss := make([]ConfigMapState, 0)
+
+	jss := make([]pk.Status, 0)
 	for _, v := range pis {
-		var ps ConfigMapState
-		ps.Name = v.Info().Name
-		ps.Group = v.Info().Group
-		ps.Workspace = v.Info().Workspace
-		ps.User = v.Info().User
-		runtime, err := v.GetRuntime()
-		if err != nil {
-			ps.Reason = err.Error()
-			pss = append(pss, ps)
-		}
-		ps.Data = runtime.Data
-
-		pss = append(pss, ps)
-
+		js := v.GetStatus()
+		jss = append(jss, *js)
 	}
 
-	this.normalReturn(pss)
+	this.normalReturn(jss)
 }
 
 // ListGroupsConfigMaps
@@ -86,35 +66,23 @@ func (this *ConfigMapController) ListGroupsConfigMaps() {
 		return
 	}
 
-	pis := make([]sk.ConfigMapInterface, 0)
+	pis := make([]pk.ConfigMapInterface, 0)
 
 	for _, v := range groups {
-		tmp, err := sk.Controller.ListGroup(v)
+		tmp, err := pk.Controller.ListGroup(v)
 		if err != nil {
 			this.errReturn(err, 500)
 			return
 		}
 		pis = append(pis, tmp...)
 	}
-	pss := make([]ConfigMapState, 0)
+	jss := make([]pk.Status, 0)
 	for _, v := range pis {
-		var ps ConfigMapState
-		ps.Name = v.Info().Name
-		ps.Group = v.Info().Group
-		ps.Workspace = v.Info().Workspace
-		ps.User = v.Info().User
-		runtime, err := v.GetRuntime()
-		if err != nil {
-			ps.Reason = err.Error()
-			pss = append(pss, ps)
-		}
-		ps.Data = runtime.Data
-
-		pss = append(pss, ps)
-
+		js := v.GetStatus()
+		jss = append(jss, *js)
 	}
 
-	this.normalReturn(pss)
+	this.normalReturn(jss)
 }
 
 // ListGroupConfigMaps
@@ -129,30 +97,19 @@ func (this *ConfigMapController) ListGroupConfigMaps() {
 
 	group := this.Ctx.Input.Param(":group")
 
-	pis, err := sk.Controller.ListGroup(group)
+	pis, err := pk.Controller.ListGroup(group)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
 	}
-	pss := make([]ConfigMapState, 0)
-	for _, v := range pis {
-		var ps ConfigMapState
-		ps.Name = v.Info().Name
-		ps.Group = v.Info().Group
-		ps.Workspace = v.Info().Workspace
-		ps.User = v.Info().User
-		ps.CreateTime = v.Info().CreateTime
-		runtime, err := v.GetRuntime()
-		if err != nil {
-			ps.Reason = err.Error()
-			pss = append(pss, ps)
-		}
-		ps.Data = runtime.Data
 
-		pss = append(pss, ps)
+	jss := make([]pk.Status, 0)
+	for _, v := range pis {
+		js := v.GetStatus()
+		jss = append(jss, *js)
 	}
 
-	this.normalReturn(pss)
+	this.normalReturn(jss)
 }
 
 // CreateConfigMap
@@ -175,8 +132,68 @@ func (this *ConfigMapController) CreateConfigMap() {
 		this.errReturn(err, 500)
 		return
 	}
-	var co models.CreateOption
+	/*
+		var co models.CreateOption
+		err := json.Unmarshal(this.Ctx.Input.RequestBody, &co)
+		if err != nil {
+			this.errReturn(err, 500)
+			return
+		}
+
+	*/
+	var opt resource.CreateOption
+	//	opt.Comment = co.Comment
+	err := pk.Controller.Create(group, workspace, this.Ctx.Input.RequestBody, opt)
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+
+	this.normalReturn("ok")
+}
+
+type ConfigMapCreateOption struct {
+	Comment string `json:"comment"`
+	//	Data    string `json:"data"`
+	Data map[string]string `json:"data"`
+	//Data json.RawMessage `json:"data"`
+	Name string `json:"name"`
+}
+
+// CreateConfigMapV1
+// @Title ConfigMap
+// @Description  创建配置
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Param workspace path string true "工作区"
+// @Param body body string true "资源描述"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /group/:group/workspace/:workspace/custom [Post]
+func (this *ConfigMapController) CreateConfigMapV1() {
+
+	group := this.Ctx.Input.Param(":group")
+	workspace := this.Ctx.Input.Param(":workspace")
+
+	if this.Ctx.Input.RequestBody == nil {
+		err := fmt.Errorf("must commit resource json/yaml data")
+		this.errReturn(err, 500)
+		return
+	}
+	var co ConfigMapCreateOption
 	err := json.Unmarshal(this.Ctx.Input.RequestBody, &co)
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+
+	cm := corev1.ConfigMap{}
+	cm.Name = co.Name
+	cm.Data = co.Data
+	cm.Kind = "ConfigMap"
+	cm.APIVersion = "v1"
+
+	bytedata, err := json.Marshal(cm)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
@@ -184,7 +201,7 @@ func (this *ConfigMapController) CreateConfigMap() {
 
 	var opt resource.CreateOption
 	opt.Comment = co.Comment
-	err = sk.Controller.Create(group, workspace, []byte(co.Data), opt)
+	err = pk.Controller.Create(group, workspace, bytedata, opt)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
@@ -209,7 +226,7 @@ func (this *ConfigMapController) DeleteConfigMap() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	configmap := this.Ctx.Input.Param(":configmap")
 
-	err := sk.Controller.Delete(group, workspace, configmap, resource.DeleteOption{})
+	err := pk.Controller.Delete(group, workspace, configmap, resource.DeleteOption{})
 	if err != nil {
 		this.errReturn(err, 500)
 		return
@@ -247,7 +264,7 @@ func (this *ConfigMapController) UpdateConfigMap() {
 		ui.GetUserName()
 	*/
 
-	err := sk.Controller.Update(group, workspace, configmap, this.Ctx.Input.RequestBody)
+	err := pk.Controller.Update(group, workspace, configmap, this.Ctx.Input.RequestBody)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
@@ -272,7 +289,7 @@ func (this *ConfigMapController) GetConfigMapTemplate() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	configmap := this.Ctx.Input.Param(":configmap")
 
-	pi, err := sk.Controller.Get(group, workspace, configmap)
+	pi, err := pk.Controller.Get(group, workspace, configmap)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
