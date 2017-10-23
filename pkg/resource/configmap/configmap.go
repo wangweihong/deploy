@@ -44,6 +44,7 @@ type ConfigMapInterface interface {
 	GetRuntime() (*Runtime, error)
 	GetTemplate() (string, error)
 	GetStatus() *Status
+	Event() ([]corev1.Event, error)
 }
 
 type ConfigMapManager struct {
@@ -348,6 +349,10 @@ func (s *ConfigMap) GetStatus() *Status {
 
 	js.Data = runtime.Data
 	return &js
+}
+func (s *ConfigMap) Event() ([]corev1.Event, error) {
+	e := make([]corev1.Event, 0)
+	return e, nil
 }
 
 func InitConfigMapController(be backend.BackendHandler) (ConfigMapController, error) {

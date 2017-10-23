@@ -44,6 +44,7 @@ type ServiceAccountInterface interface {
 	GetRuntime() (*Runtime, error)
 	GetTemplate() (string, error)
 	GetStatus() *Status
+	Event() ([]corev1.Event, error)
 }
 
 type ServiceAccountManager struct {
@@ -350,6 +351,11 @@ func (s *ServiceAccount) GetStatus() *Status {
 		js.Secrts = append(js.Secrts, v.Name)
 	}
 	return &js
+}
+
+func (s *ServiceAccount) Event() ([]corev1.Event, error) {
+	e := make([]corev1.Event, 0)
+	return e, nil
 }
 
 func InitServiceAccountController(be backend.BackendHandler) (ServiceAccountController, error) {

@@ -35,6 +35,7 @@ type EndpointController interface {
 	Delete(group, workspace, endpoint string, opt resource.DeleteOption) error
 	Get(group, workspace, endpoint string) (EndpointInterface, error)
 	Update(group, workspace, resource string, newdata []byte) error
+	ListGroup(group string) ([]EndpointInterface, error)
 	List(group, workspace string) ([]EndpointInterface, error)
 }
 
@@ -43,6 +44,7 @@ type EndpointInterface interface {
 	GetRuntime() (*Runtime, error)
 	GetTemplate() (string, error)
 	GetStatus() *Status
+	Event() ([]corev1.Event, error)
 }
 
 type EndpointManager struct {
@@ -124,6 +126,28 @@ func (p *EndpointManager) List(groupName, workspaceName string) ([]EndpointInter
 	return pis, nil
 }
 
+func (p *EndpointManager) ListGroup(groupName string) ([]EndpointInterface, error) {
+
+	p.locker.Lock()
+	defer p.locker.Unlock()
+
+	group, ok := p.Groups[groupName]
+	if !ok {
+		return nil, fmt.Errorf("%v:%v", ErrGroupNotFound, groupName)
+	}
+
+	pis := make([]EndpointInterface, 0)
+
+	//不能够直接使用k,v来赋值,会出现值都是同一个的问题
+	for _, v := range group.Workspaces {
+		for k := range v.Endpoints {
+			t := v.Endpoints[k]
+			pis = append(pis, &t)
+		}
+	}
+
+	return pis, nil
+}
 func (p *EndpointManager) Create(groupName, workspaceName string, data []byte, opt resource.CreateOption) error {
 
 	p.locker.Lock()
@@ -313,6 +337,11 @@ func (s *Endpoint) GetStatus() *Status {
 	js := Status{ObjectMeta: s.ObjectMeta}
 	return &js
 
+}
+
+func (s *Endpoint) Event() ([]corev1.Event, error) {
+	e := make([]corev1.Event, 0)
+	return e, nil
 }
 
 func InitEndpointController(be backend.BackendHandler) (EndpointController, error) {

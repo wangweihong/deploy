@@ -297,6 +297,51 @@
                 }
             }
         },
+        "/configmap/{configmap}/group/{group}/workspace/{workspace}/event": {
+            "get": {
+                "tags": [
+                    "configmap"
+                ],
+                "description": "ConfigMap container event",
+                "operationId": "ConfigMapController.ConfigMap",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Token",
+                        "description": "'Token'",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "group",
+                        "description": "组名",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "workspace",
+                        "description": "工作区",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "configmap",
+                        "description": "容器组",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "{string} create success!"
+                    },
+                    "500": {}
+                }
+            }
+        },
         "/configmap/{configmap}/group/{group}/workspace/{workspace}/template": {
             "get": {
                 "tags": [
@@ -1504,6 +1549,37 @@
                 }
             }
         },
+        "/endpoint/group/{group}": {
+            "get": {
+                "tags": [
+                    "endpoint"
+                ],
+                "description": "Endpoint",
+                "operationId": "EndpointController.Endpoint",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Token",
+                        "description": "'Token'",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "group",
+                        "description": "组名",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "{string} create success!"
+                    },
+                    "500": {}
+                }
+            }
+        },
         "/endpoint/group/{group}/workspace/{workspace}": {
             "get": {
                 "tags": [
@@ -1585,7 +1661,81 @@
                 }
             }
         },
+        "/endpoint/groups": {
+            "post": {
+                "tags": [
+                    "endpoint"
+                ],
+                "description": "Endpoint",
+                "operationId": "EndpointController.Endpoint",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Token",
+                        "description": "'Token'",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "body",
+                        "name": "body",
+                        "description": "组数组",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "{string} create success!"
+                    },
+                    "500": {}
+                }
+            }
+        },
         "/endpoint/{endpoint}/group/{group}/workspace/{workspace}": {
+            "get": {
+                "tags": [
+                    "endpoint"
+                ],
+                "description": "Endpoint",
+                "operationId": "EndpointController.Endpoint",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Token",
+                        "description": "'Token'",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "group",
+                        "description": "组名",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "workspace",
+                        "description": "工作区",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "endpoint",
+                        "description": "服务",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "{string} create success!"
+                    },
+                    "500": {}
+                }
+            },
             "put": {
                 "tags": [
                     "endpoint"
@@ -1668,6 +1818,82 @@
                         "in": "path",
                         "name": "endpoint",
                         "description": "容器组",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "{string} create success!"
+                    },
+                    "500": {}
+                }
+            }
+        },
+        "/endpoint/{endpoint}/group/{group}/workspace/{workspace}/event": {
+            "get": {
+                "tags": [
+                    "endpoint"
+                ],
+                "description": "Endpoint container event",
+                "operationId": "EndpointController.Endpoint",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Token",
+                        "description": "'Token'",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "group",
+                        "description": "组名",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "workspace",
+                        "description": "工作区",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "endpoint",
+                        "description": "容器组",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "{string} create success!"
+                    },
+                    "500": {}
+                }
+            }
+        },
+        "/ingress/group/{group}": {
+            "get": {
+                "tags": [
+                    "ingress"
+                ],
+                "description": "Ingress",
+                "operationId": "IngressController.Ingress",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Token",
+                        "description": "'Token'",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "group",
+                        "description": "组名",
                         "required": true,
                         "type": "string"
                     }
@@ -1761,7 +1987,81 @@
                 }
             }
         },
+        "/ingress/groups": {
+            "post": {
+                "tags": [
+                    "ingress"
+                ],
+                "description": "Ingress",
+                "operationId": "IngressController.Ingress",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Token",
+                        "description": "'Token'",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "body",
+                        "name": "body",
+                        "description": "组数组",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "{string} create success!"
+                    },
+                    "500": {}
+                }
+            }
+        },
         "/ingress/{ingress}/group/{group}/workspace/{workspace}": {
+            "get": {
+                "tags": [
+                    "ingress"
+                ],
+                "description": "Ingress",
+                "operationId": "IngressController.Ingress",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Token",
+                        "description": "'Token'",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "group",
+                        "description": "组名",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "workspace",
+                        "description": "工作区",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "ingress",
+                        "description": "服务",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "{string} create success!"
+                    },
+                    "500": {}
+                }
+            },
             "put": {
                 "tags": [
                     "ingress"
@@ -1817,6 +2117,51 @@
                     "ingress"
                 ],
                 "description": "Ingress",
+                "operationId": "IngressController.Ingress",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Token",
+                        "description": "'Token'",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "group",
+                        "description": "组名",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "workspace",
+                        "description": "工作区",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "ingress",
+                        "description": "容器组",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "{string} create success!"
+                    },
+                    "500": {}
+                }
+            }
+        },
+        "/ingress/{ingress}/group/{group}/workspace/{workspace}/event": {
+            "get": {
+                "tags": [
+                    "ingress"
+                ],
+                "description": "Ingress container event",
                 "operationId": "IngressController.Ingress",
                 "parameters": [
                     {
@@ -3544,6 +3889,51 @@
                 }
             }
         },
+        "/secret/{secret}/group/{group}/workspace/{workspace}/event": {
+            "get": {
+                "tags": [
+                    "secret"
+                ],
+                "description": "Secret container event",
+                "operationId": "SecretController.Secret",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Token",
+                        "description": "'Token'",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "group",
+                        "description": "组名",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "workspace",
+                        "description": "工作区",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "secret",
+                        "description": "容器组",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "{string} create success!"
+                    },
+                    "500": {}
+                }
+            }
+        },
         "/secret/{secret}/group/{group}/workspace/{workspace}/template": {
             "get": {
                 "tags": [
@@ -3831,6 +4221,51 @@
                     "service"
                 ],
                 "description": "Service",
+                "operationId": "ServiceController.Service",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Token",
+                        "description": "'Token'",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "group",
+                        "description": "组名",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "workspace",
+                        "description": "工作区",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "service",
+                        "description": "容器组",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "{string} create success!"
+                    },
+                    "500": {}
+                }
+            }
+        },
+        "/service/{service}/group/{group}/workspace/{workspace}/event": {
+            "get": {
+                "tags": [
+                    "service"
+                ],
+                "description": "Service container event",
                 "operationId": "ServiceController.Service",
                 "parameters": [
                     {
@@ -4159,6 +4594,51 @@
                     "serviceaccount"
                 ],
                 "description": "ServiceAccount",
+                "operationId": "ServiceAccountController.ServiceAccount",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Token",
+                        "description": "'Token'",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "group",
+                        "description": "组名",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "workspace",
+                        "description": "工作区",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "serviceaccount",
+                        "description": "容器组",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "{string} create success!"
+                    },
+                    "500": {}
+                }
+            }
+        },
+        "/serviceaccount/{serviceaccount}/group/{group}/workspace/{workspace}/event": {
+            "get": {
+                "tags": [
+                    "serviceaccount"
+                ],
+                "description": "ServiceAccount container event",
                 "operationId": "ServiceAccountController.ServiceAccount",
                 "parameters": [
                     {
@@ -4654,6 +5134,51 @@
                     "statefulset"
                 ],
                 "description": "StatefulSet",
+                "operationId": "StatefulSetController.StatefulSet",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Token",
+                        "description": "'Token'",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "group",
+                        "description": "组名",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "workspace",
+                        "description": "工作区",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "statefulset",
+                        "description": "容器组",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "{string} create success!"
+                    },
+                    "500": {}
+                }
+            }
+        },
+        "/statefulset/{statefulset}/group/{group}/workspace/{workspace}/event": {
+            "get": {
+                "tags": [
+                    "statefulset"
+                ],
+                "description": "StatefulSet container event",
                 "operationId": "StatefulSetController.StatefulSet",
                 "parameters": [
                     {

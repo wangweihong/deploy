@@ -44,6 +44,7 @@ type SecretInterface interface {
 	GetRuntime() (*Runtime, error)
 	GetTemplate() (string, error)
 	GetStatus() *Status
+	Event() ([]corev1.Event, error)
 }
 
 type SecretManager struct {
@@ -351,6 +352,11 @@ func (s *Secret) GetStatus() *Status {
 	js.StringData = runtime.StringData
 	js.Data = runtime.Data
 	return &js
+}
+
+func (s *Secret) Event() ([]corev1.Event, error) {
+	e := make([]corev1.Event, 0)
+	return e, nil
 }
 
 func InitSecretController(be backend.BackendHandler) (SecretController, error) {

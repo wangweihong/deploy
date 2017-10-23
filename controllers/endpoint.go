@@ -40,6 +40,104 @@ func (this *EndpointController) ListEndpoints() {
 	this.normalReturn(jss)
 }
 
+// GetEndpoints
+// @Title Endpoint
+// @Description  Endpoint
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Param workspace path string true "工作区"
+// @Param endpoint path string true "服务"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /:endpoint/group/:group/workspace/:workspace [Get]
+func (this *EndpointController) GetGroupWorkspaceEndpoint() {
+
+	group := this.Ctx.Input.Param(":group")
+	workspace := this.Ctx.Input.Param(":workspace")
+	endpoint := this.Ctx.Input.Param(":endpoint")
+
+	pi, err := pk.Controller.Get(group, workspace, endpoint)
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+	v := pi
+
+	var js *pk.Status
+	js = v.GetStatus()
+
+	this.normalReturn(js)
+}
+
+// ListGroupsEndpoints
+// @Title Endpoint
+// @Description   Endpoint
+// @Param Token header string true 'Token'
+// @Param body body string true "组数组"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /groups [Post]
+func (this *EndpointController) ListGroupsEndpoints() {
+
+	groups := make([]string, 0)
+	if this.Ctx.Input.RequestBody == nil {
+		err := fmt.Errorf("must commit groups name")
+		this.errReturn(err, 500)
+		return
+	}
+
+	err := json.Unmarshal(this.Ctx.Input.RequestBody, &groups)
+	if err != nil {
+		err = fmt.Errorf("try to unmarshal data \"%v\" fail for %v", string(this.Ctx.Input.RequestBody), err)
+		this.errReturn(err, 500)
+		return
+	}
+
+	pis := make([]pk.EndpointInterface, 0)
+
+	for _, v := range groups {
+		tmp, err := pk.Controller.ListGroup(v)
+		if err != nil {
+			this.errReturn(err, 500)
+			return
+		}
+		pis = append(pis, tmp...)
+	}
+
+	jss := make([]pk.Status, 0)
+	for _, v := range pis {
+		js := v.GetStatus()
+		jss = append(jss, *js)
+	}
+
+	this.normalReturn(jss)
+}
+
+// ListGroupEndpoints
+// @Title Endpoint
+// @Description   Endpoint
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /group/:group [Get]
+func (this *EndpointController) ListGroupEndpoints() {
+
+	group := this.Ctx.Input.Param(":group")
+	pis, err := pk.Controller.ListGroup(group)
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+	jss := make([]pk.Status, 0)
+	for _, v := range pis {
+		js := v.GetStatus()
+		jss = append(jss, *js)
+	}
+
+	this.normalReturn(jss)
+}
+
 // CreateEndpoint
 // @Title Endpoint
 // @Description  创建容器组
@@ -145,4 +243,34 @@ func (this *EndpointController) DeleteEndpoint() {
 	}
 
 	this.normalReturn("ok")
+}
+
+// GetEndpointContainerEvents
+// @Title Endpoint
+// @Description   Endpoint container event
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Param workspace path string true "工作区"
+// @Param endpoint path string true "容器组"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /:endpoint/group/:group/workspace/:workspace/event [Get]
+func (this *EndpointController) GetEndpointEvent() {
+
+	group := this.Ctx.Input.Param(":group")
+	workspace := this.Ctx.Input.Param(":workspace")
+	endpoint := this.Ctx.Input.Param(":endpoint")
+
+	pi, err := pk.Controller.Get(group, workspace, endpoint)
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+	es, err := pi.Event()
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+
+	this.normalReturn(es)
 }

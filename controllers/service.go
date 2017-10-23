@@ -276,3 +276,33 @@ func (this *ServiceController) GetServiceTemplate() {
 
 	this.normalReturn(t)
 }
+
+// GetServiceContainerEvents
+// @Title Service
+// @Description   Service container event
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Param workspace path string true "工作区"
+// @Param service path string true "容器组"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /:service/group/:group/workspace/:workspace/event [Get]
+func (this *ServiceController) GetServiceEvent() {
+
+	group := this.Ctx.Input.Param(":group")
+	workspace := this.Ctx.Input.Param(":workspace")
+	service := this.Ctx.Input.Param(":service")
+
+	pi, err := pk.Controller.Get(group, workspace, service)
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+	es, err := pi.Event()
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+
+	this.normalReturn(es)
+}

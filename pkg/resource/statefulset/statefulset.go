@@ -12,6 +12,7 @@ import (
 	"ufleet-deploy/pkg/resource/util"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	corev1 "k8s.io/client-go/pkg/api/v1"
 	appv1beta1 "k8s.io/client-go/pkg/apis/apps/v1beta1"
 )
 
@@ -44,6 +45,7 @@ type StatefulSetInterface interface {
 	GetRuntime() (*Runtime, error)
 	GetTemplate() (string, error)
 	GetStatus() *Status
+	Event() ([]corev1.Event, error)
 }
 
 type StatefulSetManager struct {
@@ -334,6 +336,11 @@ func (s *StatefulSet) GetStatus() *Status {
 	js := Status{ObjectMeta: s.ObjectMeta}
 	return &js
 
+}
+
+func (s *StatefulSet) Event() ([]corev1.Event, error) {
+	e := make([]corev1.Event, 0)
+	return e, nil
 }
 
 func InitStatefulSetController(be backend.BackendHandler) (StatefulSetController, error) {

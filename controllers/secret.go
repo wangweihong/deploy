@@ -243,3 +243,33 @@ func (this *SecretController) GetSecretTemplate() {
 
 	this.normalReturn(t)
 }
+
+// GetSecretContainerEvents
+// @Title Secret
+// @Description   Secret container event
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Param workspace path string true "工作区"
+// @Param secret path string true "容器组"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /:secret/group/:group/workspace/:workspace/event [Get]
+func (this *SecretController) GetSecretEvent() {
+
+	group := this.Ctx.Input.Param(":group")
+	workspace := this.Ctx.Input.Param(":workspace")
+	endpoint := this.Ctx.Input.Param(":endpoint")
+
+	pi, err := pk.Controller.Get(group, workspace, endpoint)
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+	es, err := pi.Event()
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+
+	this.normalReturn(es)
+}

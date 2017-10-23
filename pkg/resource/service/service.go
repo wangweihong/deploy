@@ -45,6 +45,7 @@ type ServiceInterface interface {
 	GetRuntime() (*Runtime, error)
 	GetTemplate() (string, error)
 	GetStatus() *Status
+	Event() ([]corev1.Event, error)
 }
 
 type ServiceManager struct {
@@ -381,6 +382,11 @@ func (s *Service) GetStatus() *Status {
 	}
 
 	return &js
+}
+
+func (s *Service) Event() ([]corev1.Event, error) {
+	e := make([]corev1.Event, 0)
+	return e, nil
 }
 
 func InitServiceController(be backend.BackendHandler) (ServiceController, error) {

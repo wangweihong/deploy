@@ -316,3 +316,33 @@ func (this *ServiceAccountController) GetServiceAccountTemplate() {
 
 	this.normalReturn(t)
 }
+
+// GetServiceAccountContainerEvents
+// @Title ServiceAccount
+// @Description   ServiceAccount container event
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Param workspace path string true "工作区"
+// @Param serviceaccount path string true "容器组"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /:serviceaccount/group/:group/workspace/:workspace/event [Get]
+func (this *ServiceAccountController) GetServiceAccountEvent() {
+
+	group := this.Ctx.Input.Param(":group")
+	workspace := this.Ctx.Input.Param(":workspace")
+	endpoint := this.Ctx.Input.Param(":endpoint")
+
+	pi, err := pk.Controller.Get(group, workspace, endpoint)
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+	es, err := pi.Event()
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+
+	this.normalReturn(es)
+}

@@ -303,3 +303,33 @@ func (this *ConfigMapController) GetConfigMapTemplate() {
 
 	this.normalReturn(t)
 }
+
+// GetConfigMapContainerEvents
+// @Title ConfigMap
+// @Description   ConfigMap container event
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Param workspace path string true "工作区"
+// @Param configmap path string true "容器组"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /:configmap/group/:group/workspace/:workspace/event [Get]
+func (this *ConfigMapController) GetConfigMapEvent() {
+
+	group := this.Ctx.Input.Param(":group")
+	workspace := this.Ctx.Input.Param(":workspace")
+	configmap := this.Ctx.Input.Param(":configmap")
+
+	pi, err := pk.Controller.Get(group, workspace, configmap)
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+	es, err := pi.Event()
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+
+	this.normalReturn(es)
+}

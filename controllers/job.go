@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"ufleet-deploy/pkg/resource"
-	jk "ufleet-deploy/pkg/resource/job"
-	pk "ufleet-deploy/pkg/resource/pod"
+	pk "ufleet-deploy/pkg/resource/job"
+	sk "ufleet-deploy/pkg/resource/pod"
 )
 
 type JobController struct {
@@ -26,25 +26,25 @@ func (this *JobController) ListGroupWorkspaceJobs() {
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
 
-	pis, err := jk.Controller.List(group, workspace)
+	pis, err := pk.Controller.List(group, workspace)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
 	}
-	//jobs := make([]jk.Job, 0)
-	jss := make([]jk.Status, 0)
+	//jobs := make([]pk.Job, 0)
+	jss := make([]pk.Status, 0)
 
 	for _, v := range pis {
 		js, err := v.GetStatus()
 		if err != nil {
-			js := &jk.Status{}
+			js := &pk.Status{}
 			job := v.Info()
 			js.Name = job.Name
 			js.User = job.User
 			js.Workspace = job.Workspace
 			js.Group = job.Group
 			js.Reason = err.Error()
-			js.PodStatus = make([]pk.Status, 0)
+			js.PodStatus = make([]sk.Status, 0)
 			jss = append(jss, *js)
 			continue
 		}
@@ -71,7 +71,7 @@ func (this *JobController) GetJob() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	job := this.Ctx.Input.Param(":job")
 
-	pi, err := jk.Controller.Get(group, workspace, job)
+	pi, err := pk.Controller.Get(group, workspace, job)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
@@ -80,14 +80,14 @@ func (this *JobController) GetJob() {
 
 	js, err := v.GetStatus()
 	if err != nil {
-		js = &jk.Status{}
+		js = &pk.Status{}
 		job := v.Info()
 		js.Name = job.Name
 		js.User = job.User
 		js.Workspace = job.Workspace
 		js.Group = job.Group
 		js.Reason = err.Error()
-		js.PodStatus = make([]pk.Status, 0)
+		js.PodStatus = make([]sk.Status, 0)
 	}
 
 	this.normalReturn(js)
@@ -117,28 +117,28 @@ func (this *JobController) ListGroupsJobs() {
 		return
 	}
 
-	pis := make([]jk.JobInterface, 0)
+	pis := make([]pk.JobInterface, 0)
 	for _, v := range groups {
-		tmp, err := jk.Controller.ListGroup(v)
+		tmp, err := pk.Controller.ListGroup(v)
 		if err != nil {
 			this.errReturn(err, 500)
 			return
 		}
 		pis = append(pis, tmp...)
 	}
-	//jobs := make([]jk.Job, 0)
-	jss := make([]jk.Status, 0)
+	//jobs := make([]pk.Job, 0)
+	jss := make([]pk.Status, 0)
 	for _, v := range pis {
 		js, err := v.GetStatus()
 		if err != nil {
-			js := &jk.Status{}
+			js := &pk.Status{}
 			job := v.Info()
 			js.Name = job.Name
 			js.User = job.User
 			js.Workspace = job.Workspace
 			js.Group = job.Group
 			js.Reason = err.Error()
-			js.PodStatus = make([]pk.Status, 0)
+			js.PodStatus = make([]sk.Status, 0)
 			jss = append(jss, *js)
 			continue
 		}
@@ -160,24 +160,24 @@ func (this *JobController) ListGroupsJobs() {
 func (this *JobController) ListGroupJobs() {
 
 	group := this.Ctx.Input.Param(":group")
-	pis, err := jk.Controller.ListGroup(group)
+	pis, err := pk.Controller.ListGroup(group)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
 	}
-	//jobs := make([]jk.Job, 0)
-	jss := make([]jk.Status, 0)
+	//jobs := make([]pk.Job, 0)
+	jss := make([]pk.Status, 0)
 	for _, v := range pis {
 		js, err := v.GetStatus()
 		if err != nil {
-			js := &jk.Status{}
+			js := &pk.Status{}
 			job := v.Info()
 			js.Name = job.Name
 			js.User = job.User
 			js.Workspace = job.Workspace
 			js.Group = job.Group
 			js.Reason = err.Error()
-			js.PodStatus = make([]pk.Status, 0)
+			js.PodStatus = make([]sk.Status, 0)
 			jss = append(jss, *js)
 			continue
 		}
@@ -216,7 +216,7 @@ func (this *JobController) CreateJob() {
 	*/
 
 	var opt resource.CreateOption
-	err := jk.Controller.Create(group, workspace, this.Ctx.Input.RequestBody, opt)
+	err := pk.Controller.Create(group, workspace, this.Ctx.Input.RequestBody, opt)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
@@ -254,7 +254,7 @@ func (this *JobController) UpdateJob() {
 		ui.GetUserName()
 	*/
 
-	err := jk.Controller.Update(group, workspace, job, this.Ctx.Input.RequestBody)
+	err := pk.Controller.Update(group, workspace, job, this.Ctx.Input.RequestBody)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
@@ -279,7 +279,7 @@ func (this *JobController) DeleteJob() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	job := this.Ctx.Input.Param(":job")
 
-	err := jk.Controller.Delete(group, workspace, job, resource.DeleteOption{})
+	err := pk.Controller.Delete(group, workspace, job, resource.DeleteOption{})
 	if err != nil {
 		this.errReturn(err, 500)
 		return
@@ -304,7 +304,7 @@ func (this *JobController) GetJobTemplate() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	job := this.Ctx.Input.Param(":job")
 
-	ji, err := jk.Controller.Get(group, workspace, job)
+	ji, err := pk.Controller.Get(group, workspace, job)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
@@ -334,7 +334,7 @@ func (this *JobController) GetJobEvent() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	job := this.Ctx.Input.Param(":job")
 
-	pi, err := jk.Controller.Get(group, workspace, job)
+	pi, err := pk.Controller.Get(group, workspace, job)
 	if err != nil {
 		this.errReturn(err, 500)
 		return

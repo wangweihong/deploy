@@ -12,6 +12,7 @@ import (
 	"ufleet-deploy/pkg/resource/util"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	corev1 "k8s.io/client-go/pkg/api/v1"
 	extensionsv1beta1 "k8s.io/client-go/pkg/apis/extensions/v1beta1"
 )
 
@@ -36,6 +37,7 @@ type IngressController interface {
 	Get(group, workspace, ingress string) (IngressInterface, error)
 	Update(group, workspace, resource string, newdata []byte) error
 	List(group, workspace string) ([]IngressInterface, error)
+	ListGroup(group string) ([]IngressInterface, error)
 }
 
 type IngressInterface interface {
@@ -43,6 +45,7 @@ type IngressInterface interface {
 	GetRuntime() (*Runtime, error)
 	GetTemplate() (string, error)
 	GetStatus() *Status
+	Event() ([]corev1.Event, error)
 }
 
 type IngressManager struct {
@@ -119,6 +122,28 @@ func (p *IngressManager) List(groupName, workspaceName string) ([]IngressInterfa
 	for k := range workspace.Ingresss {
 		t := workspace.Ingresss[k]
 		pis = append(pis, &t)
+	}
+
+	return pis, nil
+}
+func (p *IngressManager) ListGroup(groupName string) ([]IngressInterface, error) {
+
+	p.locker.Lock()
+	defer p.locker.Unlock()
+
+	group, ok := p.Groups[groupName]
+	if !ok {
+		return nil, fmt.Errorf("%v:%v", ErrGroupNotFound, groupName)
+	}
+
+	pis := make([]IngressInterface, 0)
+
+	//不能够直接使用k,v来赋值,会出现值都是同一个的问题
+	for _, v := range group.Workspaces {
+		for k := range v.Ingresss {
+			t := v.Ingresss[k]
+			pis = append(pis, &t)
+		}
 	}
 
 	return pis, nil
@@ -311,6 +336,10 @@ type Status struct {
 func (s *Ingress) GetStatus() *Status {
 	js := Status{ObjectMeta: s.ObjectMeta}
 	return &js
+}
+func (s *Ingress) Event() ([]corev1.Event, error) {
+	e := make([]corev1.Event, 0)
+	return e, nil
 }
 
 func InitIngressController(be backend.BackendHandler) (IngressController, error) {
