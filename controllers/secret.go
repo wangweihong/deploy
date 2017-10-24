@@ -6,6 +6,8 @@ import (
 	"ufleet-deploy/models"
 	"ufleet-deploy/pkg/resource"
 	pk "ufleet-deploy/pkg/resource/secret"
+
+	corev1 "k8s.io/client-go/pkg/api/v1"
 )
 
 type SecretController struct {
@@ -142,6 +144,66 @@ func (this *SecretController) CreateSecret() {
 	var opt resource.CreateOption
 	opt.Comment = co.Comment
 	err = pk.Controller.Create(group, workspace, []byte(co.Data), opt)
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+
+	this.normalReturn("ok")
+}
+
+type SecretCreateOption struct {
+	Name    string            `json:"name"`
+	Comment string            `json:"comment"`
+	Type    string            `json:"type"`
+	Data    map[string]string `json:"data"`
+}
+
+// CreateSecretCustom
+// @Title Secret
+// @Description  创建容器组
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Param workspace path string true "工作区"
+// @Param body body string true "资源描述"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /group/:group/workspace/:workspace/custom [Post]
+func (this *SecretController) CreateSecretCustom() {
+
+	//token := this.Ctx.Request.Header.Get("token")
+	group := this.Ctx.Input.Param(":group")
+	workspace := this.Ctx.Input.Param(":workspace")
+
+	if this.Ctx.Input.RequestBody == nil {
+		err := fmt.Errorf("must commit resource json/yaml data")
+		this.errReturn(err, 500)
+		return
+	}
+
+	var co SecretCreateOption
+	err := json.Unmarshal(this.Ctx.Input.RequestBody, &co)
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+
+	cm := corev1.Secret{}
+	cm.Name = co.Name
+	cm.Type = corev1.SecretType(co.Type)
+	cm.StringData = co.Data
+	cm.Kind = "Secret"
+	cm.APIVersion = "v1"
+
+	bytedata, err := json.Marshal(cm)
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+
+	var opt resource.CreateOption
+	opt.Comment = co.Comment
+	err = pk.Controller.Create(group, workspace, bytedata, opt)
 	if err != nil {
 		this.errReturn(err, 500)
 		return

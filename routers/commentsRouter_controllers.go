@@ -673,6 +673,13 @@ func init() {
 
 	beego.GlobalControllerRouter["ufleet-deploy/controllers:SecretController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:SecretController"],
 		beego.ControllerComments{
+			Method: "CreateSecretCustom",
+			Router: `/group/:group/workspace/:workspace/custom`,
+			AllowHTTPMethods: []string{"Post"},
+			Params: nil})
+
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:SecretController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:SecretController"],
+		beego.ControllerComments{
 			Method: "UpdateSecret",
 			Router: `/:secret/group/:group/workspace/:workspace`,
 			AllowHTTPMethods: []string{"Put"},
