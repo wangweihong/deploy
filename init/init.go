@@ -16,6 +16,7 @@ import (
 	"ufleet-deploy/pkg/resource/ingress"
 	"ufleet-deploy/pkg/resource/job"
 	"ufleet-deploy/pkg/resource/pod"
+	"ufleet-deploy/pkg/resource/replicaset"
 	"ufleet-deploy/pkg/resource/replicationcontroller"
 	"ufleet-deploy/pkg/resource/secret"
 	"ufleet-deploy/pkg/resource/service"
@@ -52,6 +53,7 @@ func init() {
 	job.Init()
 	cronjob.Init()
 	replicationcontroller.Init()
+	replicaset.Init()
 
 	//需要在pod/service等resource后初始化
 	//因为初始化就构建k8s的对象到内存中

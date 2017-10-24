@@ -68,6 +68,11 @@ func init() {
 				&controllers.DeploymentController{},
 			),
 		),
+		beego.NSNamespace("/replicaset",
+			beego.NSInclude(
+				&controllers.ReplicaSetController{},
+			),
+		),
 		beego.NSNamespace("/daemonset",
 			beego.NSInclude(
 				&controllers.DaemonSetController{},

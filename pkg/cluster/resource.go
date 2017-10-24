@@ -766,6 +766,130 @@ func (h *deploymentHandler) GetRevisionsAndReplicas(namespace, name string) (map
 
 }
 
+/* ------------------------ ReplicaSet---------------------------*/
+
+type ReplicaSetHandler interface {
+	Get(namespace string, name string) (*extensionsv1beta1.ReplicaSet, error)
+	Create(namespace string, cm *extensionsv1beta1.ReplicaSet) error
+	Delete(namespace string, name string) error
+	GetPods(namespace, name string) ([]*corev1.Pod, error)
+	Update(namespace string, resource *extensionsv1beta1.ReplicaSet) error
+	Scale(namespace, name string, num int32) error
+	Event(namespace, resourceName string) ([]corev1.Event, error)
+}
+
+func NewReplicaSetHandler(group, workspace string) (ReplicaSetHandler, error) {
+	Cluster, err := Controller.GetCluster(group, workspace)
+	if err != nil {
+		return nil, log.DebugPrint(err)
+	}
+
+	return &replicasetHandler{Cluster: Cluster}, nil
+}
+
+type replicasetHandler struct {
+	*Cluster
+}
+
+func (h *replicasetHandler) Get(namespace, name string) (*extensionsv1beta1.ReplicaSet, error) {
+	return h.informerController.replicasetInformer.Lister().ReplicaSets(namespace).Get(name)
+}
+
+func (h *replicasetHandler) Create(namespace string, replicaset *extensionsv1beta1.ReplicaSet) error {
+	_, err := h.clientset.ExtensionsV1beta1().ReplicaSets(namespace).Create(replicaset)
+	return err
+}
+
+func (h *replicasetHandler) Update(namespace string, resource *extensionsv1beta1.ReplicaSet) error {
+	_, err := h.clientset.ExtensionsV1beta1().ReplicaSets(namespace).Update(resource)
+	return err
+}
+
+func (h *replicasetHandler) Event(namespace, resourceName string) ([]corev1.Event, error) {
+	//	pod, err := h.clientset.Pods(namespace).Get(podName, metav1.GetOptions{})
+	selector := h.clientset.CoreV1().Events(namespace).GetFieldSelector(&resourceName, &namespace, nil, nil)
+	options := metav1.ListOptions{FieldSelector: selector.String()}
+	events, err2 := h.clientset.CoreV1().Events(namespace).List(options)
+	if err2 != nil {
+		return nil, err2
+	}
+
+	//获取不到Pod,但有Pod事件
+	sort.Sort(SortableEvents(events.Items))
+	return events.Items, nil
+}
+
+func (h *replicasetHandler) Delete(namespace, replicasetName string) error {
+	return h.clientset.ExtensionsV1beta1().ReplicaSets(namespace).Delete(replicasetName, nil)
+}
+func (h *replicasetHandler) GetPods(namespace, name string) ([]*corev1.Pod, error) {
+	d, err := h.informerController.replicasetInformer.Lister().ReplicaSets(namespace).Get(name)
+	if err != nil {
+		return nil, nil
+	}
+	//rsSelector := d.Spec.Selector.MatchLabels
+	rsSelector := d.Spec.Selector.MatchLabels
+	selector := labels.Set(rsSelector).AsSelector()
+
+	//	selector := labels.Set(rsSelector).AsSelector()
+	//opts := corev1.ListOptions{LabelSelector: selector.String()}
+	//po, err := h.clientset.ExtensionsV1beta1().Pods(namespace).List(opts)
+	pos, err := h.informerController.podInformer.Lister().List(selector)
+	if err != nil {
+		return nil, err
+	}
+
+	return pos, nil
+}
+func (h *replicasetHandler) Scale(namespace, replicasetName string, num int32) error {
+	rc, err := h.Get(namespace, replicasetName)
+	if err != nil {
+		return err
+	}
+
+	if rc.Spec.Replicas != nil {
+		if *rc.Spec.Replicas == num {
+			return nil
+		}
+	} else {
+		if num == 1 {
+			return nil
+		}
+	}
+
+	rc.Spec.Replicas = &num
+	oldrv := rc.ResourceVersion
+	rc.ResourceVersion = ""
+	err = h.Update(namespace, rc)
+	if err != nil {
+		return err
+	}
+
+	for {
+		newrc, err := h.Get(namespace, replicasetName)
+		if err != nil {
+			return err
+		}
+		if newrc.ResourceVersion == oldrv {
+			time.Sleep(500 * time.Microsecond)
+			continue
+		}
+
+		if *newrc.Spec.Replicas > newrc.Status.Replicas {
+			for _, v := range newrc.Status.Conditions {
+				if v.Type == extensionsv1beta1.ReplicaSetReplicaFailure {
+					if v.Status == corev1.ConditionTrue {
+						return fmt.Errorf(v.Message)
+					}
+				}
+			}
+		} else {
+			return nil
+		}
+	}
+	return nil
+}
+
 /*----------------- DaemonSet -----------------*/
 
 type DaemonSetHandler interface {

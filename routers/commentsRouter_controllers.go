@@ -594,6 +594,76 @@ func init() {
 			AllowHTTPMethods: []string{"Get"},
 			Params: nil})
 
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:ReplicaSetController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:ReplicaSetController"],
+		beego.ControllerComments{
+			Method: "ListGroupWorkspaceReplicaSets",
+			Router: `/group/:group/workspace/:workspace`,
+			AllowHTTPMethods: []string{"Get"},
+			Params: nil})
+
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:ReplicaSetController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:ReplicaSetController"],
+		beego.ControllerComments{
+			Method: "GetReplicaSet",
+			Router: `/:rc/group/:group/workspace/:workspace`,
+			AllowHTTPMethods: []string{"Get"},
+			Params: nil})
+
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:ReplicaSetController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:ReplicaSetController"],
+		beego.ControllerComments{
+			Method: "ListGroupsReplicaSets",
+			Router: `/groups`,
+			AllowHTTPMethods: []string{"Post"},
+			Params: nil})
+
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:ReplicaSetController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:ReplicaSetController"],
+		beego.ControllerComments{
+			Method: "ListGroupReplicaSets",
+			Router: `/group/:group`,
+			AllowHTTPMethods: []string{"Get"},
+			Params: nil})
+
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:ReplicaSetController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:ReplicaSetController"],
+		beego.ControllerComments{
+			Method: "CreateReplicaSet",
+			Router: `/group/:group/workspace/:workspace`,
+			AllowHTTPMethods: []string{"Post"},
+			Params: nil})
+
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:ReplicaSetController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:ReplicaSetController"],
+		beego.ControllerComments{
+			Method: "UpdateReplicaSet",
+			Router: `/:replicaset/group/:group/workspace/:workspace`,
+			AllowHTTPMethods: []string{"Put"},
+			Params: nil})
+
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:ReplicaSetController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:ReplicaSetController"],
+		beego.ControllerComments{
+			Method: "ScaleReplicaSet",
+			Router: `/:replicaset/group/:group/workspace/:workspace/replicas/:replicas`,
+			AllowHTTPMethods: []string{"Put"},
+			Params: nil})
+
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:ReplicaSetController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:ReplicaSetController"],
+		beego.ControllerComments{
+			Method: "DeleteReplicaSet",
+			Router: `/:replicaset/group/:group/workspace/:workspace`,
+			AllowHTTPMethods: []string{"Delete"},
+			Params: nil})
+
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:ReplicaSetController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:ReplicaSetController"],
+		beego.ControllerComments{
+			Method: "GetReplicaSetEvent",
+			Router: `/:replicaset/group/:group/workspace/:workspace/event`,
+			AllowHTTPMethods: []string{"Get"},
+			Params: nil})
+
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:ReplicaSetController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:ReplicaSetController"],
+		beego.ControllerComments{
+			Method: "GetReplicaSetTemplate",
+			Router: `/:replicaset/group/:group/workspace/:workspace/template`,
+			AllowHTTPMethods: []string{"Get"},
+			Params: nil})
+
 	beego.GlobalControllerRouter["ufleet-deploy/controllers:ReplicationControllerController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:ReplicationControllerController"],
 		beego.ControllerComments{
 			Method: "ListGroupWorkspaceReplicationControllers",
