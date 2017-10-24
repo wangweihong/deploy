@@ -291,7 +291,30 @@ func (p *DeploymentManager) Delete(group, workspace, resourceName string, opt re
 		return nil
 	}
 }
+func (p *DeploymentManager) update(groupName, workspaceName string, resourceName string, d *Deployment) error {
 
+	//	p.locker.Lock()
+	//	defer p.locker.Unlock()
+
+	group, ok := p.Groups[groupName]
+	if !ok {
+		return ErrGroupNotFound
+	}
+
+	workspace, ok := group.Workspaces[workspaceName]
+	if !ok {
+		return ErrWorkspaceNotFound
+	}
+
+	_, ok = workspace.Deployments[resourceName]
+	if !ok {
+		return ErrResourceNotFound
+	}
+	workspace.Deployments[resourceName] = *d
+	group.Workspaces[workspaceName] = workspace
+	rm.Groups[groupName] = group
+	return nil
+}
 func (p *DeploymentManager) Update(groupName, workspaceName string, resourceName string, data []byte) error {
 	p.locker.Lock()
 	defer p.locker.Unlock()
@@ -573,6 +596,7 @@ func (j *Deployment) Rollback(revision int64) (*string, error) {
 
 }
 
+//需要加锁
 func (j *Deployment) StartAutoScale(min int, max int, cpuPercent int, memPercent int, diskPercent int, NetPercent int) error {
 
 	j.AutoScaler.Deployed = true
@@ -590,6 +614,14 @@ func (j *Deployment) StartAutoScale(min int, max int, cpuPercent int, memPercent
 		if err != nil {
 			return log.DebugPrint(err)
 		}
+	} else {
+		rm.locker.Lock()
+		defer rm.locker.Unlock()
+		err := rm.update(j.Group, j.Workspace, j.Name, j)
+		if err != nil {
+			return err
+		}
+
 	}
 	return nil
 }
