@@ -6,6 +6,7 @@ import (
 	"ufleet-deploy/models"
 	"ufleet-deploy/pkg/resource"
 	pk "ufleet-deploy/pkg/resource/serviceaccount"
+	"ufleet-deploy/pkg/user"
 
 	corev1 "k8s.io/client-go/pkg/api/v1"
 )
@@ -164,13 +165,18 @@ func (this *ServiceAccountController) CreateServiceAccount() {
 		this.errReturn(err, 500)
 		return
 	}
-	/*
-		ui := user.NewUserClient(token)
-		ui.GetUserName()
-	*/
+
+	ui := user.NewUserClient(token)
+	who, err := ui.GetUserName()
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
 
 	var opt resource.CreateOption
 	opt.Comment = co.Comment
+	opt.User = who
 	err = pk.Controller.Create(group, workspace, []byte(co.Data), opt)
 	if err != nil {
 		this.audit(token, "", true)

@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"ufleet-deploy/pkg/resource"
 	pk "ufleet-deploy/pkg/resource/replicaset"
+	"ufleet-deploy/pkg/user"
 )
 
 type ReplicaSetController struct {
@@ -192,13 +193,18 @@ func (this *ReplicaSetController) CreateReplicaSet() {
 		return
 	}
 
-	/*
-		ui := user.NewUserClient(token)
-		ui.GetUserName()
-	*/
+	ui := user.NewUserClient(token)
+	who, err := ui.GetUserName()
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
 
 	var opt resource.CreateOption
-	err := pk.Controller.Create(group, workspace, this.Ctx.Input.RequestBody, opt)
+	opt.User = who
+
+	err = pk.Controller.Create(group, workspace, this.Ctx.Input.RequestBody, opt)
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)

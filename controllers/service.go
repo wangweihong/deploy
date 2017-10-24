@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"ufleet-deploy/pkg/resource"
 	pk "ufleet-deploy/pkg/resource/service"
+	"ufleet-deploy/pkg/user"
 )
 
 type ServiceController struct {
@@ -177,6 +178,7 @@ func (this *ServiceController) ListGroupServices() {
 // @Failure 500
 // @router /group/:group/workspace/:workspace [Post]
 func (this *ServiceController) CreateService() {
+	token := this.Ctx.Request.Header.Get("token")
 	aerr := this.checkRouteControllerAbility()
 	if aerr != nil {
 		this.abilityErrorReturn(aerr)
@@ -189,22 +191,29 @@ func (this *ServiceController) CreateService() {
 
 	if this.Ctx.Input.RequestBody == nil {
 		err := fmt.Errorf("must commit resource json/yaml data")
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
 
-	/*
-		ui := user.NewUserClient(token)
-		ui.GetUserName()
-	*/
+	ui := user.NewUserClient(token)
+	who, err := ui.GetUserName()
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
 
 	var opt resource.CreateOption
-	err := pk.Controller.Create(group, workspace, this.Ctx.Input.RequestBody, opt)
+	opt.User = who
+	err = pk.Controller.Create(group, workspace, this.Ctx.Input.RequestBody, opt)
 	if err != nil {
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
 
+	this.audit(token, "", false)
 	this.normalReturn("ok")
 }
 
@@ -220,9 +229,11 @@ func (this *ServiceController) CreateService() {
 // @Failure 500
 // @router /:service/group/:group/workspace/:workspace [Put]
 func (this *ServiceController) UpdateService() {
+	token := this.Ctx.Request.Header.Get("token")
 	aerr := this.checkRouteControllerAbility()
 	if aerr != nil {
 		this.abilityErrorReturn(aerr)
+		this.audit(token, "", true)
 		return
 	}
 
@@ -234,20 +245,18 @@ func (this *ServiceController) UpdateService() {
 	if this.Ctx.Input.RequestBody == nil {
 		err := fmt.Errorf("must commit resource json/yaml data")
 		this.errReturn(err, 500)
+		this.audit(token, "", true)
 		return
 	}
-
-	/*
-		ui := user.NewUserClient(token)
-		ui.GetUserName()
-	*/
 
 	err := pk.Controller.Update(group, workspace, service, this.Ctx.Input.RequestBody)
 	if err != nil {
 		this.errReturn(err, 500)
+		this.audit(token, "", true)
 		return
 	}
 
+	this.audit(token, "", false)
 	this.normalReturn("ok")
 }
 
@@ -262,8 +271,10 @@ func (this *ServiceController) UpdateService() {
 // @Failure 500
 // @router /:service/group/:group/workspace/:workspace [Delete]
 func (this *ServiceController) DeleteService() {
+	token := this.Ctx.Request.Header.Get("token")
 	aerr := this.checkRouteControllerAbility()
 	if aerr != nil {
+		this.audit(token, "", true)
 		this.abilityErrorReturn(aerr)
 		return
 	}
@@ -274,10 +285,12 @@ func (this *ServiceController) DeleteService() {
 
 	err := pk.Controller.Delete(group, workspace, service, resource.DeleteOption{})
 	if err != nil {
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
 
+	this.audit(token, "", false)
 	this.normalReturn("ok")
 }
 

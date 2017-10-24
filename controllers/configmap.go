@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"ufleet-deploy/pkg/resource"
 	pk "ufleet-deploy/pkg/resource/configmap"
+	"ufleet-deploy/pkg/user"
 
 	corev1 "k8s.io/client-go/pkg/api/v1"
 )
@@ -156,8 +157,18 @@ func (this *ConfigMapController) CreateConfigMap() {
 		return
 	}
 
+	ui := user.NewUserClient(token)
+	who, err := ui.GetUserName()
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+
 	var opt resource.CreateOption
-	err := pk.Controller.Create(group, workspace, this.Ctx.Input.RequestBody, opt)
+	opt.User = who
+
+	err = pk.Controller.Create(group, workspace, this.Ctx.Input.RequestBody, opt)
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)

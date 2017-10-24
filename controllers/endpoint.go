@@ -6,6 +6,7 @@ import (
 	"ufleet-deploy/models"
 	"ufleet-deploy/pkg/resource"
 	pk "ufleet-deploy/pkg/resource/endpoint"
+	"ufleet-deploy/pkg/user"
 )
 
 type EndpointController struct {
@@ -196,8 +197,17 @@ func (this *EndpointController) CreateEndpoint() {
 		return
 	}
 
+	ui := user.NewUserClient(token)
+	who, err := ui.GetUserName()
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+
 	var opt resource.CreateOption
 	opt.Comment = co.Comment
+	opt.User = who
 	err = pk.Controller.Create(group, workspace, []byte(co.Data), opt)
 	if err != nil {
 		this.errReturn(err, 500)

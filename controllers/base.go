@@ -6,8 +6,7 @@ import (
 	"strings"
 	"time"
 	uaudit "ufleet-deploy/pkg/audit"
-	uuser "ufleet-deploy/pkg/user"
-	"ufleet-deploy/util/user"
+	user "ufleet-deploy/pkg/user"
 
 	"github.com/astaxie/beego"
 )
@@ -102,7 +101,7 @@ func getRouteControllerAbility(funName string) *ability {
 //TODO:向用户模块验证token是否有效
 func checkTokenAvailable(token string) (bool, error) {
 	ui := user.NewUserClient(token)
-	_, err := ui.GetUserName(uuser.UserModuleIP)
+	_, err := ui.GetUserName()
 	if err != nil {
 		return false, err
 	}
@@ -166,7 +165,7 @@ func (this *baseController) audit(token string, objectName string, meetError boo
 	var ad uaudit.AuditObj
 
 	ui := user.NewUserClient(token)
-	username, err := ui.GetUserName(uuser.UserModuleIP)
+	username, err := ui.GetUserName()
 	if err != nil {
 		beego.Error(fmt.Sprintf("audit fail for can not get user %v", err))
 		return
