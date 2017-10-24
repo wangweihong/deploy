@@ -5,116 +5,11 @@ import (
 	"runtime"
 	"strings"
 	"time"
-	uaudit "ufleet-deploy/deploy/audit"
 	"ufleet-deploy/deploy/uuser"
+	uaudit "ufleet-deploy/pkg/audit"
 	"ufleet-deploy/util/user"
 
 	"github.com/astaxie/beego"
-)
-
-const (
-	operateObjectApp     = "app"
-	operateObjectService = "service"
-	operateObjectCluster = "cluster"
-
-	operateTypeCreate     = "create"
-	operateTypeUpdate     = "update"
-	operateTypeRollback   = "rollback"
-	operateTypeDelete     = "delete"
-	operateTypeStop       = "stop"
-	operateTypeStart      = "start"
-	operateTypeScale      = "scale"
-	operateTypeEdit       = "edit"
-	operateTypeAddService = "add service"
-
-	operateTypeDeleteClusterApp = "deleteClusterObjects"
-)
-
-type audit struct {
-	object  string
-	operate string
-}
-
-type ability struct {
-	object  string
-	operate string
-}
-
-var (
-	abilityMap = map[string]ability{}
-
-	errTokenInvalid     = fmt.Errorf("invalid token")
-	errPermessionDenied = fmt.Errorf("permission denied")
-	auditMap            = map[string]audit{
-		"NewApp": audit{
-			object:  operateObjectApp,
-			operate: operateTypeCreate,
-		},
-		"StopApp": audit{
-			object:  operateObjectApp,
-			operate: operateTypeStop,
-		},
-		"StartApp": audit{
-			object:  operateObjectApp,
-			operate: operateTypeStart,
-		},
-		"DeleteApp": audit{
-			object:  operateObjectApp,
-			operate: operateTypeDelete,
-		},
-		"AddService": audit{
-			object:  operateObjectApp,
-			operate: operateTypeAddService,
-		},
-		"AddServiceWithoutWorkspace": audit{
-			object:  operateObjectApp,
-			operate: operateTypeAddService,
-		},
-
-		//service
-		"UpdateService": audit{
-			object:  operateObjectService,
-			operate: operateTypeUpdate,
-		},
-		"UpdateServiceWithTemplate": audit{
-			object:  operateObjectService,
-			operate: operateTypeUpdate,
-		},
-		"StopService": audit{
-			object:  operateObjectService,
-			operate: operateTypeStop,
-		},
-		"StartService": audit{
-			object:  operateObjectService,
-			operate: operateTypeStart,
-		},
-		"DeleteService": audit{
-			object:  operateObjectService,
-			operate: operateTypeDelete,
-		},
-		"EditService": audit{
-			object:  operateObjectService,
-			operate: operateTypeEdit,
-		},
-		"ScaleService": audit{
-			object:  operateObjectService,
-			operate: operateTypeScale,
-		},
-		"IncrementDecrementService": audit{
-			object:  operateObjectService,
-			operate: operateTypeScale,
-		},
-		"RollbackService": audit{
-			object:  operateObjectService,
-			operate: operateTypeRollback,
-		},
-
-		//cluster
-		"CleanCluster": audit{
-			object:  operateObjectCluster,
-			operate: operateTypeDeleteClusterApp,
-		},
-	}
 )
 
 type baseController struct {

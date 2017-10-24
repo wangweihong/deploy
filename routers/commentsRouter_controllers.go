@@ -64,7 +64,7 @@ func init() {
 
 	beego.GlobalControllerRouter["ufleet-deploy/controllers:ConfigMapController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:ConfigMapController"],
 		beego.ControllerComments{
-			Method: "CreateConfigMapV1",
+			Method: "CreateConfigMapCustom",
 			Router: `/group/:group/workspace/:workspace/custom`,
 			AllowHTTPMethods: []string{"Post"},
 			Params: nil})

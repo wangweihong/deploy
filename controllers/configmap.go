@@ -170,7 +170,7 @@ type ConfigMapCreateOption struct {
 // @Success 201 {string} create success!
 // @Failure 500
 // @router /group/:group/workspace/:workspace/custom [Post]
-func (this *ConfigMapController) CreateConfigMapV1() {
+func (this *ConfigMapController) CreateConfigMapCustom() {
 
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
