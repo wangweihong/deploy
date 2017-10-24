@@ -3,6 +3,7 @@ package controllers
 import (
 	"fmt"
 	"ufleet-deploy/pkg/app"
+	"ufleet-deploy/pkg/user"
 )
 
 type AppController struct {
@@ -40,8 +41,17 @@ func (this *AppController) NewApp() {
 		return
 	}
 
+	ui := user.NewUserClient(token)
+	who, err := ui.GetUserName()
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
 	var opt app.CreateOption
-	err := app.Controller.NewApp(group, workspace, appName, this.Ctx.Input.RequestBody, opt)
+	opt.User = who
+
+	err = app.Controller.NewApp(group, workspace, appName, this.Ctx.Input.RequestBody, opt)
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)

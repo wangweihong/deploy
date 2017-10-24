@@ -64,12 +64,11 @@ type ListOption struct {
 }
 
 type CreateOption struct {
-	MemoryOnly string
+	User string
 }
 
 type DeleteOption struct {
 	WaitToComplete bool
-	MemoryOnly     bool //不处理存储后端数据
 }
 
 type Locker interface {
@@ -91,6 +90,8 @@ func (sm *AppMananger) NewApp(groupName, workspaceName, appName string, desc []b
 	stack.Name = appName
 	stack.Group = groupName
 	stack.Workspace = workspaceName
+	stack.User = opt.User
+	stack.CreateTime = time.Now().Unix()
 	//	stack.Templates = make([]string, 0)
 	stack.Resources = make(map[string]Resource)
 

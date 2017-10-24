@@ -172,10 +172,12 @@ type AppWorkspace struct {
 }
 
 type App struct {
-	Name      string              `json:"name"`
-	Group     string              `json:"group"`
-	Workspace string              `json:"workspace"`
-	Resources map[string]Resource `json:"resources"` //key: resourceKind_name
+	Name       string              `json:"name"`
+	Group      string              `json:"group"`
+	User       string              `json:"user"`
+	Workspace  string              `json:"workspace"`
+	CreateTime int64               `json:"createtime"`
+	Resources  map[string]Resource `json:"resources"` //key: resourceKind_name
 }
 
 type Resource struct {
