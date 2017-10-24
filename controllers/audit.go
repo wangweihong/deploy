@@ -20,15 +20,16 @@ const (
 	operateObjectJob                   = "Job"
 	operateObjectCronJob               = "CronJob"
 
-	operateTypeCreate     = "create"
-	operateTypeUpdate     = "update"
-	operateTypeRollback   = "rollback"
-	operateTypeDelete     = "delete"
-	operateTypeStop       = "stop"
-	operateTypeStart      = "start"
-	operateTypeScale      = "scale"
-	operateTypeAddService = "add service"
-	operateTypeStartHPA   = "start autoscale"
+	operateTypeCreate               = "create"
+	operateTypeUpdate               = "update"
+	operateTypeRollback             = "rollback"
+	operateTypeDelete               = "delete"
+	operateTypeStop                 = "stop"
+	operateTypeStart                = "start"
+	operateTypeScale                = "scale"
+	operateTypeAddService           = "add service"
+	operateTypeStartHPA             = "start autoscale"
+	operateTypeStartSuppendOrResume = "suspend/resume"
 
 	operateTypeDeleteClusterApp = "deleteClusterObjects"
 )
@@ -282,6 +283,10 @@ var (
 		"DeleteCronJob": audit{
 			object:  operateObjectCronJob,
 			operate: operateTypeDelete,
+		},
+		"SuspendOrResumeCronJob": audit{
+			object:  operateObjectCronJob,
+			operate: operateTypeStartSuppendOrResume,
 		},
 	}
 )

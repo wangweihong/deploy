@@ -24,6 +24,11 @@ type SecretController struct {
 // @Failure 500
 // @router /group/:group/workspace/:workspace [Get]
 func (this *SecretController) ListSecrets() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
@@ -50,6 +55,11 @@ func (this *SecretController) ListSecrets() {
 // @Failure 500
 // @router /groups [Post]
 func (this *SecretController) ListGroupsSecrets() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	groups := make([]string, 0)
 	if this.Ctx.Input.RequestBody == nil {
@@ -92,6 +102,11 @@ func (this *SecretController) ListGroupsSecrets() {
 // @Failure 500
 // @router /group/:group [Get]
 func (this *SecretController) ListGroupSecrets() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	group := this.Ctx.Input.Param(":group")
 	pis, err := pk.Controller.ListGroup(group)
@@ -119,6 +134,13 @@ func (this *SecretController) ListGroupSecrets() {
 // @Failure 500
 // @router /group/:group/workspace/:workspace [Post]
 func (this *SecretController) CreateSecret() {
+	token := this.Ctx.Request.Header.Get("token")
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.audit(token, "", true)
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	//token := this.Ctx.Request.Header.Get("token")
 	group := this.Ctx.Input.Param(":group")
@@ -126,6 +148,7 @@ func (this *SecretController) CreateSecret() {
 
 	if this.Ctx.Input.RequestBody == nil {
 		err := fmt.Errorf("must commit resource json/yaml data")
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -133,6 +156,7 @@ func (this *SecretController) CreateSecret() {
 	var co models.CreateOption
 	err := json.Unmarshal(this.Ctx.Input.RequestBody, &co)
 	if err != nil {
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -145,10 +169,12 @@ func (this *SecretController) CreateSecret() {
 	opt.Comment = co.Comment
 	err = pk.Controller.Create(group, workspace, []byte(co.Data), opt)
 	if err != nil {
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
 
+	this.audit(token, "", false)
 	this.normalReturn("ok")
 }
 
@@ -170,6 +196,12 @@ type SecretCreateOption struct {
 // @Failure 500
 // @router /group/:group/workspace/:workspace/custom [Post]
 func (this *SecretController) CreateSecretCustom() {
+	token := this.Ctx.Request.Header.Get("token")
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	//token := this.Ctx.Request.Header.Get("token")
 	group := this.Ctx.Input.Param(":group")
@@ -177,6 +209,7 @@ func (this *SecretController) CreateSecretCustom() {
 
 	if this.Ctx.Input.RequestBody == nil {
 		err := fmt.Errorf("must commit resource json/yaml data")
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -184,6 +217,7 @@ func (this *SecretController) CreateSecretCustom() {
 	var co SecretCreateOption
 	err := json.Unmarshal(this.Ctx.Input.RequestBody, &co)
 	if err != nil {
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -197,6 +231,7 @@ func (this *SecretController) CreateSecretCustom() {
 
 	bytedata, err := json.Marshal(cm)
 	if err != nil {
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -205,10 +240,12 @@ func (this *SecretController) CreateSecretCustom() {
 	opt.Comment = co.Comment
 	err = pk.Controller.Create(group, workspace, bytedata, opt)
 	if err != nil {
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
 
+	this.audit(token, "", false)
 	this.normalReturn("ok")
 }
 
@@ -224,6 +261,13 @@ func (this *SecretController) CreateSecretCustom() {
 // @Failure 500
 // @router /:secret/group/:group/workspace/:workspace [Put]
 func (this *SecretController) UpdateSecret() {
+	token := this.Ctx.Request.Header.Get("token")
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.audit(token, "", true)
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	//token := this.Ctx.Request.Header.Get("token")
 	group := this.Ctx.Input.Param(":group")
@@ -232,6 +276,7 @@ func (this *SecretController) UpdateSecret() {
 
 	if this.Ctx.Input.RequestBody == nil {
 		err := fmt.Errorf("must commit resource json/yaml data")
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -244,9 +289,11 @@ func (this *SecretController) UpdateSecret() {
 	err := pk.Controller.Update(group, workspace, secret, this.Ctx.Input.RequestBody)
 	if err != nil {
 		this.errReturn(err, 500)
+		this.audit(token, "", true)
 		return
 	}
 
+	this.audit(token, "", false)
 	this.normalReturn("ok")
 }
 
@@ -261,6 +308,13 @@ func (this *SecretController) UpdateSecret() {
 // @Failure 500
 // @router /:secret/group/:group/workspace/:workspace [Delete]
 func (this *SecretController) DeleteSecret() {
+	token := this.Ctx.Request.Header.Get("token")
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.audit(token, "", true)
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
@@ -268,9 +322,11 @@ func (this *SecretController) DeleteSecret() {
 
 	err := pk.Controller.Delete(group, workspace, secret, resource.DeleteOption{})
 	if err != nil {
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
+	this.audit(token, "", false)
 
 	this.normalReturn("ok")
 }
@@ -286,6 +342,11 @@ func (this *SecretController) DeleteSecret() {
 // @Failure 500
 // @router /:secret/group/:group/workspace/:workspace/template [Get]
 func (this *SecretController) GetSecretTemplate() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
@@ -317,6 +378,11 @@ func (this *SecretController) GetSecretTemplate() {
 // @Failure 500
 // @router /:secret/group/:group/workspace/:workspace/event [Get]
 func (this *SecretController) GetSecretEvent() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")

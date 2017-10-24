@@ -29,6 +29,11 @@ type ServiceState struct {
 // @Failure 500
 // @router /group/:group/workspace/:workspace [Get]
 func (this *ServiceController) ListGroupWorkspaceServices() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
@@ -59,6 +64,11 @@ func (this *ServiceController) ListGroupWorkspaceServices() {
 // @Failure 500
 // @router /:service/group/:group/workspace/:workspace [Get]
 func (this *ServiceController) GetGroupWorkspaceService() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
@@ -86,6 +96,11 @@ func (this *ServiceController) GetGroupWorkspaceService() {
 // @Failure 500
 // @router /groups [Post]
 func (this *ServiceController) ListGroupsServices() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	groups := make([]string, 0)
 	if this.Ctx.Input.RequestBody == nil {
@@ -130,6 +145,11 @@ func (this *ServiceController) ListGroupsServices() {
 // @Failure 500
 // @router /group/:group [Get]
 func (this *ServiceController) ListGroupServices() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	group := this.Ctx.Input.Param(":group")
 	pis, err := pk.Controller.ListGroup(group)
@@ -157,6 +177,11 @@ func (this *ServiceController) ListGroupServices() {
 // @Failure 500
 // @router /group/:group/workspace/:workspace [Post]
 func (this *ServiceController) CreateService() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	//token := this.Ctx.Request.Header.Get("token")
 	group := this.Ctx.Input.Param(":group")
@@ -195,6 +220,11 @@ func (this *ServiceController) CreateService() {
 // @Failure 500
 // @router /:service/group/:group/workspace/:workspace [Put]
 func (this *ServiceController) UpdateService() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	//token := this.Ctx.Request.Header.Get("token")
 	group := this.Ctx.Input.Param(":group")
@@ -232,6 +262,11 @@ func (this *ServiceController) UpdateService() {
 // @Failure 500
 // @router /:service/group/:group/workspace/:workspace [Delete]
 func (this *ServiceController) DeleteService() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
@@ -257,6 +292,11 @@ func (this *ServiceController) DeleteService() {
 // @Failure 500
 // @router /:service/group/:group/workspace/:workspace/template [Get]
 func (this *ServiceController) GetServiceTemplate() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
@@ -288,6 +328,11 @@ func (this *ServiceController) GetServiceTemplate() {
 // @Failure 500
 // @router /:service/group/:group/workspace/:workspace/event [Get]
 func (this *ServiceController) GetServiceEvent() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")

@@ -22,6 +22,11 @@ type DeploymentController struct {
 // @Failure 500
 // @router /group/:group/workspace/:workspace [Get]
 func (this *DeploymentController) ListGroupWorkspaceDeployments() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
@@ -50,6 +55,11 @@ func (this *DeploymentController) ListGroupWorkspaceDeployments() {
 // @Failure 500
 // @router /group/:group [Get]
 func (this *DeploymentController) ListGroupDeployments() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	group := this.Ctx.Input.Param(":group")
 
@@ -79,6 +89,11 @@ func (this *DeploymentController) ListGroupDeployments() {
 // @Failure 500
 // @router /:deployment/group/:group/workspace/:workspace [Get]
 func (this *DeploymentController) GetDeployment() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
@@ -98,7 +113,7 @@ func (this *DeploymentController) GetDeployment() {
 
 // CreateDeployment
 // @Title Deployment
-// @Description  创建容器组
+// @Description  创建部署
 // @Param Token header string true 'Token'
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
@@ -107,6 +122,13 @@ func (this *DeploymentController) GetDeployment() {
 // @Failure 500
 // @router /group/:group/workspace/:workspace [Post]
 func (this *DeploymentController) CreateDeployment() {
+	token := this.Ctx.Request.Header.Get("token")
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.audit(token, "", true)
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	//token := this.Ctx.Request.Header.Get("token")
 	group := this.Ctx.Input.Param(":group")
@@ -114,6 +136,7 @@ func (this *DeploymentController) CreateDeployment() {
 
 	if this.Ctx.Input.RequestBody == nil {
 		err := fmt.Errorf("must commit resource json/yaml data")
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -126,10 +149,11 @@ func (this *DeploymentController) CreateDeployment() {
 	var opt resource.CreateOption
 	err := pk.Controller.Create(group, workspace, this.Ctx.Input.RequestBody, opt)
 	if err != nil {
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
-
+	this.audit(token, "", false)
 	this.normalReturn("ok")
 }
 
@@ -145,6 +169,13 @@ func (this *DeploymentController) CreateDeployment() {
 // @Failure 500
 // @router /:deployment/group/:group/workspace/:workspace [Put]
 func (this *DeploymentController) UpdateDeployment() {
+	token := this.Ctx.Request.Header.Get("token")
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.audit(token, "", true)
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	//token := this.Ctx.Request.Header.Get("token")
 	group := this.Ctx.Input.Param(":group")
@@ -164,10 +195,12 @@ func (this *DeploymentController) UpdateDeployment() {
 
 	err := pk.Controller.Update(group, workspace, deployment, this.Ctx.Input.RequestBody)
 	if err != nil {
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
 
+	this.audit(token, "", false)
 	this.normalReturn("ok")
 }
 
@@ -177,11 +210,17 @@ func (this *DeploymentController) UpdateDeployment() {
 // @Param Token header string true 'Token'
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
-// @Param deployment path string true "容器组"
+// @Param deployment path string true "部署"
 // @Success 201 {string} create success!
 // @Failure 500
 // @router /:deployment/group/:group/workspace/:workspace [Delete]
 func (this *DeploymentController) DeleteDeployment() {
+	token := this.Ctx.Request.Header.Get("token")
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
@@ -189,10 +228,12 @@ func (this *DeploymentController) DeleteDeployment() {
 
 	err := pk.Controller.Delete(group, workspace, deployment, resource.DeleteOption{})
 	if err != nil {
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
 
+	this.audit(token, "", false)
 	this.normalReturn("ok")
 }
 
@@ -202,11 +243,16 @@ func (this *DeploymentController) DeleteDeployment() {
 // @Param Token header string true 'Token'
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
-// @Param deployment path string true "容器组"
+// @Param deployment path string true "部署"
 // @Success 201 {string} create success!
 // @Failure 500
 // @router /:deployment/group/:group/workspace/:workspace/event [Get]
 func (this *DeploymentController) GetDeploymentEvent() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
@@ -238,6 +284,12 @@ func (this *DeploymentController) GetDeploymentEvent() {
 // @Failure 500
 // @router /:deployment/group/:group/workspace/:workspace/replicas/:replicas [Put]
 func (this *DeploymentController) ScaleDeployment() {
+	token := this.Ctx.Request.Header.Get("token")
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	//token := this.Ctx.Request.Header.Get("token")
 	group := this.Ctx.Input.Param(":group")
@@ -247,22 +299,26 @@ func (this *DeploymentController) ScaleDeployment() {
 
 	ri, err := pk.Controller.Get(group, workspace, deployment)
 	if err != nil {
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
 
 	replicas, err := strconv.ParseInt(replicasStr, 10, 32)
 	if err != nil {
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
 
 	err = ri.Scale(int(replicas))
 	if err != nil {
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
 
+	this.audit(token, "", false)
 	this.normalReturn("ok")
 }
 
@@ -278,6 +334,13 @@ func (this *DeploymentController) ScaleDeployment() {
 // @Failure 500
 // @router /:deployment/group/:group/workspace/:workspace/increment/:increment [Put]
 func (this *DeploymentController) ScaleDeploymentIncrement() {
+	token := this.Ctx.Request.Header.Get("token")
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.audit(token, "", true)
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	//token := this.Ctx.Request.Header.Get("token")
 	group := this.Ctx.Input.Param(":group")
@@ -287,12 +350,14 @@ func (this *DeploymentController) ScaleDeploymentIncrement() {
 
 	ri, err := pk.Controller.Get(group, workspace, deployment)
 	if err != nil {
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
 
 	increment, err := strconv.ParseInt(incrementStr, 10, 32)
 	if err != nil {
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -300,6 +365,7 @@ func (this *DeploymentController) ScaleDeploymentIncrement() {
 	js := ri.GetStatus()
 	if js.Reason != "" {
 		err := fmt.Errorf(js.Reason)
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -308,10 +374,12 @@ func (this *DeploymentController) ScaleDeploymentIncrement() {
 
 	err = ri.Scale(int(newReplicas))
 	if err != nil {
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
 
+	this.audit(token, "", false)
 	this.normalReturn("ok")
 }
 
@@ -321,11 +389,16 @@ func (this *DeploymentController) ScaleDeploymentIncrement() {
 // @Param Token header string true 'Token'
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
-// @Param deployment path string true "容器组"
+// @Param deployment path string true "部署"
 // @Success 201 {string} create success!
 // @Failure 500
 // @router /:deployment/group/:group/workspace/:workspace/template [Get]
 func (this *DeploymentController) GetDeploymentTemplate() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
@@ -361,11 +434,16 @@ type DeployReplicas struct {
 // @Param Token header string true 'Token'
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
-// @Param deployment path string true "容器组"
+// @Param deployment path string true "部署"
 // @Success 201 {string} create success!
 // @Failure 500
 // @router /:deployment/group/:group/workspace/:workspace/replicasets [Get]
 func (this *DeploymentController) GetDeploymentReplicaSet() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
@@ -410,11 +488,16 @@ func (this *DeploymentController) GetDeploymentReplicaSet() {
 // @Param Token header string true 'Token'
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
-// @Param deployment path string true "容器组"
+// @Param deployment path string true "部署"
 // @Success 201 {string} create success!
 // @Failure 500
 // @router /:deployment/group/:group/workspace/:workspace/revisions [Get]
 func (this *DeploymentController) GetDeploymentRevisions() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
@@ -456,12 +539,19 @@ func (this *DeploymentController) GetDeploymentRevisions() {
 // @Param Token header string true 'Token'
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
-// @Param deployment path string true "容器组"
+// @Param deployment path string true "部署"
 // @Param revision path string true "版本"
 // @Success 201 {string} create success!
 // @Failure 500
 // @router /:deployment/group/:group/workspace/:workspace/revision/:revision [Put]
 func (this *DeploymentController) RollBack() {
+	token := this.Ctx.Request.Header.Get("token")
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.audit(token, "", true)
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
@@ -470,23 +560,27 @@ func (this *DeploymentController) RollBack() {
 
 	toRevision, err := strconv.ParseInt(revision, 10, 64)
 	if err != nil {
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
 
 	pi, err := pk.Controller.Get(group, workspace, deployment)
 	if err != nil {
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
 
 	result, err := pi.Rollback(toRevision)
 	if err != nil {
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 
 	}
 
+	this.audit(token, "", false)
 	this.normalReturn(*result)
 }
 
@@ -496,11 +590,16 @@ func (this *DeploymentController) RollBack() {
 // @Param Token header string true 'Token'
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
-// @Param deployment path string true "容器组"
+// @Param deployment path string true "部署"
 // @Success 201 {string} create success!
 // @Failure 500
 // @router /:deployment/group/:group/workspace/:workspace/hpa [Get]
 func (this *DeploymentController) GetHPA() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
@@ -537,12 +636,19 @@ type HpaOptions struct {
 // @Param Token header string true 'Token'
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
-// @Param deployment path string true "容器组"
+// @Param deployment path string true "部署"
 // @Param body body string true "弹性伸缩参数"
 // @Success 201 {string} create success!
 // @Failure 500
 // @router /:deployment/group/:group/workspace/:workspace/hpa [Post]
 func (this *DeploymentController) StartHPA() {
+	token := this.Ctx.Request.Header.Get("token")
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.audit(token, "", true)
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
@@ -550,6 +656,7 @@ func (this *DeploymentController) StartHPA() {
 
 	if this.Ctx.Input.RequestBody == nil {
 		err := fmt.Errorf("must commit hpa options")
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -558,21 +665,25 @@ func (this *DeploymentController) StartHPA() {
 	err := json.Unmarshal(this.Ctx.Input.RequestBody, &hpaopt)
 	if err != nil {
 		err = fmt.Errorf("parse hpa option fail for  fail for ", err)
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
 
 	pi, err := pk.Controller.Get(group, workspace, deployment)
 	if err != nil {
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
 
 	err = pi.StartAutoScale(hpaopt.MinReplicas, hpaopt.MaxReplicas, hpaopt.CpuPercent, hpaopt.MemPercent, hpaopt.DiskPercent, hpaopt.NetPercent)
 	if err != nil {
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
 
+	this.audit(token, "", false)
 	this.normalReturn("ok")
 }

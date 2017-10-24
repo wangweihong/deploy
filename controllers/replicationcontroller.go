@@ -22,6 +22,11 @@ type ReplicationControllerController struct {
 // @Failure 500
 // @router /group/:group/workspace/:workspace [Get]
 func (this *ReplicationControllerController) ListGroupWorkspaceReplicationControllers() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
@@ -54,6 +59,11 @@ func (this *ReplicationControllerController) ListGroupWorkspaceReplicationContro
 // @Failure 500
 // @router /:rc/group/:group/workspace/:workspace [Get]
 func (this *ReplicationControllerController) GetReplicationController() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
@@ -81,6 +91,11 @@ func (this *ReplicationControllerController) GetReplicationController() {
 // @Failure 500
 // @router /groups [Post]
 func (this *ReplicationControllerController) ListGroupsReplicationControllers() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	groups := make([]string, 0)
 	if this.Ctx.Input.RequestBody == nil {
@@ -125,6 +140,12 @@ func (this *ReplicationControllerController) ListGroupsReplicationControllers() 
 // @Failure 500
 // @router /group/:group [Get]
 func (this *ReplicationControllerController) ListGroupReplicationControllers() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
+
 	group := this.Ctx.Input.Param(":group")
 	pis, err := pk.Controller.ListGroup(group)
 	if err != nil {
@@ -152,6 +173,13 @@ func (this *ReplicationControllerController) ListGroupReplicationControllers() {
 // @Failure 500
 // @router /group/:group/workspace/:workspace [Post]
 func (this *ReplicationControllerController) CreateReplicationController() {
+	token := this.Ctx.Request.Header.Get("token")
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.audit(token, "", true)
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	//token := this.Ctx.Request.Header.Get("token")
 	group := this.Ctx.Input.Param(":group")
@@ -159,6 +187,7 @@ func (this *ReplicationControllerController) CreateReplicationController() {
 
 	if this.Ctx.Input.RequestBody == nil {
 		err := fmt.Errorf("must commit resource json/yaml data")
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -171,9 +200,11 @@ func (this *ReplicationControllerController) CreateReplicationController() {
 	var opt resource.CreateOption
 	err := pk.Controller.Create(group, workspace, this.Ctx.Input.RequestBody, opt)
 	if err != nil {
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
+	this.audit(token, "", false)
 
 	this.normalReturn("ok")
 }
@@ -190,6 +221,13 @@ func (this *ReplicationControllerController) CreateReplicationController() {
 // @Failure 500
 // @router /:replicationcontroller/group/:group/workspace/:workspace [Put]
 func (this *ReplicationControllerController) UpdateReplicationController() {
+	token := this.Ctx.Request.Header.Get("token")
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.audit(token, "", true)
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	//token := this.Ctx.Request.Header.Get("token")
 	group := this.Ctx.Input.Param(":group")
@@ -198,6 +236,7 @@ func (this *ReplicationControllerController) UpdateReplicationController() {
 
 	if this.Ctx.Input.RequestBody == nil {
 		err := fmt.Errorf("must commit resource json/yaml data")
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -209,10 +248,12 @@ func (this *ReplicationControllerController) UpdateReplicationController() {
 
 	err := pk.Controller.Update(group, workspace, replicationcontroller, this.Ctx.Input.RequestBody)
 	if err != nil {
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
 
+	this.audit(token, "", false)
 	this.normalReturn("ok")
 }
 
@@ -228,6 +269,13 @@ func (this *ReplicationControllerController) UpdateReplicationController() {
 // @Failure 500
 // @router /:replicationcontroller/group/:group/workspace/:workspace/replicas/:replicas [Put]
 func (this *ReplicationControllerController) ScaleReplicationController() {
+	token := this.Ctx.Request.Header.Get("token")
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.audit(token, "", true)
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	//token := this.Ctx.Request.Header.Get("token")
 	group := this.Ctx.Input.Param(":group")
@@ -237,22 +285,26 @@ func (this *ReplicationControllerController) ScaleReplicationController() {
 
 	ri, err := pk.Controller.Get(group, workspace, replicationcontroller)
 	if err != nil {
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
 
 	replicas, err := strconv.ParseInt(replicasStr, 10, 32)
 	if err != nil {
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
 
 	err = ri.Scale(int(replicas))
 	if err != nil {
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
 
+	this.audit(token, "", false)
 	this.normalReturn("ok")
 
 }
@@ -268,6 +320,13 @@ func (this *ReplicationControllerController) ScaleReplicationController() {
 // @Failure 500
 // @router /:replicationcontroller/group/:group/workspace/:workspace [Delete]
 func (this *ReplicationControllerController) DeleteReplicationController() {
+	token := this.Ctx.Request.Header.Get("token")
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.audit(token, "", true)
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
@@ -275,10 +334,12 @@ func (this *ReplicationControllerController) DeleteReplicationController() {
 
 	err := pk.Controller.Delete(group, workspace, replicationcontroller, resource.DeleteOption{})
 	if err != nil {
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
 
+	this.audit(token, "", false)
 	this.normalReturn("ok")
 }
 
@@ -293,6 +354,11 @@ func (this *ReplicationControllerController) DeleteReplicationController() {
 // @Failure 500
 // @router /:replicationcontroller/group/:group/workspace/:workspace/event [Get]
 func (this *ReplicationControllerController) GetReplicationControllerEvent() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
@@ -323,6 +389,11 @@ func (this *ReplicationControllerController) GetReplicationControllerEvent() {
 // @Failure 500
 // @router /:replicationcontroller/group/:group/workspace/:workspace/template [Get]
 func (this *ReplicationControllerController) GetReplicationControllerTemplate() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")

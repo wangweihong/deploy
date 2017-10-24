@@ -35,6 +35,11 @@ type CronJobState struct {
 // @Failure 500
 // @router /group/:group/workspace/:workspace [Get]
 func (this *CronJobController) ListGroupWorkspaceCronJobs() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
@@ -64,6 +69,11 @@ func (this *CronJobController) ListGroupWorkspaceCronJobs() {
 // @Failure 500
 // @router /:cronjob/group/:group/workspace/:workspace [Get]
 func (this *CronJobController) GetCronJob() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
@@ -95,6 +105,11 @@ func (this *CronJobController) GetCronJob() {
 // @Failure 500
 // @router /groups [Post]
 func (this *CronJobController) ListGroupsCronJobs() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	groups := make([]string, 0)
 	if this.Ctx.Input.RequestBody == nil {
@@ -139,6 +154,11 @@ func (this *CronJobController) ListGroupsCronJobs() {
 // @Failure 500
 // @router /group/:group [Get]
 func (this *CronJobController) ListGroupCronJobs() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	group := this.Ctx.Input.Param(":group")
 
@@ -167,6 +187,13 @@ func (this *CronJobController) ListGroupCronJobs() {
 // @Failure 500
 // @router /group/:group/workspace/:workspace [Post]
 func (this *CronJobController) CreateCronJob() {
+	token := this.Ctx.Request.Header.Get("token")
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.audit(token, "", true)
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	//token := this.Ctx.Request.Header.Get("token")
 	group := this.Ctx.Input.Param(":group")
@@ -174,6 +201,7 @@ func (this *CronJobController) CreateCronJob() {
 
 	if this.Ctx.Input.RequestBody == nil {
 		err := fmt.Errorf("must commit resource json/yaml data")
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -186,10 +214,11 @@ func (this *CronJobController) CreateCronJob() {
 	var opt resource.CreateOption
 	err := pk.Controller.Create(group, workspace, this.Ctx.Input.RequestBody, opt)
 	if err != nil {
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
-
+	this.audit(token, "", false)
 	this.normalReturn("ok")
 }
 
@@ -205,6 +234,13 @@ func (this *CronJobController) CreateCronJob() {
 // @Failure 500
 // @router /:cronjob/group/:group/workspace/:workspace [Put]
 func (this *CronJobController) UpdateCronJob() {
+	token := this.Ctx.Request.Header.Get("token")
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.audit(token, "", true)
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	//token := this.Ctx.Request.Header.Get("token")
 	group := this.Ctx.Input.Param(":group")
@@ -213,6 +249,7 @@ func (this *CronJobController) UpdateCronJob() {
 
 	if this.Ctx.Input.RequestBody == nil {
 		err := fmt.Errorf("must commit resource json/yaml data")
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -224,10 +261,12 @@ func (this *CronJobController) UpdateCronJob() {
 
 	err := pk.Controller.Update(group, workspace, cronjob, this.Ctx.Input.RequestBody)
 	if err != nil {
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
 
+	this.audit(token, "", false)
 	this.normalReturn("ok")
 }
 
@@ -242,6 +281,13 @@ func (this *CronJobController) UpdateCronJob() {
 // @Failure 500
 // @router /:cronjob/group/:group/workspace/:workspace [Delete]
 func (this *CronJobController) DeleteCronJob() {
+	token := this.Ctx.Request.Header.Get("token")
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.audit(token, "", true)
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
@@ -249,10 +295,12 @@ func (this *CronJobController) DeleteCronJob() {
 
 	err := pk.Controller.Delete(group, workspace, cronjob, resource.DeleteOption{})
 	if err != nil {
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
 
+	this.audit(token, "", false)
 	this.normalReturn("ok")
 }
 
@@ -267,6 +315,11 @@ func (this *CronJobController) DeleteCronJob() {
 // @Failure 500
 // @router /:cronjob/group/:group/workspace/:workspace/template [Get]
 func (this *CronJobController) GetCronJobTemplate() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
@@ -298,6 +351,11 @@ func (this *CronJobController) GetCronJobTemplate() {
 // @Failure 500
 // @router /:cronjob/group/:group/workspace/:workspace/event [Get]
 func (this *CronJobController) GetCronJobEvent() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
@@ -328,6 +386,13 @@ func (this *CronJobController) GetCronJobEvent() {
 // @Failure 500
 // @router /:cronjob/group/:group/workspace/:workspace/suspendandresume [Put]
 func (this *CronJobController) SuspendOrResumeCronJob() {
+	token := this.Ctx.Request.Header.Get("token")
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.audit(token, "", true)
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	//token := this.Ctx.Request.Header.Get("token")
 	group := this.Ctx.Input.Param(":group")
@@ -336,15 +401,18 @@ func (this *CronJobController) SuspendOrResumeCronJob() {
 
 	pi, err := pk.Controller.Get(group, workspace, cronjob)
 	if err != nil {
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
 	err = pi.SuspendOrResume()
 	if err != nil {
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 
 	}
 
+	this.audit(token, "", false)
 	this.normalReturn("ok")
 }

@@ -5,8 +5,8 @@ import (
 	"runtime"
 	"strings"
 	"time"
-	"ufleet-deploy/deploy/uuser"
 	uaudit "ufleet-deploy/pkg/audit"
+	uuser "ufleet-deploy/pkg/user"
 	"ufleet-deploy/util/user"
 
 	"github.com/astaxie/beego"
@@ -89,14 +89,14 @@ func getRouteControllerName() string {
 
 }
 
-func getRouteControllerAbility(funName string) (ability, error) {
-	return ability{}, nil
+//没有ability的为GET方法,不进行权限判定
+func getRouteControllerAbility(funName string) *ability {
 
 	abi, ok := abilityMap[funName]
 	if !ok {
-		return ability{}, fmt.Errorf("function %v doesn't exist in abilityMap", funName)
+		return nil
 	}
-	return abi, nil
+	return &abi
 }
 
 //TODO:向用户模块验证token是否有效
@@ -115,6 +115,8 @@ func checkUserAbilityAllowed(token string, abi string) (bool, error) {
 }
 
 func (this *baseController) checkRouteControllerAbility() error {
+	//调试!
+	//	return nil
 
 	token := this.Ctx.Request.Header.Get("token")
 
@@ -128,9 +130,9 @@ func (this *baseController) checkRouteControllerAbility() error {
 	}
 
 	fun := getRouteControllerName()
-	abi, err := getRouteControllerAbility(fun)
-	if err != nil {
-		return err
+	abi := getRouteControllerAbility(fun)
+	if abi == nil {
+		return nil
 	}
 
 	allowed, err := checkUserAbilityAllowed(token, abi.object)

@@ -22,6 +22,11 @@ type EndpointController struct {
 // @Failure 500
 // @router /group/:group/workspace/:workspace [Get]
 func (this *EndpointController) ListEndpoints() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
@@ -52,6 +57,11 @@ func (this *EndpointController) ListEndpoints() {
 // @router /:endpoint/group/:group/workspace/:workspace [Get]
 func (this *EndpointController) GetGroupWorkspaceEndpoint() {
 
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
 	endpoint := this.Ctx.Input.Param(":endpoint")
@@ -78,6 +88,11 @@ func (this *EndpointController) GetGroupWorkspaceEndpoint() {
 // @Failure 500
 // @router /groups [Post]
 func (this *EndpointController) ListGroupsEndpoints() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	groups := make([]string, 0)
 	if this.Ctx.Input.RequestBody == nil {
@@ -122,6 +137,11 @@ func (this *EndpointController) ListGroupsEndpoints() {
 // @Failure 500
 // @router /group/:group [Get]
 func (this *EndpointController) ListGroupEndpoints() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	group := this.Ctx.Input.Param(":group")
 	pis, err := pk.Controller.ListGroup(group)
@@ -140,7 +160,7 @@ func (this *EndpointController) ListGroupEndpoints() {
 
 // CreateEndpoint
 // @Title Endpoint
-// @Description  创建容器组
+// @Description  创建端点
 // @Param Token header string true 'Token'
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
@@ -149,6 +169,13 @@ func (this *EndpointController) ListGroupEndpoints() {
 // @Failure 500
 // @router /group/:group/workspace/:workspace [Post]
 func (this *EndpointController) CreateEndpoint() {
+	token := this.Ctx.Request.Header.Get("token")
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.audit(token, "", true)
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	//token := this.Ctx.Request.Header.Get("token")
 	group := this.Ctx.Input.Param(":group")
@@ -156,6 +183,7 @@ func (this *EndpointController) CreateEndpoint() {
 
 	if this.Ctx.Input.RequestBody == nil {
 		err := fmt.Errorf("must commit resource json/yaml data")
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -164,12 +192,9 @@ func (this *EndpointController) CreateEndpoint() {
 	err := json.Unmarshal(this.Ctx.Input.RequestBody, &co)
 	if err != nil {
 		this.errReturn(err, 500)
+		this.audit(token, "", true)
 		return
 	}
-	/*
-		ui := user.NewUserClient(token)
-		ui.GetUserName()
-	*/
 
 	var opt resource.CreateOption
 	opt.Comment = co.Comment
@@ -179,21 +204,29 @@ func (this *EndpointController) CreateEndpoint() {
 		return
 	}
 
+	this.audit(token, "", false)
 	this.normalReturn("ok")
 }
 
 // UpdateEndpoint
 // @Title Endpoint
-// @Description  更新容器组
+// @Description  更新端点
 // @Param Token header string true 'Token'
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
-// @Param endpoint path string true "容器组"
+// @Param endpoint path string true "端点"
 // @Param body body string true "资源描述"
 // @Success 201 {string} create success!
 // @Failure 500
 // @router /:endpoint/group/:group/workspace/:workspace [Put]
 func (this *EndpointController) UpdateEndpoint() {
+	token := this.Ctx.Request.Header.Get("token")
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.audit(token, "", true)
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	//token := this.Ctx.Request.Header.Get("token")
 	group := this.Ctx.Input.Param(":group")
@@ -202,21 +235,19 @@ func (this *EndpointController) UpdateEndpoint() {
 
 	if this.Ctx.Input.RequestBody == nil {
 		err := fmt.Errorf("must commit resource json/yaml data")
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
-
-	/*
-		ui := user.NewUserClient(token)
-		ui.GetUserName()
-	*/
 
 	err := pk.Controller.Update(group, workspace, endpoint, this.Ctx.Input.RequestBody)
 	if err != nil {
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
 
+	this.audit(token, "", false)
 	this.normalReturn("ok")
 }
 
@@ -226,11 +257,18 @@ func (this *EndpointController) UpdateEndpoint() {
 // @Param Token header string true 'Token'
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
-// @Param endpoint path string true "容器组"
+// @Param endpoint path string true "端点"
 // @Success 201 {string} create success!
 // @Failure 500
 // @router /:endpoint/group/:group/workspace/:workspace [Delete]
 func (this *EndpointController) DeleteEndpoint() {
+	token := this.Ctx.Request.Header.Get("token")
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.audit(token, "", true)
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
@@ -238,10 +276,12 @@ func (this *EndpointController) DeleteEndpoint() {
 
 	err := pk.Controller.Delete(group, workspace, endpoint, resource.DeleteOption{})
 	if err != nil {
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
 
+	this.audit(token, "", false)
 	this.normalReturn("ok")
 }
 
@@ -251,11 +291,16 @@ func (this *EndpointController) DeleteEndpoint() {
 // @Param Token header string true 'Token'
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
-// @Param endpoint path string true "容器组"
+// @Param endpoint path string true "端点"
 // @Success 201 {string} create success!
 // @Failure 500
 // @router /:endpoint/group/:group/workspace/:workspace/event [Get]
 func (this *EndpointController) GetEndpointEvent() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")

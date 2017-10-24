@@ -56,6 +56,11 @@ func GetPodState(pi pk.PodInterface) PodState {
 // @Failure 500
 // @router /group/:group/workspace/:workspace [Get]
 func (this *PodController) ListPods() {
+	err := this.checkRouteControllerAbility()
+	if err != nil {
+		this.abilityErrorReturn(err)
+		return
+	}
 
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
@@ -85,6 +90,11 @@ func (this *PodController) ListPods() {
 // @Failure 500
 // @router /:pod/group/:group/workspace/:workspace [Get]
 func (this *PodController) GetPod() {
+	err := this.checkRouteControllerAbility()
+	if err != nil {
+		this.abilityErrorReturn(err)
+		return
+	}
 
 	fmt.Println(this.Ctx.Request.RequestURI)
 	group := this.Ctx.Input.Param(":group")
@@ -114,6 +124,11 @@ func (this *PodController) GetPod() {
 // @Failure 500
 // @router /groups [Post]
 func (this *PodController) ListGroupsPods() {
+	err := this.checkRouteControllerAbility()
+	if err != nil {
+		this.abilityErrorReturn(err)
+		return
+	}
 
 	groups := make([]string, 0)
 	if this.Ctx.Input.RequestBody == nil {
@@ -122,7 +137,7 @@ func (this *PodController) ListGroupsPods() {
 		return
 	}
 
-	err := json.Unmarshal(this.Ctx.Input.RequestBody, &groups)
+	err = json.Unmarshal(this.Ctx.Input.RequestBody, &groups)
 	if err != nil {
 		err = fmt.Errorf("try to unmarshal data \"%v\" fail for %v", string(this.Ctx.Input.RequestBody), err)
 		this.errReturn(err, 500)
@@ -157,6 +172,11 @@ func (this *PodController) ListGroupsPods() {
 // @Failure 500
 // @router /group/:group [Get]
 func (this *PodController) ListGroupPods() {
+	err := this.checkRouteControllerAbility()
+	if err != nil {
+		this.abilityErrorReturn(err)
+		return
+	}
 
 	group := this.Ctx.Input.Param(":group")
 
@@ -185,6 +205,13 @@ func (this *PodController) ListGroupPods() {
 // @Failure 500
 // @router /group/:group/workspace/:workspace [Post]
 func (this *PodController) CreatePod() {
+	token := this.Ctx.Request.Header.Get("token")
+	err := this.checkRouteControllerAbility()
+	if err != nil {
+		this.audit(token, "", true)
+		this.abilityErrorReturn(err)
+		return
+	}
 
 	//token := this.Ctx.Request.Header.Get("token")
 	group := this.Ctx.Input.Param(":group")
@@ -192,6 +219,7 @@ func (this *PodController) CreatePod() {
 
 	if this.Ctx.Input.RequestBody == nil {
 		err := fmt.Errorf("must commit resource json/yaml data")
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -202,12 +230,14 @@ func (this *PodController) CreatePod() {
 	*/
 
 	var opt resource.CreateOption
-	err := pk.Controller.Create(group, workspace, this.Ctx.Input.RequestBody, opt)
+	err = pk.Controller.Create(group, workspace, this.Ctx.Input.RequestBody, opt)
 	if err != nil {
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
 
+	this.audit(token, "", false)
 	this.normalReturn("ok")
 }
 
@@ -222,17 +252,26 @@ func (this *PodController) CreatePod() {
 // @Failure 500
 // @router /:pod/group/:group/workspace/:workspace [Delete]
 func (this *PodController) DeletePod() {
+	token := this.Ctx.Request.Header.Get("token")
+	err := this.checkRouteControllerAbility()
+	if err != nil {
+		this.audit(token, "", true)
+		this.abilityErrorReturn(err)
+		return
+	}
 
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
 	pod := this.Ctx.Input.Param(":pod")
 
-	err := pk.Controller.Delete(group, workspace, pod, resource.DeleteOption{})
+	err = pk.Controller.Delete(group, workspace, pod, resource.DeleteOption{})
 	if err != nil {
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
 
+	this.audit(token, "", false)
 	this.normalReturn("ok")
 }
 
@@ -248,6 +287,13 @@ func (this *PodController) DeletePod() {
 // @Failure 500
 // @router /:pod/group/:group/workspace/:workspace [Put]
 func (this *PodController) UpdatePod() {
+	token := this.Ctx.Request.Header.Get("token")
+	err := this.checkRouteControllerAbility()
+	if err != nil {
+		this.audit(token, "", true)
+		this.abilityErrorReturn(err)
+		return
+	}
 
 	//token := this.Ctx.Request.Header.Get("token")
 	group := this.Ctx.Input.Param(":group")
@@ -256,6 +302,7 @@ func (this *PodController) UpdatePod() {
 
 	if this.Ctx.Input.RequestBody == nil {
 		err := fmt.Errorf("must commit resource json/yaml data")
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -265,12 +312,14 @@ func (this *PodController) UpdatePod() {
 		ui.GetUserName()
 	*/
 
-	err := pk.Controller.Update(group, workspace, pod, this.Ctx.Input.RequestBody)
+	err = pk.Controller.Update(group, workspace, pod, this.Ctx.Input.RequestBody)
 	if err != nil {
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
 
+	this.audit(token, "", false)
 	this.normalReturn("ok")
 }
 
@@ -285,6 +334,11 @@ func (this *PodController) UpdatePod() {
 // @Failure 500
 // @router /:pod/group/:group/workspace/:workspace/template [Get]
 func (this *PodController) GetPodTemplate() {
+	err := this.checkRouteControllerAbility()
+	if err != nil {
+		this.abilityErrorReturn(err)
+		return
+	}
 
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
@@ -316,6 +370,11 @@ func (this *PodController) GetPodTemplate() {
 // @Failure 500
 // @router /:pod/group/:group/workspace/:workspace/containers [Get]
 func (this *PodController) GetPodContainers() {
+	err := this.checkRouteControllerAbility()
+	if err != nil {
+		this.abilityErrorReturn(err)
+		return
+	}
 
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
@@ -353,6 +412,11 @@ func (this *PodController) GetPodContainers() {
 // @Failure 500
 // @router /:pod/group/:group/workspace/:workspace/container/:container/log [Get]
 func (this *PodController) GetPodLog() {
+	err := this.checkRouteControllerAbility()
+	if err != nil {
+		this.abilityErrorReturn(err)
+		return
+	}
 
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
@@ -385,6 +449,11 @@ func (this *PodController) GetPodLog() {
 // @Failure 500
 // @router /:pod/group/:group/workspace/:workspace/container/:container/stat [Get]
 func (this *PodController) GetPodStat() {
+	err := this.checkRouteControllerAbility()
+	if err != nil {
+		this.abilityErrorReturn(err)
+		return
+	}
 
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
@@ -416,6 +485,11 @@ func (this *PodController) GetPodStat() {
 // @Failure 500
 // @router /:pod/group/:group/workspace/:workspace/event [Get]
 func (this *PodController) GetPodEvent() {
+	err := this.checkRouteControllerAbility()
+	if err != nil {
+		this.abilityErrorReturn(err)
+		return
+	}
 
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
@@ -447,6 +521,11 @@ func (this *PodController) GetPodEvent() {
 // @Failure 500
 // @router /:pod/group/:group/workspace/:workspace/container/:container/terminal [Get]
 func (this *PodController) GetPodTerminal() {
+	err := this.checkRouteControllerAbility()
+	if err != nil {
+		this.abilityErrorReturn(err)
+		return
+	}
 
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
@@ -479,6 +558,11 @@ func (this *PodController) GetPodTerminal() {
 // @Failure 500
 // @router /:pod/group/:group/workspace/:workspace/container/:container/spec [Get]
 func (this *PodController) GetPodContainerSpec() {
+	err := this.checkRouteControllerAbility()
+	if err != nil {
+		this.abilityErrorReturn(err)
+		return
+	}
 
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")

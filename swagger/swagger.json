@@ -1229,7 +1229,7 @@
                 "tags": [
                     "deployment"
                 ],
-                "description": "创建容器组",
+                "description": "创建部署",
                 "operationId": "DeploymentController.Deployment",
                 "parameters": [
                     {
@@ -1394,7 +1394,7 @@
                     {
                         "in": "path",
                         "name": "deployment",
-                        "description": "容器组",
+                        "description": "部署",
                         "required": true,
                         "type": "string"
                     }
@@ -1439,7 +1439,7 @@
                     {
                         "in": "path",
                         "name": "deployment",
-                        "description": "容器组",
+                        "description": "部署",
                         "required": true,
                         "type": "string"
                     }
@@ -1484,7 +1484,7 @@
                     {
                         "in": "path",
                         "name": "deployment",
-                        "description": "容器组",
+                        "description": "部署",
                         "required": true,
                         "type": "string"
                     }
@@ -1527,7 +1527,7 @@
                     {
                         "in": "path",
                         "name": "deployment",
-                        "description": "容器组",
+                        "description": "部署",
                         "required": true,
                         "type": "string"
                     },
@@ -1683,7 +1683,7 @@
                     {
                         "in": "path",
                         "name": "deployment",
-                        "description": "容器组",
+                        "description": "部署",
                         "required": true,
                         "type": "string"
                     }
@@ -1728,7 +1728,7 @@
                     {
                         "in": "path",
                         "name": "deployment",
-                        "description": "容器组",
+                        "description": "部署",
                         "required": true,
                         "type": "string"
                     },
@@ -1780,7 +1780,7 @@
                     {
                         "in": "path",
                         "name": "deployment",
-                        "description": "容器组",
+                        "description": "部署",
                         "required": true,
                         "type": "string"
                     }
@@ -1825,7 +1825,7 @@
                     {
                         "in": "path",
                         "name": "deployment",
-                        "description": "容器组",
+                        "description": "部署",
                         "required": true,
                         "type": "string"
                     }
@@ -1910,7 +1910,7 @@
                 "tags": [
                     "endpoint"
                 ],
-                "description": "创建容器组",
+                "description": "创建端点",
                 "operationId": "EndpointController.Endpoint",
                 "parameters": [
                     {
@@ -2029,7 +2029,7 @@
                 "tags": [
                     "endpoint"
                 ],
-                "description": "更新容器组",
+                "description": "更新端点",
                 "operationId": "EndpointController.Endpoint",
                 "parameters": [
                     {
@@ -2056,7 +2056,7 @@
                     {
                         "in": "path",
                         "name": "endpoint",
-                        "description": "容器组",
+                        "description": "端点",
                         "required": true,
                         "type": "string"
                     },
@@ -2106,7 +2106,7 @@
                     {
                         "in": "path",
                         "name": "endpoint",
-                        "description": "容器组",
+                        "description": "端点",
                         "required": true,
                         "type": "string"
                     }
@@ -2151,7 +2151,7 @@
                     {
                         "in": "path",
                         "name": "endpoint",
-                        "description": "容器组",
+                        "description": "端点",
                         "required": true,
                         "type": "string"
                     }
@@ -2236,7 +2236,7 @@
                 "tags": [
                     "ingress"
                 ],
-                "description": "创建容器组",
+                "description": "创建路由",
                 "operationId": "IngressController.Ingress",
                 "parameters": [
                     {
@@ -2355,7 +2355,7 @@
                 "tags": [
                     "ingress"
                 ],
-                "description": "更新容器组",
+                "description": "更新路由",
                 "operationId": "IngressController.Ingress",
                 "parameters": [
                     {
@@ -2382,7 +2382,7 @@
                     {
                         "in": "path",
                         "name": "ingress",
-                        "description": "容器组",
+                        "description": "路由",
                         "required": true,
                         "type": "string"
                     },
@@ -2432,7 +2432,7 @@
                     {
                         "in": "path",
                         "name": "ingress",
-                        "description": "容器组",
+                        "description": "路由",
                         "required": true,
                         "type": "string"
                     }
@@ -2477,7 +2477,7 @@
                     {
                         "in": "path",
                         "name": "ingress",
-                        "description": "容器组",
+                        "description": "路由",
                         "required": true,
                         "type": "string"
                     }
@@ -2562,7 +2562,7 @@
                 "tags": [
                     "job"
                 ],
-                "description": "创建容器组",
+                "description": "创建一次性任务",
                 "operationId": "JobController.Job",
                 "parameters": [
                     {
@@ -2803,7 +2803,7 @@
                     {
                         "in": "path",
                         "name": "job",
-                        "description": "容器组",
+                        "description": "一次性任务",
                         "required": true,
                         "type": "string"
                     }

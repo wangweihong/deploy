@@ -22,6 +22,7 @@ import (
 	"ufleet-deploy/pkg/resource/service"
 	"ufleet-deploy/pkg/resource/serviceaccount"
 	"ufleet-deploy/pkg/resource/statefulset"
+	"ufleet-deploy/pkg/user"
 )
 
 const (
@@ -54,6 +55,8 @@ func init() {
 	cronjob.Init()
 	replicationcontroller.Init()
 	replicaset.Init()
+
+	user.Init()
 
 	//需要在pod/service等resource后初始化
 	//因为初始化就构建k8s的对象到内存中

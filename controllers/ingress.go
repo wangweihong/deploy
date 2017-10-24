@@ -21,6 +21,11 @@ type IngressController struct {
 // @Failure 500
 // @router /group/:group/workspace/:workspace [Get]
 func (this *IngressController) ListIngresss() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
@@ -50,6 +55,11 @@ func (this *IngressController) ListIngresss() {
 // @Failure 500
 // @router /:ingress/group/:group/workspace/:workspace [Get]
 func (this *IngressController) GetGroupWorkspaceIngress() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
@@ -77,6 +87,11 @@ func (this *IngressController) GetGroupWorkspaceIngress() {
 // @Failure 500
 // @router /groups [Post]
 func (this *IngressController) ListGroupsIngresss() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	groups := make([]string, 0)
 	if this.Ctx.Input.RequestBody == nil {
@@ -121,6 +136,11 @@ func (this *IngressController) ListGroupsIngresss() {
 // @Failure 500
 // @router /group/:group [Get]
 func (this *IngressController) ListGroupIngresss() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	group := this.Ctx.Input.Param(":group")
 	pis, err := pk.Controller.ListGroup(group)
@@ -139,7 +159,7 @@ func (this *IngressController) ListGroupIngresss() {
 
 // CreateIngress
 // @Title Ingress
-// @Description  创建容器组
+// @Description  创建路由
 // @Param Token header string true 'Token'
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
@@ -148,6 +168,13 @@ func (this *IngressController) ListGroupIngresss() {
 // @Failure 500
 // @router /group/:group/workspace/:workspace [Post]
 func (this *IngressController) CreateIngress() {
+	token := this.Ctx.Request.Header.Get("token")
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.audit(token, "", true)
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	//token := this.Ctx.Request.Header.Get("token")
 	group := this.Ctx.Input.Param(":group")
@@ -155,6 +182,7 @@ func (this *IngressController) CreateIngress() {
 
 	if this.Ctx.Input.RequestBody == nil {
 		err := fmt.Errorf("must commit resource json/yaml data")
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -167,25 +195,34 @@ func (this *IngressController) CreateIngress() {
 	var opt resource.CreateOption
 	err := pk.Controller.Create(group, workspace, this.Ctx.Input.RequestBody, opt)
 	if err != nil {
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
 
+	this.audit(token, "", false)
 	this.normalReturn("ok")
 }
 
 // UpdateIngress
 // @Title Ingress
-// @Description  更新容器组
+// @Description  更新路由
 // @Param Token header string true 'Token'
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
-// @Param ingress path string true "容器组"
+// @Param ingress path string true "路由"
 // @Param body body string true "资源描述"
 // @Success 201 {string} create success!
 // @Failure 500
 // @router /:ingress/group/:group/workspace/:workspace [Put]
 func (this *IngressController) UpdateIngress() {
+	token := this.Ctx.Request.Header.Get("token")
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.audit(token, "", true)
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	//token := this.Ctx.Request.Header.Get("token")
 	group := this.Ctx.Input.Param(":group")
@@ -194,6 +231,7 @@ func (this *IngressController) UpdateIngress() {
 
 	if this.Ctx.Input.RequestBody == nil {
 		err := fmt.Errorf("must commit resource json/yaml data")
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -205,10 +243,12 @@ func (this *IngressController) UpdateIngress() {
 
 	err := pk.Controller.Update(group, workspace, ingress, this.Ctx.Input.RequestBody)
 	if err != nil {
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
 
+	this.audit(token, "", false)
 	this.normalReturn("ok")
 }
 
@@ -218,11 +258,18 @@ func (this *IngressController) UpdateIngress() {
 // @Param Token header string true 'Token'
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
-// @Param ingress path string true "容器组"
+// @Param ingress path string true "路由"
 // @Success 201 {string} create success!
 // @Failure 500
 // @router /:ingress/group/:group/workspace/:workspace [Delete]
 func (this *IngressController) DeleteIngress() {
+	token := this.Ctx.Request.Header.Get("token")
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.audit(token, "", true)
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
@@ -230,10 +277,12 @@ func (this *IngressController) DeleteIngress() {
 
 	err := pk.Controller.Delete(group, workspace, ingress, resource.DeleteOption{})
 	if err != nil {
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
 
+	this.audit(token, "", false)
 	this.normalReturn("ok")
 }
 
@@ -243,11 +292,16 @@ func (this *IngressController) DeleteIngress() {
 // @Param Token header string true 'Token'
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
-// @Param ingress path string true "容器组"
+// @Param ingress path string true "路由"
 // @Success 201 {string} create success!
 // @Failure 500
 // @router /:ingress/group/:group/workspace/:workspace/event [Get]
 func (this *IngressController) GetIngressEvent() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")

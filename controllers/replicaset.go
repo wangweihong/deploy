@@ -22,6 +22,11 @@ type ReplicaSetController struct {
 // @Failure 500
 // @router /group/:group/workspace/:workspace [Get]
 func (this *ReplicaSetController) ListGroupWorkspaceReplicaSets() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
@@ -54,6 +59,11 @@ func (this *ReplicaSetController) ListGroupWorkspaceReplicaSets() {
 // @Failure 500
 // @router /:rc/group/:group/workspace/:workspace [Get]
 func (this *ReplicaSetController) GetReplicaSet() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
@@ -81,6 +91,11 @@ func (this *ReplicaSetController) GetReplicaSet() {
 // @Failure 500
 // @router /groups [Post]
 func (this *ReplicaSetController) ListGroupsReplicaSets() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	groups := make([]string, 0)
 	if this.Ctx.Input.RequestBody == nil {
@@ -125,6 +140,12 @@ func (this *ReplicaSetController) ListGroupsReplicaSets() {
 // @Failure 500
 // @router /group/:group [Get]
 func (this *ReplicaSetController) ListGroupReplicaSets() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
+
 	group := this.Ctx.Input.Param(":group")
 	pis, err := pk.Controller.ListGroup(group)
 	if err != nil {
@@ -152,12 +173,20 @@ func (this *ReplicaSetController) ListGroupReplicaSets() {
 // @Failure 500
 // @router /group/:group/workspace/:workspace [Post]
 func (this *ReplicaSetController) CreateReplicaSet() {
+	token := this.Ctx.Request.Header.Get("token")
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.audit(token, "", true)
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	//token := this.Ctx.Request.Header.Get("token")
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
 
 	if this.Ctx.Input.RequestBody == nil {
+		this.audit(token, "", true)
 		err := fmt.Errorf("must commit resource json/yaml data")
 		this.errReturn(err, 500)
 		return
@@ -171,9 +200,11 @@ func (this *ReplicaSetController) CreateReplicaSet() {
 	var opt resource.CreateOption
 	err := pk.Controller.Create(group, workspace, this.Ctx.Input.RequestBody, opt)
 	if err != nil {
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
+	this.audit(token, "", false)
 
 	this.normalReturn("ok")
 }
@@ -190,6 +221,13 @@ func (this *ReplicaSetController) CreateReplicaSet() {
 // @Failure 500
 // @router /:replicaset/group/:group/workspace/:workspace [Put]
 func (this *ReplicaSetController) UpdateReplicaSet() {
+	token := this.Ctx.Request.Header.Get("token")
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.audit(token, "", true)
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	//token := this.Ctx.Request.Header.Get("token")
 	group := this.Ctx.Input.Param(":group")
@@ -197,6 +235,7 @@ func (this *ReplicaSetController) UpdateReplicaSet() {
 	replicaset := this.Ctx.Input.Param(":replicaset")
 
 	if this.Ctx.Input.RequestBody == nil {
+		this.audit(token, "", true)
 		err := fmt.Errorf("must commit resource json/yaml data")
 		this.errReturn(err, 500)
 		return
@@ -209,9 +248,11 @@ func (this *ReplicaSetController) UpdateReplicaSet() {
 
 	err := pk.Controller.Update(group, workspace, replicaset, this.Ctx.Input.RequestBody)
 	if err != nil {
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
+	this.audit(token, "", false)
 
 	this.normalReturn("ok")
 }
@@ -228,6 +269,13 @@ func (this *ReplicaSetController) UpdateReplicaSet() {
 // @Failure 500
 // @router /:replicaset/group/:group/workspace/:workspace/replicas/:replicas [Put]
 func (this *ReplicaSetController) ScaleReplicaSet() {
+	token := this.Ctx.Request.Header.Get("token")
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.audit(token, "", true)
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	//token := this.Ctx.Request.Header.Get("token")
 	group := this.Ctx.Input.Param(":group")
@@ -237,22 +285,26 @@ func (this *ReplicaSetController) ScaleReplicaSet() {
 
 	ri, err := pk.Controller.Get(group, workspace, replicaset)
 	if err != nil {
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
 
 	replicas, err := strconv.ParseInt(replicasStr, 10, 32)
 	if err != nil {
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
 
 	err = ri.Scale(int(replicas))
 	if err != nil {
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
 
+	this.audit(token, "", false)
 	this.normalReturn("ok")
 
 }
@@ -268,6 +320,13 @@ func (this *ReplicaSetController) ScaleReplicaSet() {
 // @Failure 500
 // @router /:replicaset/group/:group/workspace/:workspace [Delete]
 func (this *ReplicaSetController) DeleteReplicaSet() {
+	token := this.Ctx.Request.Header.Get("token")
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.audit(token, "", true)
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
@@ -275,9 +334,11 @@ func (this *ReplicaSetController) DeleteReplicaSet() {
 
 	err := pk.Controller.Delete(group, workspace, replicaset, resource.DeleteOption{})
 	if err != nil {
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
+	this.audit(token, "", false)
 
 	this.normalReturn("ok")
 }
@@ -293,6 +354,11 @@ func (this *ReplicaSetController) DeleteReplicaSet() {
 // @Failure 500
 // @router /:replicaset/group/:group/workspace/:workspace/event [Get]
 func (this *ReplicaSetController) GetReplicaSetEvent() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
@@ -323,6 +389,11 @@ func (this *ReplicaSetController) GetReplicaSetEvent() {
 // @Failure 500
 // @router /:replicaset/group/:group/workspace/:workspace/template [Get]
 func (this *ReplicaSetController) GetReplicaSetTemplate() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")

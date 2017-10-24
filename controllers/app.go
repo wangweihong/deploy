@@ -21,6 +21,13 @@ type AppController struct {
 // @Failure 500
 // @router /:app/group/:group/workspace/:workspace [Post]
 func (this *AppController) NewApp() {
+	token := this.Ctx.Request.Header.Get("token")
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.audit(token, "", true)
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	appName := this.Ctx.Input.Param(":app")
 	group := this.Ctx.Input.Param(":group")
@@ -28,6 +35,7 @@ func (this *AppController) NewApp() {
 
 	if this.Ctx.Input.RequestBody == nil {
 		err := fmt.Errorf("must commit resource json/yaml data")
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -35,9 +43,11 @@ func (this *AppController) NewApp() {
 	var opt app.CreateOption
 	err := app.Controller.NewApp(group, workspace, appName, this.Ctx.Input.RequestBody, opt)
 	if err != nil {
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
+	this.audit(token, appName, false)
 	this.normalReturn("ok")
 
 }
@@ -53,6 +63,13 @@ func (this *AppController) NewApp() {
 // @Failure 500
 // @router /:app/group/:group/workspace/:workspace [Delete]
 func (this *AppController) DeleteApp() {
+	token := this.Ctx.Request.Header.Get("token")
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.audit(token, "", true)
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	appName := this.Ctx.Input.Param(":app")
 	group := this.Ctx.Input.Param(":group")
@@ -60,9 +77,11 @@ func (this *AppController) DeleteApp() {
 
 	err := app.Controller.DeleteApp(group, workspace, appName, app.DeleteOption{})
 	if err != nil {
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
+	this.audit(token, appName, false)
 	this.normalReturn("ok")
 }
 
@@ -77,6 +96,11 @@ func (this *AppController) DeleteApp() {
 // @Failure 500
 // @router /:app/group/:group/workspace/:workspace [Get]
 func (this *AppController) GetApp() {
+	err := this.checkRouteControllerAbility()
+	if err != nil {
+		this.abilityErrorReturn(err)
+		return
+	}
 
 	appName := this.Ctx.Input.Param(":app")
 	group := this.Ctx.Input.Param(":group")
@@ -101,6 +125,11 @@ func (this *AppController) GetApp() {
 // @Failure 500
 // @router /group/:group [Get]
 func (this *AppController) ListGroupApp() {
+	err := this.checkRouteControllerAbility()
+	if err != nil {
+		this.abilityErrorReturn(err)
+		return
+	}
 
 	group := this.Ctx.Input.Param(":group")
 

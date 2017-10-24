@@ -86,7 +86,6 @@ type Deployment struct {
 
 type HPA struct {
 	Deployed      bool `json:"deployed"`
-	Supported     bool `json:"supported"`
 	CpuPercernt   int  `json:"cpuPercent"`
 	MemoryPercent int  `json:"memPercent"`
 	DiskPercent   int  `json:"diskPercent"`
@@ -569,7 +568,6 @@ func (j *Deployment) StartAutoScale(min int, max int, cpuPercent int, memPercent
 	j.AutoScaler.DiskPercent = diskPercent
 	j.AutoScaler.MaxReplicas = max
 	j.AutoScaler.MinReplicas = min
-	j.AutoScaler.Supported = true
 
 	be := backend.NewBackendHandler()
 	err := be.UpdateResource(backendKind, j.Group, j.Workspace, j.Name, j)

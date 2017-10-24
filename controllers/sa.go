@@ -24,6 +24,11 @@ type ServiceAccountController struct {
 // @Failure 500
 // @router /group/:group/workspace/:workspace [Get]
 func (this *ServiceAccountController) ListServiceAccounts() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
@@ -51,6 +56,11 @@ func (this *ServiceAccountController) ListServiceAccounts() {
 // @Failure 500
 // @router /groups [Post]
 func (this *ServiceAccountController) ListGroupsServiceAccounts() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	groups := make([]string, 0)
 	if this.Ctx.Input.RequestBody == nil {
@@ -94,6 +104,11 @@ func (this *ServiceAccountController) ListGroupsServiceAccounts() {
 // @Failure 500
 // @router /group/:group [Get]
 func (this *ServiceAccountController) ListGroupServiceAccounts() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	group := this.Ctx.Input.Param(":group")
 
@@ -123,6 +138,13 @@ func (this *ServiceAccountController) ListGroupServiceAccounts() {
 // @Failure 500
 // @router /group/:group/workspace/:workspace [Post]
 func (this *ServiceAccountController) CreateServiceAccount() {
+	token := this.Ctx.Request.Header.Get("token")
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.audit(token, "", true)
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	//token := this.Ctx.Request.Header.Get("token")
 	group := this.Ctx.Input.Param(":group")
@@ -130,6 +152,7 @@ func (this *ServiceAccountController) CreateServiceAccount() {
 
 	if this.Ctx.Input.RequestBody == nil {
 		err := fmt.Errorf("must commit resource json/yaml data")
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -137,6 +160,7 @@ func (this *ServiceAccountController) CreateServiceAccount() {
 	var co models.CreateOption
 	err := json.Unmarshal(this.Ctx.Input.RequestBody, &co)
 	if err != nil {
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -149,10 +173,12 @@ func (this *ServiceAccountController) CreateServiceAccount() {
 	opt.Comment = co.Comment
 	err = pk.Controller.Create(group, workspace, []byte(co.Data), opt)
 	if err != nil {
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
 
+	this.audit(token, "", false)
 	this.normalReturn("ok")
 }
 
@@ -175,6 +201,13 @@ type ServiceAccountCreateOption struct {
 // @Failure 500
 // @router /group/:group/workspace/:workspace/custom [Post]
 func (this *ServiceAccountController) CreateServiceAccountCustom() {
+	token := this.Ctx.Request.Header.Get("token")
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.audit(token, "", true)
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
@@ -188,6 +221,7 @@ func (this *ServiceAccountController) CreateServiceAccountCustom() {
 	var co ServiceAccountCreateOption
 	err := json.Unmarshal(this.Ctx.Input.RequestBody, &co)
 	if err != nil {
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -208,6 +242,7 @@ func (this *ServiceAccountController) CreateServiceAccountCustom() {
 
 	bytedata, err := json.Marshal(cm)
 	if err != nil {
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -216,10 +251,12 @@ func (this *ServiceAccountController) CreateServiceAccountCustom() {
 	opt.Comment = co.Comment
 	err = pk.Controller.Create(group, workspace, bytedata, opt)
 	if err != nil {
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
 
+	this.audit(token, "", false)
 	this.normalReturn("ok")
 }
 
@@ -235,6 +272,13 @@ func (this *ServiceAccountController) CreateServiceAccountCustom() {
 // @Failure 500
 // @router /:serviceaccount/group/:group/workspace/:workspace [Put]
 func (this *ServiceAccountController) UpdateServiceAccount() {
+	token := this.Ctx.Request.Header.Get("token")
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.audit(token, "", true)
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	//token := this.Ctx.Request.Header.Get("token")
 	group := this.Ctx.Input.Param(":group")
@@ -243,6 +287,7 @@ func (this *ServiceAccountController) UpdateServiceAccount() {
 
 	if this.Ctx.Input.RequestBody == nil {
 		err := fmt.Errorf("must commit resource json/yaml data")
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -254,10 +299,12 @@ func (this *ServiceAccountController) UpdateServiceAccount() {
 
 	err := pk.Controller.Update(group, workspace, serviceaccount, this.Ctx.Input.RequestBody)
 	if err != nil {
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
 
+	this.audit(token, "", false)
 	this.normalReturn("ok")
 }
 
@@ -272,6 +319,13 @@ func (this *ServiceAccountController) UpdateServiceAccount() {
 // @Failure 500
 // @router /:serviceaccount/group/:group/workspace/:workspace [Delete]
 func (this *ServiceAccountController) DeleteServiceAccount() {
+	token := this.Ctx.Request.Header.Get("token")
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.audit(token, "", true)
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
@@ -279,9 +333,11 @@ func (this *ServiceAccountController) DeleteServiceAccount() {
 
 	err := pk.Controller.Delete(group, workspace, serviceaccount, resource.DeleteOption{})
 	if err != nil {
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
+	this.audit(token, "", false)
 
 	this.normalReturn("ok")
 }
@@ -297,6 +353,11 @@ func (this *ServiceAccountController) DeleteServiceAccount() {
 // @Failure 500
 // @router /:serviceaccount/group/:group/workspace/:workspace/template [Get]
 func (this *ServiceAccountController) GetServiceAccountTemplate() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
@@ -328,6 +389,11 @@ func (this *ServiceAccountController) GetServiceAccountTemplate() {
 // @Failure 500
 // @router /:serviceaccount/group/:group/workspace/:workspace/event [Get]
 func (this *ServiceAccountController) GetServiceAccountEvent() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")

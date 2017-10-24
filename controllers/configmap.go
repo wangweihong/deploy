@@ -23,6 +23,11 @@ type ConfigMapController struct {
 // @Failure 500
 // @router /group/:group/workspace/:workspace [Get]
 func (this *ConfigMapController) ListGroupWorkspaceConfigMaps() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
@@ -51,6 +56,11 @@ func (this *ConfigMapController) ListGroupWorkspaceConfigMaps() {
 // @Failure 500
 // @router /groups [Post]
 func (this *ConfigMapController) ListGroupsConfigMaps() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	groups := make([]string, 0)
 	if this.Ctx.Input.RequestBody == nil {
@@ -94,6 +104,11 @@ func (this *ConfigMapController) ListGroupsConfigMaps() {
 // @Failure 500
 // @router /group/:group [Get]
 func (this *ConfigMapController) ListGroupConfigMaps() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	group := this.Ctx.Input.Param(":group")
 
@@ -123,32 +138,33 @@ func (this *ConfigMapController) ListGroupConfigMaps() {
 // @Failure 500
 // @router /group/:group/workspace/:workspace [Post]
 func (this *ConfigMapController) CreateConfigMap() {
+	token := this.Ctx.Request.Header.Get("token")
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.audit(token, "", true)
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
 
 	if this.Ctx.Input.RequestBody == nil {
 		err := fmt.Errorf("must commit resource json/yaml data")
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
-	/*
-		var co models.CreateOption
-		err := json.Unmarshal(this.Ctx.Input.RequestBody, &co)
-		if err != nil {
-			this.errReturn(err, 500)
-			return
-		}
 
-	*/
 	var opt resource.CreateOption
-	//	opt.Comment = co.Comment
 	err := pk.Controller.Create(group, workspace, this.Ctx.Input.RequestBody, opt)
 	if err != nil {
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
 
+	this.audit(token, "", false)
 	this.normalReturn("ok")
 }
 
@@ -171,18 +187,27 @@ type ConfigMapCreateOption struct {
 // @Failure 500
 // @router /group/:group/workspace/:workspace/custom [Post]
 func (this *ConfigMapController) CreateConfigMapCustom() {
+	token := this.Ctx.Request.Header.Get("token")
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.audit(token, "", true)
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
 
 	if this.Ctx.Input.RequestBody == nil {
 		err := fmt.Errorf("must commit resource json/yaml data")
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
 	var co ConfigMapCreateOption
 	err := json.Unmarshal(this.Ctx.Input.RequestBody, &co)
 	if err != nil {
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -195,6 +220,7 @@ func (this *ConfigMapController) CreateConfigMapCustom() {
 
 	bytedata, err := json.Marshal(cm)
 	if err != nil {
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -203,10 +229,12 @@ func (this *ConfigMapController) CreateConfigMapCustom() {
 	opt.Comment = co.Comment
 	err = pk.Controller.Create(group, workspace, bytedata, opt)
 	if err != nil {
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
 
+	this.audit(token, "", false)
 	this.normalReturn("ok")
 }
 
@@ -221,6 +249,13 @@ func (this *ConfigMapController) CreateConfigMapCustom() {
 // @Failure 500
 // @router /:configmap/group/:group/workspace/:workspace [Delete]
 func (this *ConfigMapController) DeleteConfigMap() {
+	token := this.Ctx.Request.Header.Get("token")
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.audit(token, "", true)
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
@@ -228,10 +263,12 @@ func (this *ConfigMapController) DeleteConfigMap() {
 
 	err := pk.Controller.Delete(group, workspace, configmap, resource.DeleteOption{})
 	if err != nil {
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
 
+	this.audit(token, configmap, false)
 	this.normalReturn("ok")
 }
 
@@ -247,6 +284,13 @@ func (this *ConfigMapController) DeleteConfigMap() {
 // @Failure 500
 // @router /:configmap/group/:group/workspace/:workspace [Put]
 func (this *ConfigMapController) UpdateConfigMap() {
+	token := this.Ctx.Request.Header.Get("token")
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.audit(token, "", true)
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	//token := this.Ctx.Request.Header.Get("token")
 	group := this.Ctx.Input.Param(":group")
@@ -255,6 +299,7 @@ func (this *ConfigMapController) UpdateConfigMap() {
 
 	if this.Ctx.Input.RequestBody == nil {
 		err := fmt.Errorf("must commit resource json/yaml data")
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -266,10 +311,12 @@ func (this *ConfigMapController) UpdateConfigMap() {
 
 	err := pk.Controller.Update(group, workspace, configmap, this.Ctx.Input.RequestBody)
 	if err != nil {
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
 
+	this.audit(token, configmap, false)
 	this.normalReturn("ok")
 }
 
@@ -284,6 +331,11 @@ func (this *ConfigMapController) UpdateConfigMap() {
 // @Failure 500
 // @router /:configmap/group/:group/workspace/:workspace/template [Get]
 func (this *ConfigMapController) GetConfigMapTemplate() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
@@ -315,6 +367,11 @@ func (this *ConfigMapController) GetConfigMapTemplate() {
 // @Failure 500
 // @router /:configmap/group/:group/workspace/:workspace/event [Get]
 func (this *ConfigMapController) GetConfigMapEvent() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")

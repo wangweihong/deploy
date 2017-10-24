@@ -20,6 +20,11 @@ type DaemonSetController struct {
 // @Failure 500
 // @router /group/:group/workspace/:workspace [Get]
 func (this *DaemonSetController) ListDaemonSets() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
@@ -47,6 +52,11 @@ func (this *DaemonSetController) ListDaemonSets() {
 // @Failure 500
 // @router /group/:group [Get]
 func (this *DaemonSetController) ListGroupDaemonSets() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	group := this.Ctx.Input.Param(":group")
 
@@ -76,6 +86,11 @@ func (this *DaemonSetController) ListGroupDaemonSets() {
 // @Failure 500
 // @router /:daemonset/group/:group/workspace/:workspace [Get]
 func (this *DaemonSetController) GetDaemonSet() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
@@ -104,6 +119,13 @@ func (this *DaemonSetController) GetDaemonSet() {
 // @Failure 500
 // @router /group/:group/workspace/:workspace [Post]
 func (this *DaemonSetController) CreateDaemonSet() {
+	token := this.Ctx.Request.Header.Get("token")
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.audit(token, "", true)
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	//token := this.Ctx.Request.Header.Get("token")
 	group := this.Ctx.Input.Param(":group")
@@ -111,6 +133,7 @@ func (this *DaemonSetController) CreateDaemonSet() {
 
 	if this.Ctx.Input.RequestBody == nil {
 		err := fmt.Errorf("must commit resource json/yaml data")
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -123,10 +146,12 @@ func (this *DaemonSetController) CreateDaemonSet() {
 	var opt resource.CreateOption
 	err := pk.Controller.Create(group, workspace, this.Ctx.Input.RequestBody, opt)
 	if err != nil {
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
 
+	this.audit(token, "", false)
 	this.normalReturn("ok")
 }
 
@@ -142,6 +167,13 @@ func (this *DaemonSetController) CreateDaemonSet() {
 // @Failure 500
 // @router /:daemonset/group/:group/workspace/:workspace [Put]
 func (this *DaemonSetController) UpdateDaemonSet() {
+	token := this.Ctx.Request.Header.Get("token")
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.audit(token, "", true)
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	//token := this.Ctx.Request.Header.Get("token")
 	group := this.Ctx.Input.Param(":group")
@@ -150,6 +182,7 @@ func (this *DaemonSetController) UpdateDaemonSet() {
 
 	if this.Ctx.Input.RequestBody == nil {
 		err := fmt.Errorf("must commit resource json/yaml data")
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -161,10 +194,12 @@ func (this *DaemonSetController) UpdateDaemonSet() {
 
 	err := pk.Controller.Update(group, workspace, daemonset, this.Ctx.Input.RequestBody)
 	if err != nil {
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
 
+	this.audit(token, "", false)
 	this.normalReturn("ok")
 }
 
@@ -179,6 +214,13 @@ func (this *DaemonSetController) UpdateDaemonSet() {
 // @Failure 500
 // @router /:daemonset/group/:group/workspace/:workspace [Delete]
 func (this *DaemonSetController) DeleteDaemonSet() {
+	token := this.Ctx.Request.Header.Get("token")
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.audit(token, "", true)
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
@@ -186,9 +228,11 @@ func (this *DaemonSetController) DeleteDaemonSet() {
 
 	err := pk.Controller.Delete(group, workspace, daemonset, resource.DeleteOption{})
 	if err != nil {
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
+	this.audit(token, "", false)
 
 	this.normalReturn("ok")
 }
@@ -204,6 +248,11 @@ func (this *DaemonSetController) DeleteDaemonSet() {
 // @Failure 500
 // @router /:daemonset/group/:group/workspace/:workspace/event [Get]
 func (this *DaemonSetController) GetDaemonSetEvent() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
@@ -234,6 +283,11 @@ func (this *DaemonSetController) GetDaemonSetEvent() {
 // @Failure 500
 // @router /:daemonset/group/:group/workspace/:workspace/template [Get]
 func (this *DaemonSetController) GetDaemonSetTemplate() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")

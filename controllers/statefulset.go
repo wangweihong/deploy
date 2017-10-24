@@ -21,6 +21,11 @@ type StatefulSetController struct {
 // @Failure 500
 // @router /group/:group/workspace/:workspace [Get]
 func (this *StatefulSetController) ListStatefulSets() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
@@ -50,6 +55,11 @@ func (this *StatefulSetController) ListStatefulSets() {
 // @Failure 500
 // @router /:statefulset/group/:group/workspace/:workspace [Get]
 func (this *StatefulSetController) GetGroupWorkspaceStatefulSet() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
@@ -77,6 +87,11 @@ func (this *StatefulSetController) GetGroupWorkspaceStatefulSet() {
 // @Failure 500
 // @router /groups [Post]
 func (this *StatefulSetController) ListGroupsStatefulSets() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	groups := make([]string, 0)
 	if this.Ctx.Input.RequestBody == nil {
@@ -121,6 +136,11 @@ func (this *StatefulSetController) ListGroupsStatefulSets() {
 // @Failure 500
 // @router /group/:group [Get]
 func (this *StatefulSetController) ListGroupStatefulSets() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	group := this.Ctx.Input.Param(":group")
 	pis, err := pk.Controller.ListGroup(group)
@@ -148,6 +168,11 @@ func (this *StatefulSetController) ListGroupStatefulSets() {
 // @Failure 500
 // @router /group/:group/workspace/:workspace [Post]
 func (this *StatefulSetController) CreateStatefulSet() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	//token := this.Ctx.Request.Header.Get("token")
 	group := this.Ctx.Input.Param(":group")
@@ -186,6 +211,11 @@ func (this *StatefulSetController) CreateStatefulSet() {
 // @Failure 500
 // @router /:statefulset/group/:group/workspace/:workspace [Put]
 func (this *StatefulSetController) UpdateStatefulSet() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	//token := this.Ctx.Request.Header.Get("token")
 	group := this.Ctx.Input.Param(":group")
@@ -223,6 +253,11 @@ func (this *StatefulSetController) UpdateStatefulSet() {
 // @Failure 500
 // @router /:statefulset/group/:group/workspace/:workspace [Delete]
 func (this *StatefulSetController) DeleteStatefulSet() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
@@ -248,6 +283,11 @@ func (this *StatefulSetController) DeleteStatefulSet() {
 // @Failure 500
 // @router /:statefulset/group/:group/workspace/:workspace/event [Get]
 func (this *StatefulSetController) GetStatefulSetEvent() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
