@@ -281,6 +281,13 @@ func init() {
 
 	beego.GlobalControllerRouter["ufleet-deploy/controllers:DeploymentController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:DeploymentController"],
 		beego.ControllerComments{
+			Method: "ScaleDeploymentIncrement",
+			Router: `/:deployment/group/:group/workspace/:workspace/increment/:increment`,
+			AllowHTTPMethods: []string{"Put"},
+			Params: nil})
+
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:DeploymentController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:DeploymentController"],
+		beego.ControllerComments{
 			Method: "GetDeploymentTemplate",
 			Router: `/:deployment/group/:group/workspace/:workspace/template`,
 			AllowHTTPMethods: []string{"Get"},
@@ -305,6 +312,20 @@ func init() {
 			Method: "RollBack",
 			Router: `/:deployment/group/:group/workspace/:workspace/revision/:revision`,
 			AllowHTTPMethods: []string{"Put"},
+			Params: nil})
+
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:DeploymentController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:DeploymentController"],
+		beego.ControllerComments{
+			Method: "GetHPA",
+			Router: `/:deployment/group/:group/workspace/:workspace/hpa`,
+			AllowHTTPMethods: []string{"Get"},
+			Params: nil})
+
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:DeploymentController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:DeploymentController"],
+		beego.ControllerComments{
+			Method: "StartHPA",
+			Router: `/:deployment/group/:group/workspace/:workspace/hpa`,
+			AllowHTTPMethods: []string{"Post"},
 			Params: nil})
 
 	beego.GlobalControllerRouter["ufleet-deploy/controllers:EndpointController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:EndpointController"],

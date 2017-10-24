@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"ufleet-deploy/pkg/resource"
@@ -263,7 +264,55 @@ func (this *DeploymentController) ScaleDeployment() {
 	}
 
 	this.normalReturn("ok")
+}
 
+// ScaleDeploymentIncremental
+// @Title Deployment
+// @Description  递增/减锁扩容
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Param workspace path string true "工作区"
+// @Param deployment path string true "副本控制器"
+// @Param increment path string true "增副本数"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /:deployment/group/:group/workspace/:workspace/increment/:increment [Put]
+func (this *DeploymentController) ScaleDeploymentIncrement() {
+
+	//token := this.Ctx.Request.Header.Get("token")
+	group := this.Ctx.Input.Param(":group")
+	workspace := this.Ctx.Input.Param(":workspace")
+	deployment := this.Ctx.Input.Param(":deployment")
+	incrementStr := this.Ctx.Input.Param(":increment")
+
+	ri, err := pk.Controller.Get(group, workspace, deployment)
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+
+	increment, err := strconv.ParseInt(incrementStr, 10, 32)
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+
+	js := ri.GetStatus()
+	if js.Reason != "" {
+		err := fmt.Errorf(js.Reason)
+		this.errReturn(err, 500)
+		return
+	}
+
+	newReplicas := js.Replicas + int32(increment)
+
+	err = ri.Scale(int(newReplicas))
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+
+	this.normalReturn("ok")
 }
 
 // GetDeploymentTemplate
@@ -439,4 +488,91 @@ func (this *DeploymentController) RollBack() {
 	}
 
 	this.normalReturn(*result)
+}
+
+// GetHpa
+// @Title Deployment
+// @Description  获取 Deployment hpa
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Param workspace path string true "工作区"
+// @Param deployment path string true "容器组"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /:deployment/group/:group/workspace/:workspace/hpa [Get]
+func (this *DeploymentController) GetHPA() {
+
+	group := this.Ctx.Input.Param(":group")
+	workspace := this.Ctx.Input.Param(":workspace")
+	deployment := this.Ctx.Input.Param(":deployment")
+
+	pi, err := pk.Controller.Get(group, workspace, deployment)
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+
+	result, err := pi.GetAutoScale()
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+
+	}
+
+	this.normalReturn(*result)
+}
+
+type HpaOptions struct {
+	CpuPercent  int `json:"cpupercent"`
+	MemPercent  int `json:"mempercent"`
+	NetPercent  int `json:"netpercent"`
+	DiskPercent int `json:"diskpercent"`
+	MinReplicas int `json:"minreplicas"`
+	MaxReplicas int `json:"Maxreplicas"`
+}
+
+// StartHpa
+// @Title Deployment
+// @Description  启动Deployment hpa
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Param workspace path string true "工作区"
+// @Param deployment path string true "容器组"
+// @Param body body string true "弹性伸缩参数"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /:deployment/group/:group/workspace/:workspace/hpa [Post]
+func (this *DeploymentController) StartHPA() {
+
+	group := this.Ctx.Input.Param(":group")
+	workspace := this.Ctx.Input.Param(":workspace")
+	deployment := this.Ctx.Input.Param(":deployment")
+
+	if this.Ctx.Input.RequestBody == nil {
+		err := fmt.Errorf("must commit hpa options")
+		this.errReturn(err, 500)
+		return
+	}
+
+	var hpaopt HpaOptions
+	err := json.Unmarshal(this.Ctx.Input.RequestBody, &hpaopt)
+	if err != nil {
+		err = fmt.Errorf("parse hpa option fail for  fail for ", err)
+		this.errReturn(err, 500)
+		return
+	}
+
+	pi, err := pk.Controller.Get(group, workspace, deployment)
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+
+	err = pi.StartAutoScale(hpaopt.MinReplicas, hpaopt.MaxReplicas, hpaopt.CpuPercent, hpaopt.MemPercent, hpaopt.DiskPercent, hpaopt.NetPercent)
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+
+	this.normalReturn("ok")
 }

@@ -52,6 +52,8 @@ type DeploymentInterface interface {
 	GetAllReplicaSets() (map[int64]*extensionsv1beta1.ReplicaSet, error)
 	GetRevisionsAndDescribe() (map[int64]string, error)
 	Rollback(revision int64) (*string, error)
+	GetAutoScale() (*HPA, error)
+	StartAutoScale(min int, max int, cpuPercent int, memPercent int, diskPercent int, NetPercent int) error
 }
 
 type DeploymentManager struct {
@@ -79,6 +81,18 @@ type Runtime struct {
 type Deployment struct {
 	resource.ObjectMeta
 	memoryOnly bool
+	AutoScaler HPA `json:"autoscaler"`
+}
+
+type HPA struct {
+	Deployed      bool `json:"deployed"`
+	Supported     bool `json:"supported"`
+	CpuPercernt   int  `json:"cpuPercent"`
+	MemoryPercent int  `json:"memPercent"`
+	DiskPercent   int  `json:"diskPercent"`
+	NetPercent    int  `json:"netPercent"`
+	MinReplicas   int  `json:"minReplicas"`
+	MaxReplicas   int  `json:"maxReplicas"`
 }
 
 //注意这里没锁
@@ -544,6 +558,29 @@ func (j *Deployment) Rollback(revision int64) (*string, error) {
 	}
 	return ph.Rollback(j.Workspace, j.Name, revision)
 
+}
+
+func (j *Deployment) StartAutoScale(min int, max int, cpuPercent int, memPercent int, diskPercent int, NetPercent int) error {
+
+	j.AutoScaler.Deployed = true
+	j.AutoScaler.CpuPercernt = cpuPercent
+	j.AutoScaler.MemoryPercent = memPercent
+	j.AutoScaler.NetPercent = NetPercent
+	j.AutoScaler.DiskPercent = diskPercent
+	j.AutoScaler.MaxReplicas = max
+	j.AutoScaler.MinReplicas = min
+	j.AutoScaler.Supported = true
+
+	be := backend.NewBackendHandler()
+	err := be.UpdateResource(backendKind, j.Group, j.Workspace, j.Name, j)
+	if err != nil {
+		return log.DebugPrint(err)
+	}
+	return nil
+}
+
+func (j *Deployment) GetAutoScale() (*HPA, error) {
+	return &j.AutoScaler, nil
 }
 
 func InitDeploymentController(be backend.BackendHandler) (DeploymentController, error) {
