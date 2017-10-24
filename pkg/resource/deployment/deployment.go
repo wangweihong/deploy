@@ -49,6 +49,9 @@ type DeploymentInterface interface {
 	Scale(num int) error
 	Event() ([]corev1.Event, error)
 	GetTemplate() (string, error)
+	GetAllReplicaSets() (map[int64]*extensionsv1beta1.ReplicaSet, error)
+	GetRevisionsAndDescribe() (map[int64]string, error)
+	Rollback(revision int64) (*string, error)
 }
 
 type DeploymentManager struct {
@@ -498,6 +501,49 @@ func (j *Deployment) GetTemplate() (string, error) {
 	*t = fmt.Sprintf("%v\n%v", prefix, *t)
 
 	return *t, nil
+}
+
+func (j *Deployment) GetAllReplicaSets() (map[int64]*extensionsv1beta1.ReplicaSet, error) {
+	ph, err := cluster.NewDeploymentHandler(j.Group, j.Workspace)
+	if err != nil {
+		return nil, log.DebugPrint(err)
+	}
+	rm, err := ph.GetRevisionsAndReplicas(j.Workspace, j.Name)
+	if err != nil {
+		return nil, log.DebugPrint(err)
+	}
+	return rm, nil
+
+}
+
+func (j *Deployment) GetRevisionsAndDescribe() (map[int64]string, error) {
+	ph, err := cluster.NewDeploymentHandler(j.Group, j.Workspace)
+	if err != nil {
+		return nil, log.DebugPrint(err)
+	}
+	rm, err := ph.GetRevisionsAndDescribe(j.Workspace, j.Name)
+	if err != nil {
+		return nil, log.DebugPrint(err)
+	}
+	rs := make(map[int64]string, 0)
+	for k, v := range rm {
+		str, err := json.Marshal(v)
+		if err != nil {
+			return nil, log.DebugPrint(err)
+		}
+		rs[k] = string(str)
+	}
+
+	return rs, nil
+}
+
+func (j *Deployment) Rollback(revision int64) (*string, error) {
+	ph, err := cluster.NewDeploymentHandler(j.Group, j.Workspace)
+	if err != nil {
+		return nil, log.DebugPrint(err)
+	}
+	return ph.Rollback(j.Workspace, j.Name, revision)
+
 }
 
 func InitDeploymentController(be backend.BackendHandler) (DeploymentController, error) {

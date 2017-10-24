@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"sort"
 	"time"
-	"ufleet-deploy/deploy/uerr"
 	"ufleet-deploy/pkg/log"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -15,11 +14,11 @@ import (
 	batchv1 "k8s.io/client-go/pkg/apis/batch/v1"
 	batchv2alpha1 "k8s.io/client-go/pkg/apis/batch/v2alpha1"
 	extensionsv1beta1 "k8s.io/client-go/pkg/apis/extensions/v1beta1"
-	k8sextensions "k8s.io/kubernetes/pkg/apis/extensions/v1beta1"
 	externalclientset "k8s.io/kubernetes/pkg/client/clientset_generated/clientset"
 	core "k8s.io/kubernetes/pkg/client/clientset_generated/clientset/typed/core/v1"
 	extensions "k8s.io/kubernetes/pkg/client/clientset_generated/clientset/typed/extensions/v1beta1"
 
+	watch "k8s.io/apimachinery/pkg/watch"
 	deploymentutil "k8s.io/kubernetes/pkg/controller/deployment/util"
 )
 
@@ -474,6 +473,9 @@ type DeploymentHandler interface {
 	GetPods(namespace, name string) ([]*corev1.Pod, error)
 	Event(namespace, resourceName string) ([]corev1.Event, error)
 	Revision(namespace, name string) (*string, error)
+	GetRevisionsAndDescribe(namespace, name string) (map[int64]*corev1.PodTemplateSpec, error)
+	GetRevisionsAndReplicas(namespace, name string) (map[int64]*extensionsv1beta1.ReplicaSet, error)
+	Rollback(namespace, name string, revision int64) (*string, error)
 }
 
 func NewDeploymentHandler(group, workspace string) (DeploymentHandler, error) {
@@ -524,24 +526,22 @@ func (h *deploymentHandler) Delete(namespace, deploymentName string) error {
 		err := h.clientset.ExtensionsV1beta1().ReplicaSets(namespace).Delete(v.Name, nil)
 		if err != nil {
 			if !apierrors.IsNotFound(err) {
-				uerr.ErrorPrint(fmt.Sprintf("try to delete rs %v fail for %v", v.Name, err))
+				log.ErrorPrint(fmt.Sprintf("try to delete rs %v fail for %v", v.Name, err))
 			}
 		}
 	}
 
 	selector, err := metav1.LabelSelectorAsSelector(d.Spec.Selector)
 	if err != nil {
-		uerr.ErrorPrint(fmt.Sprintf("try to delete pods fail for %v", err))
+		log.ErrorPrint(fmt.Sprintf("try to delete pods fail for %v", err))
 	}
 
 	opt := metav1.ListOptions{LabelSelector: selector.String()}
 	err = h.clientset.CoreV1().Pods(namespace).DeleteCollection(nil, opt)
 	if err != nil {
-
-		uerr.ErrorPrint(fmt.Sprintf("try to delete pods fail for %v", err))
+		log.ErrorPrint(fmt.Sprintf("try to delete pods fail for %v", err))
 	}
 	return nil
-
 }
 
 func (h *deploymentHandler) Scale(namespace, name string, num int32) error {
@@ -596,6 +596,58 @@ func (h *deploymentHandler) GetPods(namespace, name string) ([]*corev1.Pod, erro
 
 	return pos, nil
 }
+func (h *deploymentHandler) Rollback(namespace, name string, revision int64) (*string, error) {
+	d, err := h.Get(namespace, name)
+	if err != nil {
+		return nil, err
+	}
+
+	if d.Spec.Paused {
+		return nil, fmt.Errorf("deployment is paused, cannot rollback")
+	}
+
+	rm, err := h.GetRevisionsAndDescribe(namespace, name)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(rm) == 0 {
+		s := fmt.Sprintf("not rollout history found")
+		return &s, nil
+	}
+
+	_, ok := rm[revision]
+	if !ok {
+		return nil, fmt.Errorf("revision is not found")
+	}
+
+	drb := &extensionsv1beta1.DeploymentRollback{
+		Name: name,
+		RollbackTo: extensionsv1beta1.RollbackConfig{
+			Revision: revision,
+		},
+	}
+
+	event, err := h.clientset.Events(namespace).List(metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	err = h.clientset.ExtensionsV1beta1().Deployments(namespace).Rollback(drb)
+	if err != nil {
+		return nil, err
+	}
+
+	watch, err := h.clientset.CoreV1().Events(namespace).Watch(metav1.ListOptions{Watch: true, ResourceVersion: event.ResourceVersion})
+	if err != nil {
+		return nil, err
+	}
+
+	result := ""
+	result = watchRollbackEvent(watch)
+
+	return &result, nil
+}
 
 func (h *deploymentHandler) Event(namespace, resourceName string) ([]corev1.Event, error) {
 	//	pod, err := h.clientset.Pods(namespace).Get(podName, metav1.GetOptions{})
@@ -623,8 +675,8 @@ func (h *deploymentHandler) Revision(namespace, name string) (*string, error) {
 	return &revision, nil
 }
 
-//func (h *deploymentHandler) GetAllReplicaSets(namespace string, deployment *extensionsv1beta1.Deployment) ([]*extensionsv1beta1.ReplicaSet, []*extensionsv1beta1.ReplicaSet, *extensionsv1beta1.ReplicaSet, error) {
-func (h *deploymentHandler) GetAllReplicaSets(namespace string, name string) ([]*k8sextensions.ReplicaSet, *k8sextensions.ReplicaSet, error) {
+func (h *deploymentHandler) GetAllReplicaSets(namespace string, name string) ([]*extensionsv1beta1.ReplicaSet, *extensionsv1beta1.ReplicaSet, error) {
+	//func (h *deploymentHandler) GetAllReplicaSets(namespace string, name string) ([]*k8sextensions.ReplicaSet, *k8sextensions.ReplicaSet, error) {
 
 	internalExtensionClientset := extensions.New(h.clientset.ExtensionsV1beta1().RESTClient())
 	internalCoreClientset := core.New(h.clientset.CoreV1().RESTClient())
@@ -642,7 +694,21 @@ func (h *deploymentHandler) GetAllReplicaSets(namespace string, name string) ([]
 		return nil, nil, fmt.Errorf("failed to retrieve replica sets from deployment %s: %v", name, err)
 	}
 
-	return allOldRSs, newRS, nil
+	clientAllOldRSs := make([]*extensionsv1beta1.ReplicaSet, 0)
+	for _, v := range allOldRSs {
+		rs, err := h.informerController.replicasetInformer.Lister().ReplicaSets(namespace).Get(v.Name)
+		if err != nil {
+			return nil, nil, err
+		}
+		clientAllOldRSs = append(clientAllOldRSs, rs)
+	}
+
+	clientNewRSs, err := h.informerController.replicasetInformer.Lister().ReplicaSets(namespace).Get(newRS.Name)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return clientAllOldRSs, clientNewRSs, nil
 }
 
 func getCurrentRevision(d *extensionsv1beta1.Deployment) (string, error) {
@@ -651,6 +717,53 @@ func getCurrentRevision(d *extensionsv1beta1.Deployment) (string, error) {
 		return "", fmt.Errorf("revision doesn't exists")
 	}
 	return revision, nil
+}
+
+func (h *deploymentHandler) GetRevisionsAndDescribe(namespace, name string) (map[int64]*corev1.PodTemplateSpec, error) {
+	allOldRSs, newRs, err := h.GetAllReplicaSets(namespace, name)
+	if err != nil {
+		return nil, err
+	}
+
+	allRSs := allOldRSs
+	if newRs != nil {
+		allRSs = append(allRSs, newRs)
+	}
+
+	revisionToSpec := make(map[int64]*corev1.PodTemplateSpec)
+	for _, rs := range allRSs {
+		v, err := deploymentutil.Revision(rs)
+		if err != nil {
+			log.ErrorPrint(err)
+			continue
+		}
+		revisionToSpec[v] = &rs.Spec.Template
+	}
+	return revisionToSpec, nil
+}
+
+func (h *deploymentHandler) GetRevisionsAndReplicas(namespace, name string) (map[int64]*extensionsv1beta1.ReplicaSet, error) {
+	allOldRSs, newRs, err := h.GetAllReplicaSets(namespace, name)
+	if err != nil {
+		return nil, err
+	}
+
+	allRSs := allOldRSs
+	if newRs != nil {
+		allRSs = append(allRSs, newRs)
+	}
+
+	revisionToReplicas := make(map[int64]*extensionsv1beta1.ReplicaSet)
+	for _, rs := range allRSs {
+		v, err := deploymentutil.Revision(rs)
+		if err != nil {
+			log.ErrorPrint(err)
+			continue
+		}
+		revisionToReplicas[v] = rs
+	}
+	return revisionToReplicas, nil
+
 }
 
 /*----------------- DaemonSet -----------------*/
@@ -1005,3 +1118,39 @@ func (h *jobHandler) Event(namespace, resourceName string) ([]corev1.Event, erro
 }
 
 /*  helpers */
+
+func watchRollbackEvent(w watch.Interface) string {
+	for {
+		select {
+		case event, ok := <-w.ResultChan():
+			if !ok {
+				return ""
+			}
+			obj, ok := event.Object.(*corev1.Event)
+			if !ok {
+				w.Stop()
+				return ""
+			}
+			isRollback, result := isRollbackEvent(obj)
+			if isRollback {
+				w.Stop()
+				return result
+			}
+			//		case <-signals:
+			//			w.Stop()
+		}
+	}
+}
+
+func isRollbackEvent(e *corev1.Event) (bool, string) {
+	rollbackEventReasons := []string{deploymentutil.RollbackRevisionNotFound, deploymentutil.RollbackTemplateUnchanged, deploymentutil.RollbackDone}
+	for _, reason := range rollbackEventReasons {
+		if e.Reason == reason {
+			if reason == deploymentutil.RollbackDone {
+				return true, "rolled back"
+			}
+			return true, fmt.Sprintf("skipped rollback (%s:%s)", e.Reason, e.Message)
+		}
+	}
+	return false, ""
+}
