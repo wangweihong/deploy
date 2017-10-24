@@ -583,10 +583,13 @@ func (j *Deployment) StartAutoScale(min int, max int, cpuPercent int, memPercent
 	j.AutoScaler.MaxReplicas = max
 	j.AutoScaler.MinReplicas = min
 
-	be := backend.NewBackendHandler()
-	err := be.UpdateResource(backendKind, j.Group, j.Workspace, j.Name, j)
-	if err != nil {
-		return log.DebugPrint(err)
+	if j.memoryOnly != true {
+
+		be := backend.NewBackendHandler()
+		err := be.UpdateResource(backendKind, j.Group, j.Workspace, j.Name, j)
+		if err != nil {
+			return log.DebugPrint(err)
+		}
 	}
 	return nil
 }
