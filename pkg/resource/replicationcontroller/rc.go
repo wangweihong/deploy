@@ -236,12 +236,12 @@ func (p *ReplicationControllerManager) Delete(group, workspace, replicationcontr
 		return log.DebugPrint(err)
 	}
 
-	replicationcontroller, err := p.get(group, workspace, replicationcontrollerName)
+	res, err := p.get(group, workspace, replicationcontrollerName)
 	if err != nil {
 		return log.DebugPrint(err)
 	}
 
-	if replicationcontroller.memoryOnly {
+	if res.memoryOnly {
 
 		//触发集群控制器来删除内存中的数据
 		err = ph.Delete(workspace, replicationcontrollerName)
@@ -261,6 +261,19 @@ func (p *ReplicationControllerManager) Delete(group, workspace, replicationcontr
 			if !apierrors.IsNotFound(err) {
 				return log.DebugPrint(err)
 			}
+		}
+		if !opt.DontCallApp && res.App != "" {
+			go func() {
+				var re resource.ResourceEvent
+				re.Group = group
+				re.Workspace = workspace
+				re.Kind = resourceKind
+				re.Action = resource.ResourceActionDelete
+				re.Resource = res.Name
+				re.App = res.App
+
+				resource.ResourceEventChan <- re
+			}()
 		}
 		return nil
 	}

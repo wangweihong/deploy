@@ -266,12 +266,12 @@ func (p *ConfigMapManager) Delete(group, workspace, resourceName string, opt res
 	if err != nil {
 		return log.DebugPrint(err)
 	}
-	configmap, err := p.get(group, workspace, resourceName)
+	res, err := p.get(group, workspace, resourceName)
 	if err != nil {
 		return log.DebugPrint(err)
 	}
 
-	if configmap.memoryOnly {
+	if res.memoryOnly {
 
 		//触发集群控制器来删除内存中的数据
 		err = ph.Delete(workspace, resourceName)
@@ -292,7 +292,20 @@ func (p *ConfigMapManager) Delete(group, workspace, resourceName string, opt res
 				return log.DebugPrint(err)
 			}
 		}
-		return nil
+
+		if !opt.DontCallApp && res.App != "" {
+			go func() {
+				var re resource.ResourceEvent
+				re.Group = group
+				re.Workspace = workspace
+				re.Kind = resourceKind
+				re.Action = resource.ResourceActionDelete
+				re.Resource = res.Name
+				re.App = res.App
+
+				resource.ResourceEventChan <- re
+			}()
+		}
 		return nil
 	}
 }

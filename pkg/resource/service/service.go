@@ -237,12 +237,12 @@ func (p *ServiceManager) Delete(group, workspace, resourceName string, opt resou
 		return log.DebugPrint(err)
 	}
 
-	service, err := p.get(group, workspace, resourceName)
+	res, err := p.get(group, workspace, resourceName)
 	if err != nil {
 		return log.DebugPrint(err)
 	}
 
-	if service.memoryOnly {
+	if res.memoryOnly {
 
 		//触发集群控制器来删除内存中的数据
 		err = ph.Delete(workspace, resourceName)
@@ -257,11 +257,26 @@ func (p *ServiceManager) Delete(group, workspace, resourceName string, opt resou
 		if err != nil {
 			return log.DebugPrint(err)
 		}
+
 		err = ph.Delete(workspace, resourceName)
 		if err != nil {
 			if !apierrors.IsNotFound(err) {
 				return log.DebugPrint(err)
 			}
+		}
+
+		if !opt.DontCallApp && res.App != "" {
+			go func() {
+				var re resource.ResourceEvent
+				re.Group = group
+				re.Workspace = workspace
+				re.Kind = resourceKind
+				re.Action = resource.ResourceActionDelete
+				re.Resource = res.Name
+				re.App = res.App
+
+				resource.ResourceEventChan <- re
+			}()
 		}
 		return nil
 	}

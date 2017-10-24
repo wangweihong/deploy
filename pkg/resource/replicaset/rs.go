@@ -237,12 +237,12 @@ func (p *ReplicaSetManager) Delete(group, workspace, replicasetName string, opt 
 		return log.DebugPrint(err)
 	}
 
-	replicaset, err := p.get(group, workspace, replicasetName)
+	res, err := p.get(group, workspace, replicasetName)
 	if err != nil {
 		return log.DebugPrint(err)
 	}
 
-	if replicaset.memoryOnly {
+	if res.memoryOnly {
 
 		//触发集群控制器来删除内存中的数据
 		err = ph.Delete(workspace, replicasetName)
@@ -262,6 +262,19 @@ func (p *ReplicaSetManager) Delete(group, workspace, replicasetName string, opt 
 			if !apierrors.IsNotFound(err) {
 				return log.DebugPrint(err)
 			}
+		}
+		if !opt.DontCallApp && res.App != "" {
+			go func() {
+				var re resource.ResourceEvent
+				re.Group = group
+				re.Workspace = workspace
+				re.Kind = resourceKind
+				re.Action = resource.ResourceActionDelete
+				re.Resource = res.Name
+				re.App = res.App
+
+				resource.ResourceEventChan <- re
+			}()
 		}
 		return nil
 	}

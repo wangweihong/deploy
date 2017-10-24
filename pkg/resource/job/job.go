@@ -74,15 +74,8 @@ type Runtime struct {
 //在Job构建到内存的时候,就开始绑定K8s资源,
 //可以根据事件及时更新Job的信息
 type Job struct {
-	Name       string `json:"name"`
-	Workspace  string `json:"workspace"`
-	Group      string `json:"group"`
-	AppStack   string `json:"app"`
-	User       string `json:"user"`
-	Cluster    string `json:"cluster"`
-	Template   string `json:"template"`
-	CreateTime int64  `json:"createtime"`
-	memoryOnly bool   //用于判定pod是否由k8s自动创建
+	resource.ObjectMeta
+	memoryOnly bool //用于判定pod是否由k8s自动创建
 }
 
 //注意这里没锁
@@ -193,7 +186,7 @@ func (p *JobManager) Create(groupName, workspaceName string, data []byte, opt re
 	cp.Template = string(data)
 	cp.User = opt.User
 	if opt.App != nil {
-		cp.AppStack = *opt.App
+		cp.App = *opt.App
 	}
 
 	be := backend.NewBackendHandler()
@@ -237,12 +230,13 @@ func (p *JobManager) Delete(group, workspace, resourceName string, opt resource.
 	if err != nil {
 		return log.DebugPrint(err)
 	}
-	job, err := p.get(group, workspace, resourceName)
+
+	res, err := p.get(group, workspace, resourceName)
 	if err != nil {
 		return log.DebugPrint(err)
 	}
 
-	if job.memoryOnly {
+	if res.memoryOnly {
 
 		//触发集群控制器来删除内存中的数据
 		err = ph.Delete(workspace, resourceName)
@@ -263,6 +257,19 @@ func (p *JobManager) Delete(group, workspace, resourceName string, opt resource.
 			if !apierrors.IsNotFound(err) {
 				return log.DebugPrint(err)
 			}
+		}
+		if !opt.DontCallApp && res.App != "" {
+			go func() {
+				var re resource.ResourceEvent
+				re.Group = group
+				re.Workspace = workspace
+				re.Kind = resourceKind
+				re.Action = resource.ResourceActionDelete
+				re.Resource = res.Name
+				re.App = res.App
+
+				resource.ResourceEventChan <- re
+			}()
 		}
 		return nil
 
@@ -328,10 +335,7 @@ func (j *Job) GetRuntime() (*Runtime, error) {
 }
 
 type Status struct {
-	Name        string            `json:"name"`
-	User        string            `json:"user"`
-	Workspace   string            `json:"workspace"`
-	Group       string            `json:"group"`
+	resource.ObjectMeta
 	Images      []string          `json:"images"`
 	Containers  []string          `json:"containers"`
 	PodNum      int               `json:"podnum"`

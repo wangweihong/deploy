@@ -229,7 +229,8 @@ func (p *SecretManager) delete(groupName, workspaceName, resourceName string) er
 func (p *SecretManager) Delete(group, workspace, resourceName string, opt resource.DeleteOption) error {
 	p.locker.Lock()
 	defer p.locker.Unlock()
-	secret, err := p.get(group, workspace, resourceName)
+
+	res, err := p.get(group, workspace, resourceName)
 	if err != nil {
 		return log.DebugPrint(err)
 	}
@@ -238,7 +239,7 @@ func (p *SecretManager) Delete(group, workspace, resourceName string, opt resour
 		return log.DebugPrint(err)
 	}
 
-	if secret.memoryOnly {
+	if res.memoryOnly {
 
 		//触发集群控制器来删除内存中的数据
 		err = ph.Delete(workspace, resourceName)
@@ -258,6 +259,19 @@ func (p *SecretManager) Delete(group, workspace, resourceName string, opt resour
 			if !apierrors.IsNotFound(err) {
 				return log.DebugPrint(err)
 			}
+		}
+		if !opt.DontCallApp && res.App != "" {
+			go func() {
+				var re resource.ResourceEvent
+				re.Group = group
+				re.Workspace = workspace
+				re.Kind = resourceKind
+				re.Action = resource.ResourceActionDelete
+				re.Resource = res.Name
+				re.App = res.App
+
+				resource.ResourceEventChan <- re
+			}()
 		}
 		return nil
 	}

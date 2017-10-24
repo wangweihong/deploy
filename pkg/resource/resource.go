@@ -9,6 +9,7 @@ var (
 	resourceToRCUD = make(map[string]RCUD)
 	locker         = sync.Mutex{}
 
+	//通知App 资源的时间
 	ResourceEventChan    = make(chan ResourceEvent)
 	ResourceActionDelete = "delete"
 
