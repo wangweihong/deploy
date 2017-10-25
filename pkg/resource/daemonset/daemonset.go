@@ -48,6 +48,7 @@ type DaemonSetInterface interface {
 	GetStatus() *Status
 	Event() ([]corev1.Event, error)
 	GetTemplate() (string, error)
+	GetRevisionsAndDescribe() (map[int64]string, error)
 }
 
 type DaemonSetManager struct {
@@ -436,6 +437,27 @@ func (j *DaemonSet) GetTemplate() (string, error) {
 	return *t, nil
 
 	return *t, nil
+}
+
+func (j *DaemonSet) GetRevisionsAndDescribe() (map[int64]string, error) {
+	ph, err := cluster.NewDaemonSetHandler(j.Group, j.Workspace)
+	if err != nil {
+		return nil, log.DebugPrint(err)
+	}
+	rm, err := ph.GetRevisionsAndDescribe(j.Workspace, j.Name)
+	if err != nil {
+		return nil, log.DebugPrint(err)
+	}
+	rs := make(map[int64]string, 0)
+	for k, v := range rm {
+		str, err := json.Marshal(v)
+		if err != nil {
+			return nil, log.DebugPrint(err)
+		}
+		rs[k] = string(str)
+	}
+
+	return rs, nil
 }
 
 func InitDaemonSetController(be backend.BackendHandler) (DaemonSetController, error) {

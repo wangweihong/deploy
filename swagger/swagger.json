@@ -1112,6 +1112,51 @@
                 }
             }
         },
+        "/daemonset/{daemonset}/group/{group}/workspace/{workspace}/revisions": {
+            "get": {
+                "tags": [
+                    "daemonset"
+                ],
+                "description": "DaemonSet 版本描述",
+                "operationId": "DaemonSetController.DaemonSet",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Token",
+                        "description": "'Token'",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "group",
+                        "description": "组名",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "workspace",
+                        "description": "工作区",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "daemonset",
+                        "description": "部署",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "{string} create success!"
+                    },
+                    "500": {}
+                }
+            }
+        },
         "/daemonset/{daemonset}/group/{group}/workspace/{workspace}/template": {
             "get": {
                 "tags": [

@@ -1,10 +1,16 @@
 package cluster
 
 import (
+	"encoding/json"
 	"fmt"
 	"sort"
 	"time"
 	"ufleet-deploy/pkg/log"
+
+	"k8s.io/apimachinery/pkg/util/strategicpatch"
+	//	k8sapi "k8s.io/kubernetes/pkg/api"
+
+	"k8s.io/kubernetes/pkg/controller"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -899,6 +905,7 @@ type DaemonSetHandler interface {
 	Update(namespace string, resource *extensionsv1beta1.DaemonSet) error
 	GetPods(namespace, name string) ([]*corev1.Pod, error)
 	Event(namespace, resourceName string) ([]corev1.Event, error)
+	GetRevisionsAndDescribe(namespace, name string) (map[int64]*corev1.PodTemplateSpec, error)
 }
 
 func NewDaemonSetHandler(group, workspace string) (DaemonSetHandler, error) {
@@ -961,6 +968,82 @@ func (h *daemonsetHandler) Event(namespace, resourceName string) ([]corev1.Event
 	//获取不到Pod,但有Pod事件
 	sort.Sort(SortableEvents(events.Items))
 	return events.Items, nil
+}
+
+//参考自:k8s.io/kubernetes/pkg/kubectl/history.go
+func (h *daemonsetHandler) GetRevisionsAndDescribe(namespace, name string) (map[int64]*corev1.PodTemplateSpec, error) {
+	/*
+		clientset := internalclientset.New(h.clientset.ExtensionsV1beta1().RESTClient())
+
+		kind := apiextensions.Kind("DaemonSet")
+		hv, err := kubectl.HistoryViewerFor(kind, clientset)
+		if err != nil {
+			return nil, err
+		}
+	*/
+
+	d, err := h.Get(namespace, name)
+	if err != nil {
+		return nil, err
+	}
+
+	var allHistory []*appv1beta1.ControllerRevision
+	selector, err := metav1.LabelSelectorAsSelector(d.Spec.Selector)
+	if err != nil {
+		return nil, err
+	}
+	historyList, err := h.clientset.AppsV1beta1().ControllerRevisions(namespace).List(metav1.ListOptions{LabelSelector: selector.String()})
+	if err != nil {
+		return nil, err
+	}
+	for i := range historyList.Items {
+		history := historyList.Items[i]
+		// Skip history that doesn't belong to the DaemonSet
+		if controllerRef := controller.GetControllerOf(&history); controllerRef == nil || controllerRef.UID != d.UID {
+			continue
+		}
+		//		log.DebugPrint(string(history.Data.Raw))
+		//		log.DebugPrint(history.Data.Object)
+		allHistory = append(allHistory, &history)
+	}
+
+	historySpecInfo := make(map[int64]*corev1.PodTemplateSpec)
+	for _, v := range allHistory {
+		//	historyInfo[v.Revision] = v
+		dsOfHistory, err := applyHistory(d, v)
+		if err != nil {
+			return nil, fmt.Errorf("unable to parse history %s:%v", v.Name, err)
+		}
+		historySpecInfo[v.Revision] = &dsOfHistory.Spec.Template
+	}
+
+	//	h.clientset.AppsV1beta1().ControllerRevisions(namespace).
+	return historySpecInfo, nil
+
+}
+
+func applyHistory(ds *extensionsv1beta1.DaemonSet, history *appv1beta1.ControllerRevision) (*extensionsv1beta1.DaemonSet, error) {
+	/*
+		obj, err := k8sapi.Scheme.New(ds.GroupVersionKind())
+		if err != nil {
+			return nil, err
+		}
+		_ = obj.(*extensionsv1beta1.DaemonSet)
+	*/
+	clone := &extensionsv1beta1.DaemonSet{}
+	cloneBytes, err := json.Marshal(clone)
+	if err != nil {
+		return nil, err
+	}
+	patched, err := strategicpatch.StrategicMergePatch(cloneBytes, history.Data.Raw, clone)
+	if err != nil {
+		return nil, err
+	}
+	err = json.Unmarshal(patched, clone)
+	if err != nil {
+		return nil, err
+	}
+	return clone, nil
 }
 
 /* --------------- Ingress --------------*/

@@ -313,3 +313,54 @@ func (this *DaemonSetController) GetDaemonSetTemplate() {
 
 	this.normalReturn(t)
 }
+
+// GetDaemonSetRevisionsAndDecribe
+// @Title DaemonSet
+// @Description   DaemonSet 版本描述
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Param workspace path string true "工作区"
+// @Param daemonset path string true "部署"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /:daemonset/group/:group/workspace/:workspace/revisions [Get]
+func (this *DaemonSetController) GetDaemonSetRevisions() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
+
+	group := this.Ctx.Input.Param(":group")
+	workspace := this.Ctx.Input.Param(":workspace")
+	daemonset := this.Ctx.Input.Param(":daemonset")
+
+	pi, err := pk.Controller.Get(group, workspace, daemonset)
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+
+	rm, err := pi.GetRevisionsAndDescribe()
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+	drs := make([]struct {
+		Revision int    `json:"revision"`
+		Describe string `json:"describe"`
+	}, 0)
+
+	for k, v := range rm {
+		dr := struct {
+			Revision int    `json:"revision"`
+			Describe string `json:"describe"`
+		}{}
+		dr.Revision = int(k)
+		dr.Describe = v
+		drs = append(drs, dr)
+
+	}
+
+	this.normalReturn(drs)
+}
