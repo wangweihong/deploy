@@ -961,7 +961,7 @@
                     {
                         "in": "path",
                         "name": "daemonset",
-                        "description": "部署",
+                        "description": "守护进程",
                         "required": true,
                         "type": "string"
                     }
@@ -1112,6 +1112,58 @@
                 }
             }
         },
+        "/daemonset/{daemonset}/group/{group}/workspace/{workspace}/revision/{revision}": {
+            "put": {
+                "tags": [
+                    "daemonset"
+                ],
+                "description": "DaemonSet回滚",
+                "operationId": "DaemonSetController.DaemonSet",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Token",
+                        "description": "'Token'",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "group",
+                        "description": "组名",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "workspace",
+                        "description": "工作区",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "daemonset",
+                        "description": "守护进程",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "revision",
+                        "description": "版本",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "{string} create success!"
+                    },
+                    "500": {}
+                }
+            }
+        },
         "/daemonset/{daemonset}/group/{group}/workspace/{workspace}/revisions": {
             "get": {
                 "tags": [
@@ -1144,7 +1196,7 @@
                     {
                         "in": "path",
                         "name": "daemonset",
-                        "description": "部署",
+                        "description": "守护进程",
                         "required": true,
                         "type": "string"
                     }
@@ -1729,6 +1781,58 @@
                         "in": "path",
                         "name": "deployment",
                         "description": "部署",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "{string} create success!"
+                    },
+                    "500": {}
+                }
+            }
+        },
+        "/deployment/{deployment}/group/{group}/workspace/{workspace}/resumeorpause": {
+            "put": {
+                "tags": [
+                    "deployment"
+                ],
+                "description": "Deployment回滚暂停/恢复",
+                "operationId": "DeploymentController.Deployment",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Token",
+                        "description": "'Token'",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "group",
+                        "description": "组名",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "workspace",
+                        "description": "工作区",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "deployment",
+                        "description": "部署",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "revision",
+                        "description": "版本",
                         "required": true,
                         "type": "string"
                     }

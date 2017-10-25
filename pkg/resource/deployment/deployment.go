@@ -54,6 +54,7 @@ type DeploymentInterface interface {
 	Rollback(revision int64) (*string, error)
 	GetAutoScale() (*HPA, error)
 	StartAutoScale(min int, max int, cpuPercent int, memPercent int, diskPercent int, NetPercent int) error
+	ResumeOrPauseRollOut() error
 }
 
 type DeploymentManager struct {
@@ -392,6 +393,7 @@ type Status struct {
 	Selectors   map[string]string                    `json:"selectors"`
 	Reason      string                               `json:"reason"`
 	timeout     int64                                `json:"timemout"`
+	Paused      bool                                 `json:"paused"`
 	//	Pods       []string `json:"pods"`
 	PodStatus      []pk.Status        `json:"podstatus"`
 	ContainerSpecs []pk.ContainerSpec `json:"containerspecs"`
@@ -432,6 +434,9 @@ func K8sDeploymentToDeploymentStatus(deployment *extensionsv1beta1.Deployment) *
 		js.Desire = 1
 
 	}
+
+	js.Paused = deployment.Spec.Paused
+
 	js.Current = int(deployment.Status.AvailableReplicas)
 	js.Ready = int(deployment.Status.ReadyReplicas)
 	js.Available = int(deployment.Status.AvailableReplicas)
@@ -637,6 +642,24 @@ func (j *Deployment) GetAutoScale() (*HPA, error) {
 	return &j.AutoScaler, nil
 }
 
+func (j *Deployment) ResumeOrPauseRollOut() error {
+	runtime, err := j.GetRuntime()
+	if err != nil {
+		return err
+	}
+
+	ph, err := cluster.NewDeploymentHandler(j.Group, j.Workspace)
+	if err != nil {
+		return log.DebugPrint(err)
+	}
+
+	if runtime.Deployment.Spec.Paused {
+		return ph.ResumeRollout(j.Workspace, j.Name)
+	} else {
+		return ph.PauseRollout(j.Workspace, j.Name)
+	}
+
+}
 func InitDeploymentController(be backend.BackendHandler) (DeploymentController, error) {
 	rm = &DeploymentManager{}
 	rm.Groups = make(map[string]DeploymentGroup)

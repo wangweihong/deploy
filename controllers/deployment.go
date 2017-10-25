@@ -549,7 +549,7 @@ func (this *DeploymentController) GetDeploymentRevisions() {
 // @Success 201 {string} create success!
 // @Failure 500
 // @router /:deployment/group/:group/workspace/:workspace/revision/:revision [Put]
-func (this *DeploymentController) RollBack() {
+func (this *DeploymentController) RollBackDeployment() {
 	token := this.Ctx.Request.Header.Get("token")
 	aerr := this.checkRouteControllerAbility()
 	if aerr != nil {
@@ -683,6 +683,48 @@ func (this *DeploymentController) StartHPA() {
 	}
 
 	err = pi.StartAutoScale(hpaopt.MinReplicas, hpaopt.MaxReplicas, hpaopt.CpuPercent, hpaopt.MemPercent, hpaopt.DiskPercent, hpaopt.NetPercent)
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+
+	this.audit(token, "", false)
+	this.normalReturn("ok")
+}
+
+// Rollback Pause Or Resume
+// @Title Deployment
+// @Description   Deployment回滚暂停/恢复
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Param workspace path string true "工作区"
+// @Param deployment path string true "部署"
+// @Param revision path string true "版本"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /:deployment/group/:group/workspace/:workspace/resumeorpause [Put]
+func (this *DeploymentController) RollBackResumeOrPauseDeployment() {
+	token := this.Ctx.Request.Header.Get("token")
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.audit(token, "", true)
+		this.abilityErrorReturn(aerr)
+		return
+	}
+
+	group := this.Ctx.Input.Param(":group")
+	workspace := this.Ctx.Input.Param(":workspace")
+	deployment := this.Ctx.Input.Param(":deployment")
+
+	pi, err := pk.Controller.Get(group, workspace, deployment)
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+
+	err = pi.ResumeOrPauseRollOut()
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)

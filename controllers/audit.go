@@ -20,16 +20,16 @@ const (
 	operateObjectJob                   = "Job"
 	operateObjectCronJob               = "CronJob"
 
-	operateTypeCreate               = "create"
-	operateTypeUpdate               = "update"
-	operateTypeRollback             = "rollback"
-	operateTypeDelete               = "delete"
-	operateTypeStop                 = "stop"
-	operateTypeStart                = "start"
-	operateTypeScale                = "scale"
-	operateTypeAddService           = "add service"
-	operateTypeStartHPA             = "start autoscale"
-	operateTypeStartSuppendOrResume = "suspend/resume"
+	operateTypeCreate        = "create"
+	operateTypeUpdate        = "update"
+	operateTypeRollback      = "rollback"
+	operateTypeDelete        = "delete"
+	operateTypeStop          = "stop"
+	operateTypeStart         = "start"
+	operateTypeScale         = "scale"
+	operateTypeAddService    = "add service"
+	operateTypeStartHPA      = "start autoscale"
+	operateTypePauseOrResume = "pause/resume"
 
 	operateTypeDeleteClusterApp = "deleteClusterObjects"
 )
@@ -210,9 +210,13 @@ var (
 			object:  operateObjectDeployment,
 			operate: operateTypeScale,
 		},
-		"RollBack": audit{
+		"RollBackDeployment": audit{
 			object:  operateObjectDeployment,
 			operate: operateTypeRollback,
+		},
+		"RollBackResumeOrPauseDeployment": audit{
+			object:  operateObjectDeployment,
+			operate: operateTypePauseOrResume,
 		},
 
 		//DaemonSet
@@ -227,6 +231,10 @@ var (
 		"DeleteDaemonSet": audit{
 			object:  operateObjectDaemonSet,
 			operate: operateTypeDelete,
+		},
+		"RollBackDaemonSet": audit{
+			object:  operateObjectDaemonSet,
+			operate: operateTypeRollback,
 		},
 
 		//ReplicaSet
@@ -284,9 +292,9 @@ var (
 			object:  operateObjectCronJob,
 			operate: operateTypeDelete,
 		},
-		"SuspendOrResumeCronJob": audit{
+		"PauseOrResumeCronJob": audit{
 			object:  operateObjectCronJob,
-			operate: operateTypeStartSuppendOrResume,
+			operate: operateTypePauseOrResume,
 		},
 	}
 )

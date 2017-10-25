@@ -230,6 +230,13 @@ func init() {
 			AllowHTTPMethods: []string{"Get"},
 			Params: nil})
 
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:DaemonSetController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:DaemonSetController"],
+		beego.ControllerComments{
+			Method: "RollBackDaemonSet",
+			Router: `/:daemonset/group/:group/workspace/:workspace/revision/:revision`,
+			AllowHTTPMethods: []string{"Put"},
+			Params: nil})
+
 	beego.GlobalControllerRouter["ufleet-deploy/controllers:DeploymentController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:DeploymentController"],
 		beego.ControllerComments{
 			Method: "ListGroupWorkspaceDeployments",
@@ -316,7 +323,7 @@ func init() {
 
 	beego.GlobalControllerRouter["ufleet-deploy/controllers:DeploymentController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:DeploymentController"],
 		beego.ControllerComments{
-			Method: "RollBack",
+			Method: "RollBackDeployment",
 			Router: `/:deployment/group/:group/workspace/:workspace/revision/:revision`,
 			AllowHTTPMethods: []string{"Put"},
 			Params: nil})
@@ -333,6 +340,13 @@ func init() {
 			Method: "StartHPA",
 			Router: `/:deployment/group/:group/workspace/:workspace/hpa`,
 			AllowHTTPMethods: []string{"Post"},
+			Params: nil})
+
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:DeploymentController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:DeploymentController"],
+		beego.ControllerComments{
+			Method: "RollBackResumeOrPauseDeployment",
+			Router: `/:deployment/group/:group/workspace/:workspace/resumeorpause`,
+			AllowHTTPMethods: []string{"Put"},
 			Params: nil})
 
 	beego.GlobalControllerRouter["ufleet-deploy/controllers:EndpointController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:EndpointController"],

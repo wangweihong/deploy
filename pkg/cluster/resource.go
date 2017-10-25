@@ -1,12 +1,14 @@
 package cluster
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"sort"
 	"time"
 	"ufleet-deploy/pkg/log"
 
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	//	k8sapi "k8s.io/kubernetes/pkg/api"
 
@@ -482,6 +484,8 @@ type DeploymentHandler interface {
 	GetRevisionsAndDescribe(namespace, name string) (map[int64]*corev1.PodTemplateSpec, error)
 	GetRevisionsAndReplicas(namespace, name string) (map[int64]*extensionsv1beta1.ReplicaSet, error)
 	Rollback(namespace, name string, revision int64) (*string, error)
+	ResumeRollout(namespace, name string) error
+	PauseRollout(namespace, name string) error
 }
 
 func NewDeploymentHandler(group, workspace string) (DeploymentHandler, error) {
@@ -602,6 +606,7 @@ func (h *deploymentHandler) GetPods(namespace, name string) ([]*corev1.Pod, erro
 
 	return pos, nil
 }
+
 func (h *deploymentHandler) Rollback(namespace, name string, revision int64) (*string, error) {
 	d, err := h.Get(namespace, name)
 	if err != nil {
@@ -668,7 +673,40 @@ func (h *deploymentHandler) Event(namespace, resourceName string) ([]corev1.Even
 	sort.Sort(SortableEvents(events.Items))
 	return events.Items, nil
 }
+func (h *deploymentHandler) ResumeRollout(namespace, name string) error {
+	d, err := h.Get(namespace, name)
+	if err != nil {
+		return err
+	}
 
+	if !d.Spec.Paused {
+		return fmt.Errorf("deployments \"%v\" is not paused")
+	}
+	d.Spec.Paused = false
+	_, err = h.clientset.ExtensionsV1beta1().Deployments(namespace).Update(d)
+	if err != nil {
+		return err
+	}
+	return nil
+
+}
+
+func (h *deploymentHandler) PauseRollout(namespace, name string) error {
+	d, err := h.Get(namespace, name)
+	if err != nil {
+		return err
+	}
+
+	if d.Spec.Paused {
+		return fmt.Errorf("deployments \"%v\" is already paused")
+	}
+	d.Spec.Paused = true
+	_, err = h.clientset.ExtensionsV1beta1().Deployments(namespace).Update(d)
+	if err != nil {
+		return err
+	}
+	return nil
+}
 func (h *deploymentHandler) Revision(namespace, name string) (*string, error) {
 	d, err := h.Get(namespace, name)
 	if err != nil {
@@ -906,6 +944,7 @@ type DaemonSetHandler interface {
 	GetPods(namespace, name string) ([]*corev1.Pod, error)
 	Event(namespace, resourceName string) ([]corev1.Event, error)
 	GetRevisionsAndDescribe(namespace, name string) (map[int64]*corev1.PodTemplateSpec, error)
+	Rollback(namespace, name string, revision int64) (*string, error)
 }
 
 func NewDaemonSetHandler(group, workspace string) (DaemonSetHandler, error) {
@@ -971,17 +1010,7 @@ func (h *daemonsetHandler) Event(namespace, resourceName string) ([]corev1.Event
 }
 
 //参考自:k8s.io/kubernetes/pkg/kubectl/history.go
-func (h *daemonsetHandler) GetRevisionsAndDescribe(namespace, name string) (map[int64]*corev1.PodTemplateSpec, error) {
-	/*
-		clientset := internalclientset.New(h.clientset.ExtensionsV1beta1().RESTClient())
-
-		kind := apiextensions.Kind("DaemonSet")
-		hv, err := kubectl.HistoryViewerFor(kind, clientset)
-		if err != nil {
-			return nil, err
-		}
-	*/
-
+func (h *daemonsetHandler) GetControllerRevisions(namespace, name string) (map[int64]*appv1beta1.ControllerRevision, error) {
 	d, err := h.Get(namespace, name)
 	if err != nil {
 		return nil, err
@@ -1005,6 +1034,25 @@ func (h *daemonsetHandler) GetRevisionsAndDescribe(namespace, name string) (map[
 		//		log.DebugPrint(string(history.Data.Raw))
 		//		log.DebugPrint(history.Data.Object)
 		allHistory = append(allHistory, &history)
+	}
+
+	historyInfo := make(map[int64]*appv1beta1.ControllerRevision)
+	for _, v := range allHistory {
+		historyInfo[v.Revision] = v
+	}
+
+	//	h.clientset.AppsV1beta1().ControllerRevisions(namespace).
+	return historyInfo, nil
+
+}
+func (h *daemonsetHandler) GetRevisionsAndDescribe(namespace, name string) (map[int64]*corev1.PodTemplateSpec, error) {
+	d, err := h.Get(namespace, name)
+	if err != nil {
+		return nil, err
+	}
+	allHistory, err := h.GetControllerRevisions(namespace, name)
+	if err != nil {
+		return nil, err
 	}
 
 	historySpecInfo := make(map[int64]*corev1.PodTemplateSpec)
@@ -1044,6 +1092,80 @@ func applyHistory(ds *extensionsv1beta1.DaemonSet, history *appv1beta1.Controlle
 		return nil, err
 	}
 	return clone, nil
+}
+
+//参考自:k8s.io/kubernetes/pkg/kubectl/rollback.go
+func (h *daemonsetHandler) Rollback(namespace, name string, revision int64) (*string, error) {
+	d, err := h.Get(namespace, name)
+	if err != nil {
+		return nil, err
+	}
+
+	allHistory, err := h.GetControllerRevisions(namespace, name)
+	if err != nil {
+		return nil, err
+	}
+	if len(allHistory) == 0 {
+		s := fmt.Sprintf("not rollout history found")
+		return &s, nil
+	}
+	toHistory, ok := allHistory[revision]
+	if !ok {
+		return nil, fmt.Errorf("revision is not found")
+	}
+
+	if revision == 0 && len(allHistory) <= 1 {
+		return nil, fmt.Errorf("no last revision to roll back to")
+	}
+
+	// Skip if the revision already matches current DaemonSet
+	done, err := Match(d, toHistory)
+	if err != nil {
+		return nil, err
+	}
+
+	rollbackSkipped := "skipped rollback"
+
+	if done {
+		s := fmt.Sprintf("%s (current template already matches revision %d)", rollbackSkipped, revision)
+		return &s, nil
+	}
+	if _, err = h.clientset.ExtensionsV1beta1().DaemonSets(namespace).Patch(name, types.StrategicMergePatchType, toHistory.Data.Raw); err != nil {
+		return nil, fmt.Errorf("failed restoring revision %d: %v", revision, err)
+	}
+	rollbackSuccess := "rolled back"
+	return &rollbackSuccess, nil
+}
+
+func Match(ds *extensionsv1beta1.DaemonSet, history *appv1beta1.ControllerRevision) (bool, error) {
+	patch, err := getPatch(ds)
+	if err != nil {
+		return false, err
+	}
+	return bytes.Equal(patch, history.Data.Raw), nil
+}
+
+func getPatch(ds *extensionsv1beta1.DaemonSet) ([]byte, error) {
+	dsBytes, err := json.Marshal(ds)
+	if err != nil {
+		return nil, err
+	}
+	var raw map[string]interface{}
+	err = json.Unmarshal(dsBytes, &raw)
+	if err != nil {
+		return nil, err
+	}
+	objCopy := make(map[string]interface{})
+	specCopy := make(map[string]interface{})
+
+	// Create a patch of the DaemonSet that replaces spec.template
+	spec := raw["spec"].(map[string]interface{})
+	template := spec["template"].(map[string]interface{})
+	specCopy["template"] = template
+	template["$patch"] = "replace"
+	objCopy["spec"] = specCopy
+	patch, err := json.Marshal(objCopy)
+	return patch, err
 }
 
 /* --------------- Ingress --------------*/

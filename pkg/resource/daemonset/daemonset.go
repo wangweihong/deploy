@@ -49,6 +49,7 @@ type DaemonSetInterface interface {
 	Event() ([]corev1.Event, error)
 	GetTemplate() (string, error)
 	GetRevisionsAndDescribe() (map[int64]string, error)
+	Rollback(revision int64) (*string, error)
 }
 
 type DaemonSetManager struct {
@@ -458,6 +459,15 @@ func (j *DaemonSet) GetRevisionsAndDescribe() (map[int64]string, error) {
 	}
 
 	return rs, nil
+}
+
+func (j *DaemonSet) Rollback(revision int64) (*string, error) {
+	ph, err := cluster.NewDaemonSetHandler(j.Group, j.Workspace)
+	if err != nil {
+		return nil, log.DebugPrint(err)
+	}
+	return ph.Rollback(j.Workspace, j.Name, revision)
+
 }
 
 func InitDaemonSetController(be backend.BackendHandler) (DaemonSetController, error) {

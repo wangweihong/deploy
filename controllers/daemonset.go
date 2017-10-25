@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"fmt"
+	"strconv"
 	"ufleet-deploy/pkg/resource"
 	pk "ufleet-deploy/pkg/resource/daemonset"
 	"ufleet-deploy/pkg/user"
@@ -82,7 +83,7 @@ func (this *DaemonSetController) ListGroupDaemonSets() {
 // @Param Token header string true 'Token'
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区名"
-// @Param daemonset path string true "部署"
+// @Param daemonset path string true "守护进程"
 // @Success 201 {string} create success!
 // @Failure 500
 // @router /:daemonset/group/:group/workspace/:workspace [Get]
@@ -320,7 +321,7 @@ func (this *DaemonSetController) GetDaemonSetTemplate() {
 // @Param Token header string true 'Token'
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
-// @Param daemonset path string true "部署"
+// @Param daemonset path string true "守护进程"
 // @Success 201 {string} create success!
 // @Failure 500
 // @router /:daemonset/group/:group/workspace/:workspace/revisions [Get]
@@ -363,4 +364,55 @@ func (this *DaemonSetController) GetDaemonSetRevisions() {
 	}
 
 	this.normalReturn(drs)
+}
+
+// Rollback
+// @Title DaemonSet
+// @Description   DaemonSet回滚
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Param workspace path string true "工作区"
+// @Param daemonset path string true "守护进程"
+// @Param revision path string true "版本"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /:daemonset/group/:group/workspace/:workspace/revision/:revision [Put]
+func (this *DaemonSetController) RollBackDaemonSet() {
+	token := this.Ctx.Request.Header.Get("token")
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.audit(token, "", true)
+		this.abilityErrorReturn(aerr)
+		return
+	}
+
+	group := this.Ctx.Input.Param(":group")
+	workspace := this.Ctx.Input.Param(":workspace")
+	daemonset := this.Ctx.Input.Param(":daemonset")
+	revision := this.Ctx.Input.Param(":revision")
+
+	toRevision, err := strconv.ParseInt(revision, 10, 64)
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+
+	pi, err := pk.Controller.Get(group, workspace, daemonset)
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+
+	result, err := pi.Rollback(toRevision)
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+
+	}
+
+	this.audit(token, "", false)
+	this.normalReturn(*result)
 }
