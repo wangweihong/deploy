@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"strconv"
 	"time"
 	"ufleet-deploy/pkg/log"
 
@@ -480,7 +481,7 @@ type DeploymentHandler interface {
 	Scale(namespace, name string, num int32) error
 	GetPods(namespace, name string) ([]*corev1.Pod, error)
 	Event(namespace, resourceName string) ([]corev1.Event, error)
-	Revision(namespace, name string) (*string, error)
+	Revision(namespace, name string) (*int64, error)
 	GetRevisionsAndDescribe(namespace, name string) (map[int64]*corev1.PodTemplateSpec, error)
 	GetRevisionsAndReplicas(namespace, name string) (map[int64]*extensionsv1beta1.ReplicaSet, error)
 	Rollback(namespace, name string, revision int64) (*string, error)
@@ -707,15 +708,16 @@ func (h *deploymentHandler) PauseRollout(namespace, name string) error {
 	}
 	return nil
 }
-func (h *deploymentHandler) Revision(namespace, name string) (*string, error) {
+func (h *deploymentHandler) Revision(namespace, name string) (*int64, error) {
 	d, err := h.Get(namespace, name)
 	if err != nil {
 		return nil, err
 	}
-	revision, err := getCurrentRevision(d)
+	revision, err := GetCurrentDeploymentRevision(d)
 	if err != nil {
 		return nil, err
 	}
+
 	return &revision, nil
 }
 
@@ -755,10 +757,15 @@ func (h *deploymentHandler) GetAllReplicaSets(namespace string, name string) ([]
 	return clientAllOldRSs, clientNewRSs, nil
 }
 
-func getCurrentRevision(d *extensionsv1beta1.Deployment) (string, error) {
-	revision, ok := d.Annotations[deploymentutil.RevisionAnnotation]
+func GetCurrentDeploymentRevision(d *extensionsv1beta1.Deployment) (int64, error) {
+	revisionStr, ok := d.Annotations[deploymentutil.RevisionAnnotation]
 	if !ok {
-		return "", fmt.Errorf("revision doesn't exists")
+		return 0, fmt.Errorf("revision doesn't exists")
+	}
+
+	revision, err := strconv.ParseInt(revisionStr, 10, 32)
+	if err != nil {
+		return 0, err
 	}
 	return revision, nil
 }
@@ -943,6 +950,7 @@ type DaemonSetHandler interface {
 	Update(namespace string, resource *extensionsv1beta1.DaemonSet) error
 	GetPods(namespace, name string) ([]*corev1.Pod, error)
 	Event(namespace, resourceName string) ([]corev1.Event, error)
+	Revision(namespace, name string) (int64, error)
 	GetRevisionsAndDescribe(namespace, name string) (map[int64]*corev1.PodTemplateSpec, error)
 	Rollback(namespace, name string, revision int64) (*string, error)
 }
@@ -1070,6 +1078,14 @@ func (h *daemonsetHandler) GetRevisionsAndDescribe(namespace, name string) (map[
 
 }
 
+func (h *daemonsetHandler) Revision(namespace, name string) (int64, error) {
+	d, err := h.Get(namespace, name)
+	if err != nil {
+		return 0, err
+	}
+	return d.Generation, nil
+
+}
 func applyHistory(ds *extensionsv1beta1.DaemonSet, history *appv1beta1.ControllerRevision) (*extensionsv1beta1.DaemonSet, error) {
 	/*
 		obj, err := k8sapi.Scheme.New(ds.GroupVersionKind())

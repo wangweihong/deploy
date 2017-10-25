@@ -394,6 +394,7 @@ type Status struct {
 	Reason      string                               `json:"reason"`
 	timeout     int64                                `json:"timemout"`
 	Paused      bool                                 `json:"paused"`
+	Revision    int64                                `json:"revision"`
 	//	Pods       []string `json:"pods"`
 	PodStatus      []pk.Status        `json:"podstatus"`
 	ContainerSpecs []pk.ContainerSpec `json:"containerspecs"`
@@ -466,8 +467,23 @@ func (j *Deployment) GetStatus() *Status {
 		return &js
 	}
 
+	revision, err := cluster.GetCurrentDeploymentRevision(runtime.Deployment)
+	if err != nil {
+		js := Status{ObjectMeta: j.ObjectMeta}
+		js.Images = make([]string, 0)
+		js.PodStatus = make([]pk.Status, 0)
+		js.ContainerSpecs = make([]pk.ContainerSpec, 0)
+		js.Labels = make(map[string]string)
+		js.Annotations = make(map[string]string)
+		js.Selectors = make(map[string]string)
+		js.Reason = fmt.Errorf("get revision failed for %v", err).Error()
+
+		return &js
+	}
+
 	deployment := runtime.Deployment
 	js := Status{ObjectMeta: j.ObjectMeta, DeploymentStatus: deployment.Status}
+	js.Revision = revision
 	js.Images = make([]string, 0)
 	js.PodStatus = make([]pk.Status, 0)
 	js.ContainerSpecs = make([]pk.ContainerSpec, 0)

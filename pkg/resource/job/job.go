@@ -349,6 +349,8 @@ type Status struct {
 	Labels      map[string]string `json:"labels"`
 	Selector    map[string]string `json:"selector"`
 	Reason      string            `json:"reason"`
+	//-1表示没有设置
+	ActiveDeadlineSeconds int64 `json:"activeDeadlineSeconds"`
 	//	Pods       []string `json:"pods"`
 	PodStatus      []pk.Status        `json:"podstatus"`
 	ContainerSpecs []pk.ContainerSpec `json:"containerspec"`
@@ -377,6 +379,13 @@ func K8sJobToJobStatus(job *batchv1.Job) *Status {
 
 	if job.Status.StartTime != nil {
 		js.StartTime = job.Status.StartTime.Unix()
+	}
+
+	if job.Spec.ActiveDeadlineSeconds != nil {
+		js.ActiveDeadlineSeconds = *job.Spec.ActiveDeadlineSeconds
+	} else {
+		//表示没有设置
+		js.ActiveDeadlineSeconds = -1
 	}
 
 	js.Succeeded = int(job.Status.Succeeded)

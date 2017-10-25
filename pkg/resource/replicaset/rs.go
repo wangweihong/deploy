@@ -351,7 +351,7 @@ type Status struct {
 	Ready       int               `json:"ready"`
 	Labels      map[string]string `json:"labels"`
 	Annotatiosn map[string]string `json:"annotations"`
-	Selectors   map[string]string `json:"selectors"`
+	Selectors   map[string]string `json:"selector"`
 	Reason      string            `json:"reason"`
 	//	Pods       []string `json:"pods"`
 	ContainerSpecs []pk.ContainerSpec `json:"containerspec"`

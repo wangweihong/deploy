@@ -346,6 +346,7 @@ type Status struct {
 	Annotatiosn    map[string]string `json:"annotations"`
 	Selectors      map[string]string `json:"selectors"`
 	Reason         string            `json:"reason"`
+	Revision       int64             `json:"revision"`
 	UpdateStrategy string            `json:"updatestrategy"`
 	//	Pods       []string `json:"pods"`
 	PodStatus      []pk.Status        `json:"podstatus"`
@@ -397,6 +398,8 @@ func (j *DaemonSet) GetStatus() *Status {
 		pod := runtime.Pods[0]
 		js.ClusterIP = pod.Status.HostIP
 	}
+
+	js.Revision = runtime.DaemonSet.Generation
 
 	js.UpdateStrategy = string(daemonset.Spec.UpdateStrategy.Type)
 	for _, v := range daemonset.Spec.Template.Spec.Containers {
