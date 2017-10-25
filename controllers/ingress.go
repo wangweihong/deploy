@@ -311,9 +311,9 @@ func (this *IngressController) GetIngressEvent() {
 
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
-	service := this.Ctx.Input.Param(":service")
+	ingress := this.Ctx.Input.Param(":ingress")
 
-	pi, err := pk.Controller.Get(group, workspace, service)
+	pi, err := pk.Controller.Get(group, workspace, ingress)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
@@ -325,4 +325,40 @@ func (this *IngressController) GetIngressEvent() {
 	}
 
 	this.normalReturn(es)
+}
+
+// GetIngressTemplate
+// @Title Ingress
+// @Description   Ingress
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Param workspace path string true "工作区"
+// @Param ingress path string true "路由"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /:ingress/group/:group/workspace/:workspace/template [Get]
+func (this *IngressController) GetIngressTemplate() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
+
+	group := this.Ctx.Input.Param(":group")
+	workspace := this.Ctx.Input.Param(":workspace")
+	ingress := this.Ctx.Input.Param(":ingress")
+
+	pi, err := pk.Controller.Get(group, workspace, ingress)
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+
+	t, err := pi.GetTemplate()
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+
+	this.normalReturn(t)
 }
