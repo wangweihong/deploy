@@ -344,11 +344,84 @@ func (s *Ingress) GetTemplate() (string, error) {
 
 type Status struct {
 	resource.ObjectMeta
-	Reason string `json:"reason"`
+	Hosts         []string `json:"hosts"`
+	Ports         []int    `json:"ports"`
+	IngressSpec   `json:"ingressspec"`
+	IngressStatus `json:"ingressstatus"`
+	Reason        string            `json:"reason"`
+	Labels        map[string]string `json:"labels"`
+}
+
+type IngressSpec struct {
+	Backend *extensionsv1beta1.IngressBackend `json:"backend"`
+	TLS     []IngressTLS                      `json:"tls"`
+	Rules   []IngressRule                     `json:"rules"`
+}
+type IngressTLS struct {
+	Hosts      []string `json:"hosts"`
+	SecretName string   `json:"secretName"`
+}
+
+type IngressRule struct {
+	Host string                                  `json:"host"`
+	HTTP *extensionsv1beta1.HTTPIngressRuleValue `json:"http"`
+}
+
+type IngressStatus struct {
+	LoadBalancer corev1.LoadBalancerStatus `json:"loadbalancer"`
 }
 
 func (s *Ingress) GetStatus() *Status {
 	js := Status{ObjectMeta: s.ObjectMeta}
+	js.Hosts = make([]string, 0)
+	js.Ports = make([]int, 0)
+	js.IngressSpec.Rules = make([]IngressRule, 0)
+	js.IngressSpec.TLS = make([]IngressTLS, 0)
+	js.IngressStatus.LoadBalancer.Ingress = make([]corev1.LoadBalancerIngress, 0)
+	js.Labels = make(map[string]string)
+
+	runtime, err := s.GetRuntime()
+	if err != nil {
+		js.Reason = err.Error()
+		return &js
+	}
+	if js.CreateTime == 0 {
+		js.CreateTime = runtime.Ingress.CreationTimestamp.Unix()
+	}
+
+	res := runtime.Ingress
+	if res.Spec.Backend != nil {
+		js.IngressSpec.Backend = res.Spec.Backend
+	}
+	//js.IngressSpec.Rules = append(js.IngressSpec.Rules, res.Spec.Rules...)
+	for _, v := range res.Spec.Rules {
+		js.Hosts = append(js.Hosts, v.Host)
+		var ir IngressRule
+		ir.Host = v.Host
+		ir.HTTP = v.HTTP
+		js.IngressSpec.Rules = append(js.IngressSpec.Rules, ir)
+	}
+	if len(js.Hosts) == 0 {
+		js.Hosts = append(js.Hosts, "*")
+	}
+
+	js.Ports = append(js.Ports, 80)
+	for _, v := range res.Spec.TLS {
+		var tls IngressTLS
+		tls.Hosts = make([]string, 0)
+		tls.SecretName = v.SecretName
+		tls.Hosts = append(tls.Hosts, v.Hosts...)
+		//	js.TLS = append(js.TLS, tls)
+		js.IngressSpec.TLS = append(js.IngressSpec.TLS, tls)
+	}
+
+	if len(js.IngressSpec.TLS) != 0 {
+		js.Ports = append(js.Ports, 443)
+	}
+	js.Labels = res.Labels
+
+	js.IngressStatus.LoadBalancer.Ingress = append(js.IngressStatus.LoadBalancer.Ingress, res.Status.LoadBalancer.Ingress...)
+
 	return &js
 }
 func (s *Ingress) Event() ([]corev1.Event, error) {
