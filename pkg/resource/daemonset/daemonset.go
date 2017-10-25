@@ -185,6 +185,7 @@ func (p *DaemonSetManager) Create(groupName, workspaceName string, data []byte, 
 	cp.Workspace = workspaceName
 	cp.Group = groupName
 	cp.Template = string(data)
+	cp.CreateTime = time.Now().Unix()
 	if opt.App != nil {
 		cp.App = *opt.App
 	}
@@ -372,6 +373,10 @@ func (j *DaemonSet) GetStatus() *Status {
 	js.Labels = make(map[string]string)
 	js.Annotatiosn = make(map[string]string)
 	js.Selectors = make(map[string]string)
+
+	if js.CreateTime == 0 {
+		js.CreateTime = daemonset.CreationTimestamp.Unix()
+	}
 
 	if daemonset.Labels != nil {
 		js.Labels = daemonset.Labels

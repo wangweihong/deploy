@@ -409,6 +409,10 @@ func (j *Job) GetStatus() (*Status, error) {
 	js.Group = info.Group
 	js.Workspace = info.Workspace
 
+	if js.CreateTime == 0 {
+		js.CreateTime = runtime.Job.CreationTimestamp.Unix()
+	}
+
 	for _, v := range runtime.Pods {
 		ps := pk.V1PodToPodStatus(*v)
 		js.PodStatus = append(js.PodStatus, *ps)

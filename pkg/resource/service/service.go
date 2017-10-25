@@ -380,6 +380,9 @@ func (s *Service) GetStatus() *Status {
 		return &js
 	}
 
+	if js.CreateTime == 0 {
+		js.CreateTime = runtime.Service.CreationTimestamp.Unix()
+	}
 	svc := runtime.Service
 
 	js.ExternalIPs = append(js.ExternalIPs, svc.Spec.ExternalIPs...)

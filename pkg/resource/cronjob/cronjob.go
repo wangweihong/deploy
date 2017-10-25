@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sync"
+	"time"
 	"ufleet-deploy/pkg/backend"
 	"ufleet-deploy/pkg/cluster"
 	"ufleet-deploy/pkg/log"
@@ -189,6 +190,7 @@ func (p *CronJobManager) Create(groupName, workspaceName string, data []byte, op
 	cp.Workspace = workspaceName
 	cp.Template = string(data)
 	cp.User = opt.User
+	cp.CreateTime = time.Now().Unix()
 	if opt.App != nil {
 		cp.App = *opt.App
 	}
@@ -437,6 +439,10 @@ func (p *CronJob) GetStatus() *Status {
 	if err != nil {
 		s.Reason = err.Error()
 		return &s
+	}
+
+	if s.CreateTime == 0 {
+		s.CreateTime = runtime.CronJob.CreationTimestamp.Unix()
 	}
 	info := p.Info()
 

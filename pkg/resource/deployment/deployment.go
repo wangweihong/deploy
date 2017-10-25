@@ -470,6 +470,10 @@ func (j *Deployment) GetStatus() *Status {
 	js.Annotations = make(map[string]string)
 	js.Selectors = make(map[string]string)
 
+	if js.CreateTime == 0 {
+		js.CreateTime = deployment.CreationTimestamp.Unix()
+	}
+
 	if deployment.Spec.Replicas != nil {
 		js.Replicas = *deployment.Spec.Replicas
 	}

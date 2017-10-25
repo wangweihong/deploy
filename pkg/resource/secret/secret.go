@@ -362,6 +362,10 @@ func (s *Secret) GetStatus() *Status {
 		return &js
 	}
 
+	if js.CreateTime == 0 {
+		js.CreateTime = runtime.Secret.CreationTimestamp.Unix()
+	}
+
 	js.Type = string(runtime.Type)
 	js.StringData = runtime.StringData
 	js.Data = runtime.Data

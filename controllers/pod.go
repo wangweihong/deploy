@@ -40,7 +40,7 @@ func GetPodState(pi pk.PodInterface) PodState {
 	}
 	ps.Status = *status
 	if ps.CreateTime == 0 {
-		ps.CreateTime = ps.Status.StartTime
+		ps.CreateTime = ps.Status.CreateTime
 	}
 
 	return ps

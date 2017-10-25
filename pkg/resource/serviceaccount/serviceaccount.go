@@ -360,6 +360,9 @@ func (s *ServiceAccount) GetStatus() *Status {
 		return &js
 	}
 
+	if js.CreateTime == 0 {
+		js.CreateTime = runtime.CreationTimestamp.Unix()
+	}
 	for _, v := range runtime.OwnerReferences {
 		js.Secrts = append(js.Secrts, v.Name)
 	}

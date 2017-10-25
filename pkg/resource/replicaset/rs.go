@@ -427,6 +427,10 @@ func (j *ReplicaSet) GetStatus() *Status {
 	js.Annotatiosn = make(map[string]string)
 	js.Selectors = make(map[string]string)
 
+	if js.CreateTime == 0 {
+		js.CreateTime = runtime.ReplicaSet.CreationTimestamp.Unix()
+	}
+
 	if replicaset.Spec.Replicas != nil {
 		js.Replicas = *replicaset.Spec.Replicas
 	}

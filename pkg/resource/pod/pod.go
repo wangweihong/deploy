@@ -378,7 +378,7 @@ type Status struct {
 	Phase             string            `json:"phase"`
 	IP                string            `json:"ip"`
 	HostIP            string            `json:"hostip"`
-	StartTime         int64             `json:"starttime"`
+	CreateTime        int64             `json:"creattime"`
 	Running           int               `json:"running"`
 	Total             int               `json:"total"`
 	ID                string            `json:"id"`
@@ -521,7 +521,7 @@ func V1PodToPodStatus(pod corev1.Pod) *Status {
 	s.RestartPolicy = string(pod.Spec.RestartPolicy)
 
 	if ps.StartTime != nil {
-		s.StartTime = ps.StartTime.Unix()
+		s.CreateTime = ps.StartTime.Unix()
 	}
 	for _, v := range pod.Spec.Containers {
 		cs := K8sContainerSpecTran(&v)

@@ -426,6 +426,10 @@ func (j *ReplicationController) GetStatus() *Status {
 	js.Annotatiosn = make(map[string]string)
 	js.Selectors = make(map[string]string)
 
+	if js.CreateTime == 0 {
+		js.CreateTime = runtime.ReplicationController.CreationTimestamp.Unix()
+	}
+
 	if replicationcontroller.Spec.Replicas != nil {
 		js.Replicas = *replicationcontroller.Spec.Replicas
 	}

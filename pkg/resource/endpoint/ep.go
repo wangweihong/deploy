@@ -348,6 +348,15 @@ type Status struct {
 
 func (s *Endpoint) GetStatus() *Status {
 	js := Status{ObjectMeta: s.ObjectMeta}
+	runtime, err := s.GetRuntime()
+	if err != nil {
+		js.Reason = err.Error()
+		return &js
+	}
+
+	if js.CreateTime == 0 {
+		js.CreateTime = runtime.Endpoint.CreationTimestamp.Unix()
+	}
 	return &js
 
 }

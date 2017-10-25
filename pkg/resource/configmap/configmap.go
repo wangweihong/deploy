@@ -359,6 +359,9 @@ func (s *ConfigMap) GetStatus() *Status {
 		js.Reason = err.Error()
 		return &js
 	}
+	if js.CreateTime == 0 {
+		js.CreateTime = runtime.CreationTimestamp.Unix()
+	}
 
 	js.Data = runtime.Data
 	return &js
