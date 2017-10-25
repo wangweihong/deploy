@@ -11,6 +11,7 @@ import (
 	"ufleet-deploy/pkg/log"
 	"ufleet-deploy/pkg/resource"
 	"ufleet-deploy/pkg/resource/util"
+	"ufleet-deploy/pkg/sign"
 	cadvisor "ufleet-deploy/util/cadvisor"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -181,20 +182,21 @@ func (p *PodManager) Create(groupName, workspaceName string, data []byte, opt re
 		return log.DebugPrint("must  offer  one  resource json/yaml data")
 	}
 
-	var pod corev1.Pod
-	err = json.Unmarshal(exts[0].Raw, &pod)
+	var obj corev1.Pod
+	err = json.Unmarshal(exts[0].Raw, &obj)
 	if err != nil {
 		return log.DebugPrint(err)
 	}
 
-	if pod.Kind != "Pod" {
+	if obj.Kind != "Pod" {
 		return log.DebugPrint("must and  offer one resource json/yaml data")
 	}
-	pod.ResourceVersion = ""
+	obj.ResourceVersion = ""
+	obj.Annotations[sign.SignFromUfleetKey] = sign.SignFromUfleetValue
 
 	var cp Pod
 	cp.CreateTime = time.Now().Unix()
-	cp.Name = pod.Name
+	cp.Name = obj.Name
 	cp.Workspace = workspaceName
 	cp.Group = groupName
 	cp.Template = string(data)
@@ -202,14 +204,14 @@ func (p *PodManager) Create(groupName, workspaceName string, data []byte, opt re
 		cp.AppStack = *opt.App
 	}
 	cp.User = opt.User
-	//因为pod创建时,触发informer,所以优先创建etcd
+	//因为obj创建时,触发informer,所以优先创建etcd
 	be := backend.NewBackendHandler()
 	err = be.CreateResource(backendKind, groupName, workspaceName, cp.Name, cp)
 	if err != nil {
 		return log.DebugPrint(err)
 	}
 
-	err = ph.Create(workspaceName, &pod)
+	err = ph.Create(workspaceName, &obj)
 	if err != nil {
 		err2 := be.DeleteResource(backendKind, groupName, workspaceName, cp.Name)
 		if err2 != nil {

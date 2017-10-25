@@ -11,6 +11,7 @@ import (
 	"ufleet-deploy/pkg/resource"
 	pk "ufleet-deploy/pkg/resource/pod"
 	"ufleet-deploy/pkg/resource/util"
+	"ufleet-deploy/pkg/sign"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 
@@ -170,20 +171,21 @@ func (p *ReplicaSetManager) Create(groupName, workspaceName string, data []byte,
 		return log.DebugPrint("must  offer  one  resource json/yaml data")
 	}
 
-	var svc extensionsv1beta1.ReplicaSet
-	err = json.Unmarshal(exts[0].Raw, &svc)
+	var obj extensionsv1beta1.ReplicaSet
+	err = json.Unmarshal(exts[0].Raw, &obj)
 	if err != nil {
 		return log.DebugPrint(err)
 	}
 
-	if svc.Kind != "ReplicaSet" {
+	if obj.Kind != "ReplicaSet" {
 		return log.DebugPrint("must and  offer one rc json/yaml data")
 	}
-	svc.ResourceVersion = ""
+	obj.ResourceVersion = ""
+	obj.Annotations[sign.SignFromUfleetKey] = sign.SignFromUfleetValue
 
 	var cp ReplicaSet
 	cp.CreateTime = time.Now().Unix()
-	cp.Name = svc.Name
+	cp.Name = obj.Name
 	cp.Workspace = workspaceName
 	cp.Group = groupName
 	cp.Template = string(data)
@@ -198,7 +200,7 @@ func (p *ReplicaSetManager) Create(groupName, workspaceName string, data []byte,
 		return log.DebugPrint(err)
 	}
 
-	err = ph.Create(workspaceName, &svc)
+	err = ph.Create(workspaceName, &obj)
 	if err != nil {
 		err2 := be.DeleteResource(backendKind, groupName, workspaceName, cp.Name)
 		if err2 != nil {

@@ -11,6 +11,7 @@ import (
 	"ufleet-deploy/pkg/resource"
 	pk "ufleet-deploy/pkg/resource/pod"
 	"ufleet-deploy/pkg/resource/util"
+	"ufleet-deploy/pkg/sign"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 
@@ -167,20 +168,21 @@ func (p *JobManager) Create(groupName, workspaceName string, data []byte, opt re
 	if len(exts) != 1 {
 		return log.DebugPrint("must offer one  resource json/yaml data")
 	}
-	var job batchv1.Job
-	err = json.Unmarshal(exts[0].Raw, &job)
+	var obj batchv1.Job
+	err = json.Unmarshal(exts[0].Raw, &obj)
 	if err != nil {
 		return log.DebugPrint(err)
 	}
 
-	if job.Kind != "Job" {
+	if obj.Kind != "Job" {
 		return log.DebugPrint("must offer one  resource json/yaml data")
 	}
-	job.ResourceVersion = ""
+	obj.ResourceVersion = ""
+	obj.Annotations[sign.SignFromUfleetKey] = sign.SignFromUfleetValue
 
 	var cp Job
 	cp.CreateTime = time.Now().Unix()
-	cp.Name = job.Name
+	cp.Name = obj.Name
 	cp.Group = groupName
 	cp.Workspace = workspaceName
 	cp.Template = string(data)
@@ -195,7 +197,7 @@ func (p *JobManager) Create(groupName, workspaceName string, data []byte, opt re
 		return log.DebugPrint(err)
 	}
 
-	err = ph.Create(workspaceName, &job)
+	err = ph.Create(workspaceName, &obj)
 	if err != nil {
 		err2 := be.DeleteResource(backendKind, groupName, workspaceName, cp.Name)
 		if err2 != nil {

@@ -12,6 +12,7 @@ import (
 	jk "ufleet-deploy/pkg/resource/job"
 	pk "ufleet-deploy/pkg/resource/pod"
 	"ufleet-deploy/pkg/resource/util"
+	"ufleet-deploy/pkg/sign"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	corev1 "k8s.io/client-go/pkg/api/v1"
@@ -173,19 +174,20 @@ func (p *CronJobManager) Create(groupName, workspaceName string, data []byte, op
 	if len(exts) != 1 {
 		return log.DebugPrint("must offer one  resource json/yaml data")
 	}
-	var cj batchv2alpha1.CronJob
-	err = json.Unmarshal(exts[0].Raw, &cj)
+	var obj batchv2alpha1.CronJob
+	err = json.Unmarshal(exts[0].Raw, &obj)
 	if err != nil {
 		return log.DebugPrint(err)
 	}
 
-	if cj.Kind != "CronJob" {
+	if obj.Kind != "CronJob" {
 		return log.DebugPrint("must offer one  cronjob resource json/yaml data")
 	}
-	cj.ResourceVersion = ""
+	obj.ResourceVersion = ""
+	obj.Annotations[sign.SignFromUfleetKey] = sign.SignFromUfleetValue
 
 	var cp CronJob
-	cp.Name = cj.Name
+	cp.Name = obj.Name
 	cp.Group = groupName
 	cp.Workspace = workspaceName
 	cp.Template = string(data)
@@ -201,7 +203,7 @@ func (p *CronJobManager) Create(groupName, workspaceName string, data []byte, op
 		return log.DebugPrint(err)
 	}
 
-	err = ph.Create(workspaceName, &cj)
+	err = ph.Create(workspaceName, &obj)
 	if err != nil {
 		err2 := be.DeleteResource(backendKind, groupName, workspaceName, cp.Name)
 		if err2 != nil {

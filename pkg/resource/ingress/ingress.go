@@ -10,6 +10,7 @@ import (
 	"ufleet-deploy/pkg/log"
 	"ufleet-deploy/pkg/resource"
 	"ufleet-deploy/pkg/resource/util"
+	"ufleet-deploy/pkg/sign"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	corev1 "k8s.io/client-go/pkg/api/v1"
@@ -167,20 +168,21 @@ func (p *IngressManager) Create(groupName, workspaceName string, data []byte, op
 		return log.DebugPrint("must  offer  one  resource json/yaml data")
 	}
 
-	var svc extensionsv1beta1.Ingress
-	err = json.Unmarshal(exts[0].Raw, &svc)
+	var obj extensionsv1beta1.Ingress
+	err = json.Unmarshal(exts[0].Raw, &obj)
 	if err != nil {
 		return log.DebugPrint(err)
 	}
 
-	if svc.Kind != "Ingress" {
+	if obj.Kind != "Ingress" {
 		return log.DebugPrint("must and  offer one resource json/yaml data")
 	}
-	svc.ResourceVersion = ""
+	obj.ResourceVersion = ""
+	obj.Annotations[sign.SignFromUfleetKey] = sign.SignFromUfleetValue
 
 	var cp Ingress
 	cp.CreateTime = time.Now().Unix()
-	cp.Name = svc.Name
+	cp.Name = obj.Name
 	cp.Workspace = workspaceName
 	cp.Group = groupName
 	cp.Template = string(data)
@@ -195,7 +197,7 @@ func (p *IngressManager) Create(groupName, workspaceName string, data []byte, op
 		return log.DebugPrint(err)
 	}
 
-	err = ph.Create(workspaceName, &svc)
+	err = ph.Create(workspaceName, &obj)
 	if err != nil {
 		err2 := be.DeleteResource(backendKind, groupName, workspaceName, cp.Name)
 		if err2 != nil {

@@ -10,6 +10,7 @@ import (
 	"ufleet-deploy/pkg/log"
 	"ufleet-deploy/pkg/resource"
 	"ufleet-deploy/pkg/resource/util"
+	"ufleet-deploy/pkg/sign"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	corev1 "k8s.io/client-go/pkg/api/v1"
@@ -168,20 +169,22 @@ func (p *ConfigMapManager) Create(groupName, workspaceName string, data []byte, 
 		return log.DebugPrint("must  offer  one  resource json/yaml data")
 	}
 
-	var svc corev1.ConfigMap
-	err = json.Unmarshal(exts[0].Raw, &svc)
+	var obj corev1.ConfigMap
+	err = json.Unmarshal(exts[0].Raw, &obj)
 	if err != nil {
 		return log.DebugPrint(err)
 	}
 
-	if svc.Kind != "ConfigMap" {
+	if obj.Kind != "ConfigMap" {
 		return log.DebugPrint("must and  offer one resource json/yaml data")
 	}
 
-	svc.ResourceVersion = ""
+	obj.ResourceVersion = ""
+	obj.Annotations[sign.SignFromUfleetKey] = sign.SignFromUfleetValue
+
 	var cp ConfigMap
 	cp.CreateTime = time.Now().Unix()
-	cp.Name = svc.Name
+	cp.Name = obj.Name
 	cp.Comment = opt.Comment
 	cp.Workspace = workspaceName
 	cp.Group = groupName
@@ -197,7 +200,7 @@ func (p *ConfigMapManager) Create(groupName, workspaceName string, data []byte, 
 		return log.DebugPrint(err)
 	}
 
-	err = ph.Create(workspaceName, &svc)
+	err = ph.Create(workspaceName, &obj)
 	if err != nil {
 		err2 := be.DeleteResource(backendKind, groupName, workspaceName, cp.Name)
 		if err2 != nil {
