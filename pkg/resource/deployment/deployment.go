@@ -619,13 +619,16 @@ func (j *Deployment) StartAutoScale(min int, max int, cpuPercent int, memPercent
 			return log.DebugPrint(err)
 		}
 	} else {
-		rm.locker.Lock()
-		defer rm.locker.Unlock()
-		err := rm.update(j.Group, j.Workspace, j.Name, j)
-		if err != nil {
-			return err
-		}
+		/*
+			rm.locker.Lock()
+			defer rm.locker.Unlock()
+			err := rm.update(j.Group, j.Workspace, j.Name, j)
+			if err != nil {
+				return err
+			}
 
+		*/
+		return fmt.Errorf("deployment is not created by ufleet directly doesn't support autoscale")
 	}
 	return nil
 }
