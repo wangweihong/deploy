@@ -163,7 +163,7 @@ func (c *ResourceController) resourceAdd(obj interface{}) {
 	case *extensionsv1beta1.Deployment:
 		DeploymentEventChan <- e
 	case *extensionsv1beta1.ReplicaSet:
-		RelicaSetEventChan <- e
+		ReplicaSetEventChan <- e
 	case *extensionsv1beta1.DaemonSet:
 		DaemonSetEventChan <- e
 	case *extensionsv1beta1.Ingress:
@@ -208,7 +208,7 @@ func (c *ResourceController) resourceUpdate(obj, new interface{}) {
 	case *extensionsv1beta1.Deployment:
 		DeploymentEventChan <- e
 	case *extensionsv1beta1.ReplicaSet:
-		RelicaSetEventChan <- e
+		ReplicaSetEventChan <- e
 	case *extensionsv1beta1.DaemonSet:
 		DaemonSetEventChan <- e
 	case *extensionsv1beta1.Ingress:
@@ -253,7 +253,7 @@ func (c *ResourceController) resourceDelete(obj interface{}) {
 	case *extensionsv1beta1.Deployment:
 		DeploymentEventChan <- e
 	case *extensionsv1beta1.ReplicaSet:
-		RelicaSetEventChan <- e
+		ReplicaSetEventChan <- e
 	case *extensionsv1beta1.DaemonSet:
 		DaemonSetEventChan <- e
 	case *extensionsv1beta1.Ingress:
