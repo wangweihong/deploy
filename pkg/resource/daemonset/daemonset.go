@@ -20,12 +20,7 @@ import (
 )
 
 var (
-	rm *DaemonSetManager
-	/* = &DaemonSetManager{
-		Groups: make(map[string]DaemonSetGroup),
-		locker: sync.Mutex{},
-	}
-	*/
+	rm         *DaemonSetManager
 	Controller DaemonSetController
 )
 

@@ -19,12 +19,7 @@ import (
 )
 
 var (
-	rm *ConfigMapManager
-	/* = &ConfigMapManager{
-		Groups: make(map[string]ConfigMapGroup),
-		locker: sync.Mutex{},
-	}
-	*/
+	rm         *ConfigMapManager
 	Controller ConfigMapController
 )
 
