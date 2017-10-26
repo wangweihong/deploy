@@ -189,9 +189,7 @@ func (this *ServiceAccountController) CreateServiceAccount() {
 }
 
 type ServiceAccountCreateOption struct {
-	Comment string `json:"comment"`
-	//	Data    string `json:"data"`
-	//Data json.RawMessage `json:"data"`
+	Comment string   `json:"comment"`
 	Name    string   `json:"name"`
 	Secrets []string `json:"secrets"`
 }
@@ -231,10 +229,7 @@ func (this *ServiceAccountController) CreateServiceAccountCustom() {
 		this.errReturn(err, 500)
 		return
 	}
-	/*
-		ui := user.NewUserClient(token)
-		ui.GetUserName()
-	*/
+
 	cm := corev1.ServiceAccount{}
 	cm.Kind = "ServiceAccount"
 	cm.APIVersion = "v1"
@@ -253,8 +248,17 @@ func (this *ServiceAccountController) CreateServiceAccountCustom() {
 		return
 	}
 
+	ui := user.NewUserClient(token)
+	who, err := ui.GetUserName()
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+
 	var opt resource.CreateOption
 	opt.Comment = co.Comment
+	opt.User = who
 	err = pk.Controller.Create(group, workspace, bytedata, opt)
 	if err != nil {
 		this.audit(token, "", true)

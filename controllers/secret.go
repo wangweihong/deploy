@@ -1,8 +1,10 @@
 package controllers
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"ufleet-deploy/models"
 	"ufleet-deploy/pkg/resource"
 	pk "ufleet-deploy/pkg/resource/secret"
@@ -185,10 +187,18 @@ func (this *SecretController) CreateSecret() {
 }
 
 type SecretCreateOption struct {
-	Name    string            `json:"name"`
-	Comment string            `json:"comment"`
-	Type    string            `json:"type"`
-	Data    map[string]string `json:"data"`
+	Name     string `json:"name"`
+	Comment  string `json:"comment"`
+	Type     string `json:"type"`
+	Data     string `json:"data"`
+	Registry string `json:"registry"`
+}
+
+type DockerRegistryAccount struct {
+	User     string `json:"username"`
+	Password string `json:"password"`
+	Email    string `json:"email'`
+	Auth     string `json:"auth"`
 }
 
 // CreateSecretCustom
@@ -209,20 +219,19 @@ func (this *SecretController) CreateSecretCustom() {
 		return
 	}
 
-	//token := this.Ctx.Request.Header.Get("token")
-	group := this.Ctx.Input.Param(":group")
-	workspace := this.Ctx.Input.Param(":workspace")
-
-	if this.Ctx.Input.RequestBody == nil {
-		err := fmt.Errorf("must commit resource json/yaml data")
+	ui := user.NewUserClient(token)
+	who, err := ui.GetUserName()
+	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
 
-	ui := user.NewUserClient(token)
-	who, err := ui.GetUserName()
-	if err != nil {
+	group := this.Ctx.Input.Param(":group")
+	workspace := this.Ctx.Input.Param(":workspace")
+
+	if this.Ctx.Input.RequestBody == nil {
+		err := fmt.Errorf("must commit resource json/yaml data")
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
@@ -237,11 +246,55 @@ func (this *SecretController) CreateSecretCustom() {
 	}
 
 	cm := corev1.Secret{}
-	cm.Name = co.Name
-	cm.Type = corev1.SecretType(co.Type)
-	cm.StringData = co.Data
-	cm.Kind = "Secret"
-	cm.APIVersion = "v1"
+	if strings.TrimSpace(co.Registry) != "" {
+		reg, err := ui.GetRegistry(group, co.Registry)
+		if err != nil {
+			this.audit(token, "", true)
+			this.errReturn(err, 500)
+			return
+		}
+
+		account := make(map[string]DockerRegistryAccount)
+		ra := DockerRegistryAccount{
+			User:     reg.User,
+			Password: reg.Password,
+			Email:    reg.Email,
+		}
+
+		originAuthString := reg.User + ":" + reg.Password
+		ra.Auth = base64.StdEncoding.EncodeToString([]byte(originAuthString))
+
+		account[reg.Address] = ra
+
+		dockercfg, err := json.Marshal(account)
+		if err != nil {
+			this.audit(token, "", true)
+			this.errReturn(err, 500)
+			return
+
+		}
+
+		cm.Data = make(map[string][]byte)
+		cm.Data[corev1.DockerConfigKey] = []byte(dockercfg)
+		cm.Type = corev1.SecretTypeDockercfg
+
+	} else {
+
+		data := make(map[string]string)
+		err := json.Unmarshal([]byte(co.Data), &data)
+		if err != nil {
+			this.audit(token, "", true)
+			this.errReturn(err, 500)
+			return
+		}
+
+		cm.Name = co.Name
+		cm.Type = corev1.SecretType(co.Type)
+		cm.StringData = data
+		cm.Kind = "Secret"
+		cm.APIVersion = "v1"
+
+	}
 
 	bytedata, err := json.Marshal(cm)
 	if err != nil {

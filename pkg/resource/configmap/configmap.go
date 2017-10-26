@@ -12,6 +12,8 @@ import (
 	"ufleet-deploy/pkg/resource/util"
 	"ufleet-deploy/pkg/sign"
 
+	"github.com/ghodss/yaml"
+
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	corev1 "k8s.io/client-go/pkg/api/v1"
 )
@@ -349,8 +351,9 @@ func (s *ConfigMap) GetTemplate() (string, error) {
 
 type Status struct {
 	resource.ObjectMeta
-	Reason string            `json:"reason"`
-	Data   map[string]string `json:"data"`
+	Reason     string            `json:"reason"`
+	Data       map[string]string `json:"data"`
+	DataString string            `json:"datastring"`
 }
 
 func (s *ConfigMap) GetStatus() *Status {
@@ -368,7 +371,15 @@ func (s *ConfigMap) GetStatus() *Status {
 		js.CreateTime = runtime.CreationTimestamp.Unix()
 	}
 
+	bc, err := yaml.Marshal(runtime.Data)
+	if err != nil {
+		js.Reason = err.Error()
+		return &js
+
+	}
+	js.DataString = string(bc)
 	js.Data = runtime.Data
+
 	return &js
 }
 func (s *ConfigMap) Event() ([]corev1.Event, error) {

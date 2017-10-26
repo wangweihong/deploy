@@ -25,6 +25,7 @@ type Registry struct {
 
 type UserInterface interface {
 	GetRegistrysFromGroup(string) ([]Registry, error)
+	GetRegistry(string, string) (*Registry, error)
 	GetUserName() (string, error)
 }
 
@@ -37,6 +38,20 @@ func NewUserClient(token string) UserInterface {
 	uc.token = token
 	return &uc
 
+}
+func (uc *userClient) GetRegistry(group string, name string) (*Registry, error) {
+	rs, err := uc.GetRegistrysFromGroup(group)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, v := range rs {
+		if v.Name == name {
+			return &v, nil
+		}
+	}
+
+	return nil, fmt.Errorf("registry %v not found", name)
 }
 
 func (uc *userClient) GetRegistrysFromGroup(groupName string) ([]Registry, error) {

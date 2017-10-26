@@ -7,6 +7,8 @@ import (
 	pk "ufleet-deploy/pkg/resource/configmap"
 	"ufleet-deploy/pkg/user"
 
+	yaml "gopkg.in/yaml.v2"
+
 	corev1 "k8s.io/client-go/pkg/api/v1"
 )
 
@@ -181,9 +183,8 @@ func (this *ConfigMapController) CreateConfigMap() {
 
 type ConfigMapCreateOption struct {
 	Comment string `json:"comment"`
-	//	Data    string `json:"data"`
-	Data map[string]string `json:"data"`
-	//Data json.RawMessage `json:"data"`
+	//Data map[string]string `json:"data"`
+	Data string `json:"data"`
 	Name string `json:"name"`
 }
 
@@ -223,9 +224,18 @@ func (this *ConfigMapController) CreateConfigMapCustom() {
 		return
 	}
 
+	data := make(map[string]string)
+	err = yaml.Unmarshal([]byte(co.Data), &data)
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+
 	cm := corev1.ConfigMap{}
 	cm.Name = co.Name
-	cm.Data = co.Data
+	//	cm.Data = co.Data
+	cm.Data = data
 	cm.Kind = "ConfigMap"
 	cm.APIVersion = "v1"
 
