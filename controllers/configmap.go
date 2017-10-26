@@ -236,8 +236,18 @@ func (this *ConfigMapController) CreateConfigMapCustom() {
 		return
 	}
 
+	ui := user.NewUserClient(token)
+	who, err := ui.GetUserName()
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+
 	var opt resource.CreateOption
 	opt.Comment = co.Comment
+	opt.User = who
+
 	err = pk.Controller.Create(group, workspace, bytedata, opt)
 	if err != nil {
 		this.audit(token, "", true)
@@ -314,11 +324,6 @@ func (this *ConfigMapController) UpdateConfigMap() {
 		this.errReturn(err, 500)
 		return
 	}
-
-	/*
-		ui := user.NewUserClient(token)
-		ui.GetUserName()
-	*/
 
 	err := pk.Controller.Update(group, workspace, configmap, this.Ctx.Input.RequestBody)
 	if err != nil {

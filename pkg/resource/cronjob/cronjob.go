@@ -184,6 +184,7 @@ func (p *CronJobManager) Create(groupName, workspaceName string, data []byte, op
 		return log.DebugPrint("must offer one  cronjob resource json/yaml data")
 	}
 	obj.ResourceVersion = ""
+	obj.Annotations = make(map[string]string)
 	obj.Annotations[sign.SignFromUfleetKey] = sign.SignFromUfleetValue
 
 	var cp CronJob

@@ -178,6 +178,7 @@ func (p *JobManager) Create(groupName, workspaceName string, data []byte, opt re
 		return log.DebugPrint("must offer one  resource json/yaml data")
 	}
 	obj.ResourceVersion = ""
+	obj.Annotations = make(map[string]string)
 	obj.Annotations[sign.SignFromUfleetKey] = sign.SignFromUfleetValue
 
 	var cp Job

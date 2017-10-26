@@ -181,6 +181,7 @@ func (p *ReplicaSetManager) Create(groupName, workspaceName string, data []byte,
 		return log.DebugPrint("must and  offer one rc json/yaml data")
 	}
 	obj.ResourceVersion = ""
+	obj.Annotations = make(map[string]string)
 	obj.Annotations[sign.SignFromUfleetKey] = sign.SignFromUfleetValue
 
 	var cp ReplicaSet

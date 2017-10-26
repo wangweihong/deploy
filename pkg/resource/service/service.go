@@ -180,7 +180,9 @@ func (p *ServiceManager) Create(groupName, workspaceName string, data []byte, op
 	if obj.Kind != "Service" {
 		return log.DebugPrint("must and  offer one resource json/yaml data")
 	}
+
 	obj.ResourceVersion = ""
+	obj.Annotations = make(map[string]string)
 	obj.Annotations[sign.SignFromUfleetKey] = sign.SignFromUfleetValue
 
 	var cp Service

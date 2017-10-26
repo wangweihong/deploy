@@ -1018,20 +1018,27 @@ func (h *daemonsetHandler) Event(namespace, resourceName string) ([]corev1.Event
 }
 
 //参考自:k8s.io/kubernetes/pkg/kubectl/history.go
-func (h *daemonsetHandler) GetControllerRevisions(namespace, name string) (map[int64]*appv1beta1.ControllerRevision, error) {
-	d, err := h.Get(namespace, name)
+func (h *daemonsetHandler) GetControllerRevisions(namespace, name string) (*extensionsv1beta1.DaemonSet, map[int64]*appv1beta1.ControllerRevision, error) {
+	/*
+		d, err := h.Get(namespace, name)
+		if err != nil {
+			return nil, err
+		}
+	*/
+	d, err := h.clientset.ExtensionsV1beta1().DaemonSets(namespace).Get(name, metav1.GetOptions{})
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	var allHistory []*appv1beta1.ControllerRevision
 	selector, err := metav1.LabelSelectorAsSelector(d.Spec.Selector)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
+
 	historyList, err := h.clientset.AppsV1beta1().ControllerRevisions(namespace).List(metav1.ListOptions{LabelSelector: selector.String()})
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	for i := range historyList.Items {
 		history := historyList.Items[i]
@@ -1050,15 +1057,23 @@ func (h *daemonsetHandler) GetControllerRevisions(namespace, name string) (map[i
 	}
 
 	//	h.clientset.AppsV1beta1().ControllerRevisions(namespace).
-	return historyInfo, nil
+	return d, historyInfo, nil
 
 }
 func (h *daemonsetHandler) GetRevisionsAndDescribe(namespace, name string) (map[int64]*corev1.PodTemplateSpec, error) {
-	d, err := h.Get(namespace, name)
-	if err != nil {
-		return nil, err
-	}
-	allHistory, err := h.GetControllerRevisions(namespace, name)
+	/*
+		d, err := h.clientset.ExtensionsV1beta1().DaemonSets(namespace).Get(name, metav1.GetOptions{})
+		if err != nil {
+			return nil, err
+		}
+	*/
+	/*
+		d, err := h.Get(namespace, name)
+		if err != nil {
+			return nil, err
+		}
+	*/
+	d, allHistory, err := h.GetControllerRevisions(namespace, name)
 	if err != nil {
 		return nil, err
 	}
@@ -1112,12 +1127,14 @@ func applyHistory(ds *extensionsv1beta1.DaemonSet, history *appv1beta1.Controlle
 
 //参考自:k8s.io/kubernetes/pkg/kubectl/rollback.go
 func (h *daemonsetHandler) Rollback(namespace, name string, revision int64) (*string, error) {
-	d, err := h.Get(namespace, name)
-	if err != nil {
-		return nil, err
-	}
+	/*
+		d, err := h.Get(namespace, name)
+		if err != nil {
+			return nil, err
+		}
+	*/
 
-	allHistory, err := h.GetControllerRevisions(namespace, name)
+	d, allHistory, err := h.GetControllerRevisions(namespace, name)
 	if err != nil {
 		return nil, err
 	}

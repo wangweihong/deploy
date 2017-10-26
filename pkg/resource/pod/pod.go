@@ -192,6 +192,7 @@ func (p *PodManager) Create(groupName, workspaceName string, data []byte, opt re
 		return log.DebugPrint("must and  offer one resource json/yaml data")
 	}
 	obj.ResourceVersion = ""
+	obj.Annotations = make(map[string]string)
 	obj.Annotations[sign.SignFromUfleetKey] = sign.SignFromUfleetValue
 
 	var cp Pod
@@ -380,7 +381,7 @@ type Status struct {
 	Phase             string            `json:"phase"`
 	IP                string            `json:"ip"`
 	HostIP            string            `json:"hostip"`
-	CreateTime        int64             `json:"creattime"`
+	CreateTime        int64             `json:"createtime"`
 	Running           int               `json:"running"`
 	Total             int               `json:"total"`
 	ID                string            `json:"id"`

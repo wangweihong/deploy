@@ -180,6 +180,7 @@ func (p *ConfigMapManager) Create(groupName, workspaceName string, data []byte, 
 	}
 
 	obj.ResourceVersion = ""
+	obj.Annotations = make(map[string]string)
 	obj.Annotations[sign.SignFromUfleetKey] = sign.SignFromUfleetValue
 
 	var cp ConfigMap
@@ -356,6 +357,7 @@ func (s *ConfigMap) GetStatus() *Status {
 
 	js := Status{ObjectMeta: s.ObjectMeta}
 	js.Data = make(map[string]string)
+	js.Comment = s.Comment
 
 	runtime, err := s.GetRuntime()
 	if err != nil {
