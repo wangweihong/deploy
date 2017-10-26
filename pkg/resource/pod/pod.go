@@ -19,12 +19,7 @@ import (
 )
 
 var (
-	rm *PodManager
-	/* = &PodManager{
-		Groups: make(map[string]PodGroup),
-		locker: sync.Mutex{},
-	}
-	*/
+	rm         *PodManager
 	Controller PodController
 
 	ErrResourceNotFound  = fmt.Errorf("resource not found")
@@ -369,6 +364,7 @@ type Status struct {
 	RestartPolicy     string            `json:"restartpolicy"`
 	ContainerStatuses []ContainerStatus `json:"containerstatuses"`
 	ContainerSpecs    []ContainerSpec   `json:"containerspec"`
+	Containers        []string          `json:"containers"`
 }
 
 type PodSpec struct {
@@ -486,6 +482,7 @@ func V1PodToPodStatus(pod corev1.Pod) *Status {
 	ps := pod.Status
 	s.Phase = string(ps.Phase)
 	s.IP = ps.PodIP
+	s.Containers = make([]string, 0)
 	s.Total = len(pod.Spec.Containers)
 	s.HostIP = ps.HostIP
 	s.Labels = make(map[string]string)
@@ -506,6 +503,7 @@ func V1PodToPodStatus(pod corev1.Pod) *Status {
 	for _, v := range pod.Spec.Containers {
 		cs := k8sContainerSpecTran(&v)
 		s.ContainerSpecs = append(s.ContainerSpecs, *cs)
+		s.Containers = append(s.Containers, v.Name)
 
 	}
 
