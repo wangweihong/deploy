@@ -88,9 +88,12 @@ type Locker interface {
 
 type ObjectController interface {
 	Locker
-	New(meta ObjectMeta) error
-	FillObject(obj Object) error
-	Delete(group, workspace, name string) error
-	Get(group, workspace, name string) (Object, error)
-	GetWithoutLock(group, workspace, name string) (Object, error)
+	NewObject(meta ObjectMeta) error
+	Delete(group, workspace, name string, opt DeleteOption) error
+	GetObjectWithoutLock(group, workspace, name string) (Object, error)
+	DeleteGroup(group string) error
+	DeleteWorkspace(groupName string, workspaceName string) error
+	AddGroup(group string) error
+	AddWorkspace(group, workspace string) error
+	AddObjectFromBytes(data []byte) error
 }

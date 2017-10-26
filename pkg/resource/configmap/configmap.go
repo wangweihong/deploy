@@ -25,7 +25,6 @@ var (
 )
 
 type ConfigMapController interface {
-	New(meta resource.ObjectMeta) error
 	Create(group, workspace string, data []byte, opt resource.CreateOption) error
 	Delete(group, workspace, configmap string, opt resource.DeleteOption) error
 	Get(group, workspace, configmap string) (ConfigMapInterface, error)
@@ -66,8 +65,7 @@ type Runtime struct {
 //可以根据事件及时更新ConfigMap的信息
 type ConfigMap struct {
 	resource.ObjectMeta
-	Cluster    string `json:"cluster"`
-	memoryOnly bool
+	Cluster string `json:"cluster"`
 }
 
 func (p *ConfigMapManager) Lock() {
@@ -78,7 +76,7 @@ func (p *ConfigMapManager) Unlock() {
 }
 
 //仅仅用于基于内存的对象的创建
-func (p *ConfigMapManager) New(meta resource.ObjectMeta) error {
+func (p *ConfigMapManager) NewObject(meta resource.ObjectMeta) error {
 
 	if strings.TrimSpace(meta.Group) == "" ||
 		strings.TrimSpace(meta.Workspace) == "" ||
@@ -87,16 +85,16 @@ func (p *ConfigMapManager) New(meta resource.ObjectMeta) error {
 	}
 
 	cp := ConfigMap{ObjectMeta: meta}
-	cp.memoryOnly = true
+	cp.MemoryOnly = true
 
-	err := p.FillObject(&cp)
+	err := p.fillObjectToManager(&cp)
 	if err != nil {
 		return err
 	}
 	return nil
-
 }
-func (p *ConfigMapManager) FillObject(meta resource.Object) error {
+
+func (p *ConfigMapManager) fillObjectToManager(meta resource.Object) error {
 
 	cm, ok := meta.(*ConfigMap)
 	if !ok {
@@ -123,6 +121,89 @@ func (p *ConfigMapManager) FillObject(meta resource.Object) error {
 	p.Groups[cm.Group] = group
 	return nil
 
+}
+
+func (p *ConfigMapManager) DeleteGroup(groupName string) error {
+	_, ok := p.Groups[groupName]
+	if !ok {
+		return resource.ErrGroupNotFound
+	}
+
+	delete(p.Groups, groupName)
+	return nil
+}
+
+func (p *ConfigMapManager) AddGroup(groupName string) error {
+	p.Lock()
+	defer p.Unlock()
+	_, ok := p.Groups[groupName]
+	if ok {
+		return resource.ErrGroupExists
+	}
+	var group ConfigMapGroup
+	group.Workspaces = make(map[string]ConfigMapWorkspace)
+	p.Groups[groupName] = group
+	return nil
+}
+
+func (p *ConfigMapManager) AddObjectFromBytes(data []byte) error {
+	p.Lock()
+	defer p.Unlock()
+	var res ConfigMap
+	err := json.Unmarshal(data, &res)
+	if err != nil {
+		return err
+	}
+	err = p.fillObjectToManager(&res)
+	return err
+
+}
+
+func (p *ConfigMapManager) AddWorkspace(groupName string, workspaceName string) error {
+	p.Lock()
+	defer p.Unlock()
+	g, ok := p.Groups[groupName]
+	if !ok {
+		return resource.ErrGroupNotFound
+	}
+
+	_, ok = g.Workspaces[workspaceName]
+	if ok {
+		return resource.ErrWorkspaceExists
+	}
+
+	var ws ConfigMapWorkspace
+	ws.ConfigMaps = make(map[string]ConfigMap)
+	g.Workspaces[workspaceName] = ws
+	p.Groups[groupName] = g
+	return nil
+
+}
+
+func (p *ConfigMapManager) DeleteWorkspace(groupName string, workspaceName string) error {
+	p.locker.Lock()
+	defer p.locker.Unlock()
+	group, ok := p.Groups[groupName]
+	if !ok {
+		return resource.ErrGroupNotFound
+	}
+
+	_, ok = group.Workspaces[workspaceName]
+	if !ok {
+		return resource.ErrWorkspaceNotFound
+	}
+	delete(group.Workspaces, workspaceName)
+	p.Groups[groupName] = group
+	return nil
+}
+
+func (p *ConfigMapManager) GetObjectWithoutLock(groupName, workspaceName, resourceName string) (resource.Object, error) {
+
+	return p.get(groupName, workspaceName, resourceName)
+}
+
+func (p *ConfigMapManager) GetObject(group, workspace, resourceName string) (resource.Object, error) {
+	return p.Get(group, workspace, resourceName)
 }
 
 //注意这里没锁
@@ -340,7 +421,7 @@ func (p *ConfigMapManager) Delete(group, workspace, resourceName string, opt res
 		return log.DebugPrint(err)
 	}
 
-	if res.memoryOnly {
+	if res.MemoryOnly {
 
 		//触发集群控制器来删除内存中的数据
 		err = ph.Delete(workspace, resourceName)
@@ -409,6 +490,20 @@ func (s *ConfigMap) GetTemplate() (string, error) {
 	prefix := "apiVersion: v1\nkind: ConfigMap"
 	*t = fmt.Sprintf("%v\n%v", prefix, *t)
 	return *t, nil
+
+}
+
+func GetConfigMapInterface(obj resource.Object) (ConfigMapInterface, error) {
+	if obj == nil {
+		return nil, fmt.Errorf("resource object is nil")
+	}
+
+	ri, ok := obj.(*ConfigMap)
+	if !ok {
+		return nil, fmt.Errorf("resource object is not configmap type")
+	}
+
+	return ri, nil
 
 }
 

@@ -187,11 +187,12 @@ func (this *SecretController) CreateSecret() {
 }
 
 type SecretCreateOption struct {
-	Name     string `json:"name"`
-	Comment  string `json:"comment"`
-	Type     string `json:"type"`
-	Data     string `json:"data"`
-	Registry string `json:"registry"`
+	Name           string `json:"name"`
+	Comment        string `json:"comment,omitempty"`
+	Type           string `json:"type"`
+	Data           string `json:"data,omitempty"`
+	Registry       string `json:"registry,omitempty"`
+	ServiceAccount string `json:"serviceaccount"`
 }
 
 type DockerRegistryAccount struct {
@@ -246,7 +247,11 @@ func (this *SecretController) CreateSecretCustom() {
 	}
 
 	cm := corev1.Secret{}
-	if strings.TrimSpace(co.Registry) != "" {
+	cm.Name = co.Name
+	cm.Kind = "Secret"
+	cm.APIVersion = "v1"
+	switch corev1.SecretType(co.Type) {
+	case corev1.SecretTypeDockercfg:
 		reg, err := ui.GetRegistry(group, co.Registry)
 		if err != nil {
 			this.audit(token, "", true)
@@ -278,7 +283,25 @@ func (this *SecretController) CreateSecretCustom() {
 		cm.Data[corev1.DockerConfigKey] = []byte(dockercfg)
 		cm.Type = corev1.SecretTypeDockercfg
 
-	} else {
+	case corev1.SecretTypeServiceAccountToken:
+		if strings.TrimSpace(co.ServiceAccount) == "" {
+			err := fmt.Errorf("secret type '%v' must offer service account name", co.Type)
+			this.audit(token, "", true)
+			this.errReturn(err, 500)
+			return
+
+		}
+		cm.Annotations = make(map[string]string)
+		cm.Annotations[corev1.ServiceAccountNameKey] = co.ServiceAccount
+		cm.Type = corev1.SecretType(co.Type)
+
+	default:
+		if strings.TrimSpace(co.Data) == "" {
+			err := fmt.Errorf("must offer secret data")
+			this.audit(token, "", true)
+			this.errReturn(err, 500)
+			return
+		}
 
 		data := make(map[string]string)
 		err := json.Unmarshal([]byte(co.Data), &data)
@@ -288,12 +311,8 @@ func (this *SecretController) CreateSecretCustom() {
 			return
 		}
 
-		cm.Name = co.Name
 		cm.Type = corev1.SecretType(co.Type)
 		cm.StringData = data
-		cm.Kind = "Secret"
-		cm.APIVersion = "v1"
-
 	}
 
 	bytedata, err := json.Marshal(cm)

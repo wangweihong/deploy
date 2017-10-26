@@ -104,15 +104,18 @@ var (
 )
 var (
 	locker   sync.Mutex
-	noticers = make(map[string]EventHandler)
+	noticers = make(map[string]ResourceEventHander)
 )
 
-type EventHandler func(ResourceEvent)
+//type EventHandler func(ResourceEvent, controller interface{})
+type ResourceEventHander interface {
+	HandleEvent(ResourceEvent)
+}
 
 //传递的是处于/ufeet/deploy/<kind>剩余的key,key的value,以及action
 
 //注册通知器
-func RegisterEventHandler(kind string, fn EventHandler) {
+func RegisterEventHandler(kind string, fn ResourceEventHander) { //fn EventHandler) {
 	locker.Lock()
 	defer locker.Unlock()
 	noticers[kind] = fn
@@ -182,7 +185,7 @@ func watchBackendEvent() error {
 
 			re := getEventFromEtcdKey(remain, value, action)
 
-			go noticer(re)
+			go noticer.HandleEvent(re)
 
 		}
 	}()

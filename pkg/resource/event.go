@@ -1,6 +1,8 @@
 package resource
 
 import (
+	"fmt"
+	"ufleet-deploy/pkg/backend"
 	"ufleet-deploy/pkg/cluster"
 	"ufleet-deploy/pkg/log"
 )
@@ -30,7 +32,7 @@ func HandleEventWatchFromK8sCluster(echan chan cluster.Event, kind string, oc Ob
 			case cluster.ActionDelete:
 				//忽略ufleet主动创建的资源
 
-				if err := oc.Delete(e.Group, e.Workspace, e.Name); err != nil {
+				if err := oc.Delete(e.Group, e.Workspace, e.Name, DeleteOption{}); err != nil {
 					log.ErrorPrint("%v:  event handler/delete:%v", kind, err)
 				}
 				return
@@ -38,7 +40,7 @@ func HandleEventWatchFromK8sCluster(echan chan cluster.Event, kind string, oc Ob
 			case cluster.ActionCreate:
 				oc.Lock()
 				defer oc.Unlock()
-				_, err := oc.GetWithoutLock(e.Group, e.Workspace, e.Name)
+				_, err := oc.GetObjectWithoutLock(e.Group, e.Workspace, e.Name)
 				if err != nil {
 					if err != ErrResourceNotFound {
 						log.DebugPrint("%v: event handler create fail:%v", kind, err)
@@ -56,7 +58,7 @@ func HandleEventWatchFromK8sCluster(echan chan cluster.Event, kind string, oc Ob
 				p.Group = e.Group
 				p.User = clusterConfigMapCreater
 
-				err = oc.New(p)
+				err = oc.NewObject(p)
 				if err != nil {
 					log.DebugPrint("%v: event handler create fail for %v", kind, err)
 					return
@@ -69,5 +71,70 @@ func HandleEventWatchFromK8sCluster(echan chan cluster.Event, kind string, oc Ob
 			}
 		}(pe)
 
+	}
+}
+
+func EtcdEventHandler(e backend.ResourceEvent, cm ObjectController) {
+
+	var etype string
+	if e.Workspace == nil {
+		etype = eGroup
+	} else {
+		if e.Resource != nil {
+			etype = eResource
+		} else {
+			etype = eWorkspace
+		}
+	}
+
+	switch e.Action {
+	case backend.ActionDelete:
+		//这是一个组事件
+		switch etype {
+		case eGroup:
+			cm.DeleteGroup(e.Group)
+		case eWorkspace:
+			err := cm.DeleteWorkspace(e.Group, *e.Workspace)
+			if err == ErrGroupNotFound {
+				log.ErrorPrint("group %v not found", e.Group)
+			}
+			return
+
+		case eResource:
+
+			//这是一个app事件
+			if e.Resource != nil {
+				err := cm.Delete(e.Group, *e.Workspace, *e.Resource, DeleteOption{})
+				if err != nil {
+					log.ErrorPrint("handle delete event(%v) fail for %v", e, err)
+				}
+			}
+			return
+		}
+	case backend.ActionAdd, backend.ActionCreate, backend.ActionUpdate:
+		switch etype {
+		case eGroup:
+			cm.AddGroup(e.Group)
+			return
+		case eWorkspace:
+			err := cm.AddWorkspace(e.Group, *e.Workspace)
+			if err == ErrGroupNotFound {
+				log.ErrorPrint(fmt.Sprintf("configmap: group %v doesn't exist in appManager", e.Group))
+			}
+
+			return
+		case eResource:
+			//这是一个资源事件
+			err := cm.AddObjectFromBytes([]byte(e.Value))
+			if err != nil {
+				log.DebugPrint(err)
+			}
+			return
+			//这是一个工作区事件
+		}
+
+	default:
+		log.ErrorPrint("configmap: app watcher:ingore invalid action:", e.Action)
+		return
 	}
 }

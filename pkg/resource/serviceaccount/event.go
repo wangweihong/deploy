@@ -98,7 +98,7 @@ func HandleClusterResourceEvent() {
 	}
 }
 
-func EventHandler(e backend.ResourceEvent) {
+func (c *ServiceAccountManager) HandleEvent(e backend.ResourceEvent) {
 	rm.locker.Lock()
 	defer rm.locker.Unlock()
 	var etype string

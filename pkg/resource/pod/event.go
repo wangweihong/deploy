@@ -106,7 +106,7 @@ func HandleClusterResourceEvent() {
 }
 
 //监听etcd的数据
-func EventHandler(e backend.ResourceEvent) {
+func (c *PodManager) HandleEvent(e backend.ResourceEvent) {
 	rm.locker.Lock()
 	defer rm.locker.Unlock()
 	var etype string
@@ -207,12 +207,4 @@ func EventHandler(e backend.ResourceEvent) {
 		log.ErrorPrint("app watcher:ingore invalid action:", e.Action)
 		return
 	}
-}
-
-func NoticeStack(stack string, e NoticeStackEvent) {
-	switch e {
-	case NoticeStackEventDelete:
-
-	}
-
 }

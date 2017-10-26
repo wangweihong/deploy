@@ -22,7 +22,7 @@ func Init() {
 	if err != nil {
 		panic(err.Error())
 	}
-	backend.RegisterEventHandler(backendKind, EventHandler)
+	backend.RegisterEventHandler(backendKind, rm)
 
 	go HandleClusterResourceEvent()
 }
