@@ -75,4 +75,22 @@ type ObjectMeta struct {
 	Template   string `json:"template"`
 	CreateTime int64  `json:"createtime"`
 	Comment    string `json:"comment"`
+	MemoryOnly bool   `json:"memoryonly"`
+}
+
+type Object interface {
+	Metadata() ObjectMeta
+}
+type Locker interface {
+	Lock()
+	Unlock()
+}
+
+type ObjectController interface {
+	Locker
+	New(meta ObjectMeta) error
+	FillObject(obj Object) error
+	Delete(group, workspace, name string) error
+	Get(group, workspace, name string) (Object, error)
+	GetWithoutLock(group, workspace, name string) (Object, error)
 }

@@ -3,6 +3,7 @@ package configmap
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 	"ufleet-deploy/pkg/backend"
@@ -24,6 +25,7 @@ var (
 )
 
 type ConfigMapController interface {
+	New(meta resource.ObjectMeta) error
 	Create(group, workspace string, data []byte, opt resource.CreateOption) error
 	Delete(group, workspace, configmap string, opt resource.DeleteOption) error
 	Get(group, workspace, configmap string) (ConfigMapInterface, error)
@@ -38,6 +40,7 @@ type ConfigMapInterface interface {
 	GetTemplate() (string, error)
 	GetStatus() *Status
 	Event() ([]corev1.Event, error)
+	Metadata() resource.ObjectMeta
 }
 
 type ConfigMapManager struct {
@@ -65,6 +68,61 @@ type ConfigMap struct {
 	resource.ObjectMeta
 	Cluster    string `json:"cluster"`
 	memoryOnly bool
+}
+
+func (p *ConfigMapManager) Lock() {
+	p.locker.Lock()
+}
+func (p *ConfigMapManager) Unlock() {
+	p.locker.Unlock()
+}
+
+//仅仅用于基于内存的对象的创建
+func (p *ConfigMapManager) New(meta resource.ObjectMeta) error {
+
+	if strings.TrimSpace(meta.Group) == "" ||
+		strings.TrimSpace(meta.Workspace) == "" ||
+		strings.TrimSpace(meta.Name) == "" {
+		return fmt.Errorf("Invalid object data")
+	}
+
+	cp := ConfigMap{ObjectMeta: meta}
+	cp.memoryOnly = true
+
+	err := p.FillObject(&cp)
+	if err != nil {
+		return err
+	}
+	return nil
+
+}
+func (p *ConfigMapManager) FillObject(meta resource.Object) error {
+
+	cm, ok := meta.(*ConfigMap)
+	if !ok {
+		return fmt.Errorf("object is not correct type")
+	}
+
+	group, ok := rm.Groups[cm.Group]
+	if !ok {
+		return resource.ErrGroupNotFound
+	}
+
+	workspace, ok := group.Workspaces[cm.Workspace]
+	if !ok {
+		return resource.ErrWorkspaceNotFound
+	}
+
+	_, ok = workspace.ConfigMaps[cm.Name]
+	if ok {
+		return resource.ErrResourceExists
+	}
+
+	workspace.ConfigMaps[cm.Name] = *cm
+	group.Workspaces[cm.Workspace] = workspace
+	p.Groups[cm.Group] = group
+	return nil
+
 }
 
 //注意这里没锁
@@ -239,7 +297,7 @@ func (p *ConfigMapManager) Update(groupName, workspaceName string, resourceName 
 }
 
 //无锁
-func (p *ConfigMapManager) delete(groupName, workspaceName, resourceName string) error {
+func (p *ConfigMapManager) DeleteNotLock(groupName, workspaceName, resourceName string) error {
 	group, ok := p.Groups[groupName]
 	if !ok {
 		return resource.ErrGroupNotFound
@@ -255,6 +313,21 @@ func (p *ConfigMapManager) delete(groupName, workspaceName, resourceName string)
 	return nil
 }
 
+func (p *ConfigMapManager) delete(groupName, workspaceName, resourceName string) error {
+	group, ok := p.Groups[groupName]
+	if !ok {
+		return resource.ErrGroupNotFound
+	}
+	workspace, ok := group.Workspaces[workspaceName]
+	if !ok {
+		return resource.ErrWorkspaceNotFound
+	}
+
+	delete(workspace.ConfigMaps, resourceName)
+	group.Workspaces[workspaceName] = workspace
+	p.Groups[groupName] = group
+	return nil
+}
 func (p *ConfigMapManager) Delete(group, workspace, resourceName string, opt resource.DeleteOption) error {
 	p.locker.Lock()
 	defer p.locker.Unlock()
@@ -375,6 +448,9 @@ func (s *ConfigMap) GetStatus() *Status {
 func (s *ConfigMap) Event() ([]corev1.Event, error) {
 	e := make([]corev1.Event, 0)
 	return e, nil
+}
+func (s *ConfigMap) Metadata() resource.ObjectMeta {
+	return s.ObjectMeta
 }
 
 func InitConfigMapController(be backend.BackendHandler) (ConfigMapController, error) {
