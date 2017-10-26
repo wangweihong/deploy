@@ -20,18 +20,8 @@ import (
 )
 
 var (
-	rm *DeploymentManager
-	/* = &DeploymentManager{
-		Groups: make(map[string]DeploymentGroup),
-		locker: sync.Mutex{},
-	}
-	*/
+	rm         *DeploymentManager
 	Controller DeploymentController
-
-	ErrResourceNotFound  = fmt.Errorf("resource not found")
-	ErrResourceExists    = fmt.Errorf("resource has exists")
-	ErrWorkspaceNotFound = fmt.Errorf("workspace not found")
-	ErrGroupNotFound     = fmt.Errorf("group not found")
 )
 
 type DeploymentController interface {
@@ -101,17 +91,17 @@ func (p *DeploymentManager) get(groupName, workspaceName, resourceName string) (
 
 	group, ok := p.Groups[groupName]
 	if !ok {
-		return nil, ErrGroupNotFound
+		return nil, resource.ErrGroupNotFound
 	}
 
 	workspace, ok := group.Workspaces[workspaceName]
 	if !ok {
-		return nil, ErrWorkspaceNotFound
+		return nil, resource.ErrWorkspaceNotFound
 	}
 
 	deployment, ok := workspace.Deployments[resourceName]
 	if !ok {
-		return nil, ErrResourceNotFound
+		return nil, resource.ErrResourceNotFound
 	}
 
 	return &deployment, nil
@@ -130,12 +120,12 @@ func (p *DeploymentManager) List(groupName, workspaceName string) ([]DeploymentI
 
 	group, ok := p.Groups[groupName]
 	if !ok {
-		return nil, fmt.Errorf("%v:%v", ErrGroupNotFound, groupName)
+		return nil, fmt.Errorf("%v:%v", resource.ErrGroupNotFound, groupName)
 	}
 
 	workspace, ok := group.Workspaces[workspaceName]
 	if !ok {
-		return nil, fmt.Errorf("%v:group/%v,workspace/%v", ErrWorkspaceNotFound, groupName, workspaceName)
+		return nil, fmt.Errorf("%v:group/%v,workspace/%v", resource.ErrWorkspaceNotFound, groupName, workspaceName)
 	}
 
 	pis := make([]DeploymentInterface, 0)
@@ -155,7 +145,7 @@ func (p *DeploymentManager) ListGroup(groupName string) ([]DeploymentInterface, 
 
 	group, ok := p.Groups[groupName]
 	if !ok {
-		return nil, fmt.Errorf("%v:%v", ErrGroupNotFound, groupName)
+		return nil, fmt.Errorf("%v:%v", resource.ErrGroupNotFound, groupName)
 	}
 
 	pis := make([]DeploymentInterface, 0)
@@ -232,11 +222,11 @@ func (p *DeploymentManager) Create(groupName, workspaceName string, data []byte,
 func (p *DeploymentManager) delete(groupName, workspaceName, resourceName string) error {
 	group, ok := p.Groups[groupName]
 	if !ok {
-		return ErrGroupNotFound
+		return resource.ErrGroupNotFound
 	}
 	workspace, ok := group.Workspaces[workspaceName]
 	if !ok {
-		return ErrWorkspaceNotFound
+		return resource.ErrWorkspaceNotFound
 	}
 
 	delete(workspace.Deployments, resourceName)
@@ -302,17 +292,17 @@ func (p *DeploymentManager) update(groupName, workspaceName string, resourceName
 
 	group, ok := p.Groups[groupName]
 	if !ok {
-		return ErrGroupNotFound
+		return resource.ErrGroupNotFound
 	}
 
 	workspace, ok := group.Workspaces[workspaceName]
 	if !ok {
-		return ErrWorkspaceNotFound
+		return resource.ErrWorkspaceNotFound
 	}
 
 	_, ok = workspace.Deployments[resourceName]
 	if !ok {
-		return ErrResourceNotFound
+		return resource.ErrResourceNotFound
 	}
 	workspace.Deployments[resourceName] = *d
 	group.Workspaces[workspaceName] = workspace

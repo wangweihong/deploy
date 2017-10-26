@@ -27,11 +27,6 @@ var (
 	}
 	*/
 	Controller DaemonSetController
-
-	ErrResourceNotFound  = fmt.Errorf("resource not found")
-	ErrResourceExists    = fmt.Errorf("resource has exists")
-	ErrWorkspaceNotFound = fmt.Errorf("workspace not found")
-	ErrGroupNotFound     = fmt.Errorf("group not found")
 )
 
 type DaemonSetController interface {
@@ -85,17 +80,17 @@ func (p *DaemonSetManager) get(groupName, workspaceName, resourceName string) (*
 
 	group, ok := p.Groups[groupName]
 	if !ok {
-		return nil, ErrGroupNotFound
+		return nil, resource.ErrGroupNotFound
 	}
 
 	workspace, ok := group.Workspaces[workspaceName]
 	if !ok {
-		return nil, ErrWorkspaceNotFound
+		return nil, resource.ErrWorkspaceNotFound
 	}
 
 	daemonset, ok := workspace.DaemonSets[resourceName]
 	if !ok {
-		return nil, ErrResourceNotFound
+		return nil, resource.ErrResourceNotFound
 	}
 
 	return &daemonset, nil
@@ -114,12 +109,12 @@ func (p *DaemonSetManager) List(groupName, workspaceName string) ([]DaemonSetInt
 
 	group, ok := p.Groups[groupName]
 	if !ok {
-		return nil, fmt.Errorf("%v:%v", ErrGroupNotFound, groupName)
+		return nil, fmt.Errorf("%v:%v", resource.ErrGroupNotFound, groupName)
 	}
 
 	workspace, ok := group.Workspaces[workspaceName]
 	if !ok {
-		return nil, fmt.Errorf("%v:group/%v,workspace/%v", ErrWorkspaceNotFound, groupName, workspaceName)
+		return nil, fmt.Errorf("%v:group/%v,workspace/%v", resource.ErrWorkspaceNotFound, groupName, workspaceName)
 	}
 
 	pis := make([]DaemonSetInterface, 0)
@@ -139,7 +134,7 @@ func (p *DaemonSetManager) ListGroup(groupName string) ([]DaemonSetInterface, er
 
 	group, ok := p.Groups[groupName]
 	if !ok {
-		return nil, fmt.Errorf("%v:%v", ErrGroupNotFound, groupName)
+		return nil, fmt.Errorf("%v:%v", resource.ErrGroupNotFound, groupName)
 	}
 
 	pis := make([]DaemonSetInterface, 0)
@@ -218,11 +213,11 @@ func (p *DaemonSetManager) Create(groupName, workspaceName string, data []byte, 
 func (p *DaemonSetManager) delete(groupName, workspaceName, resourceName string) error {
 	group, ok := p.Groups[groupName]
 	if !ok {
-		return ErrGroupNotFound
+		return resource.ErrGroupNotFound
 	}
 	workspace, ok := group.Workspaces[workspaceName]
 	if !ok {
-		return ErrWorkspaceNotFound
+		return resource.ErrWorkspaceNotFound
 	}
 
 	delete(workspace.DaemonSets, resourceName)

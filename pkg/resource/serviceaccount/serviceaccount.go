@@ -17,18 +17,8 @@ import (
 )
 
 var (
-	rm *ServiceAccountManager
-	/* = &ServiceAccountManager{
-		Groups: make(map[string]ServiceAccountGroup),
-		locker: sync.Mutex{},
-	}
-	*/
+	rm         *ServiceAccountManager
 	Controller ServiceAccountController
-
-	ErrResourceNotFound  = fmt.Errorf("resource not found")
-	ErrResourceExists    = fmt.Errorf("resource has exists")
-	ErrWorkspaceNotFound = fmt.Errorf("workspace not found")
-	ErrGroupNotFound     = fmt.Errorf("group not found")
 )
 
 type ServiceAccountController interface {
@@ -80,17 +70,17 @@ func (p *ServiceAccountManager) get(groupName, workspaceName, resourceName strin
 
 	group, ok := p.Groups[groupName]
 	if !ok {
-		return nil, ErrGroupNotFound
+		return nil, resource.ErrGroupNotFound
 	}
 
 	workspace, ok := group.Workspaces[workspaceName]
 	if !ok {
-		return nil, ErrWorkspaceNotFound
+		return nil, resource.ErrWorkspaceNotFound
 	}
 
 	serviceaccount, ok := workspace.ServiceAccounts[resourceName]
 	if !ok {
-		return nil, ErrResourceNotFound
+		return nil, resource.ErrResourceNotFound
 	}
 
 	return &serviceaccount, nil
@@ -109,12 +99,12 @@ func (p *ServiceAccountManager) List(groupName, workspaceName string) ([]Service
 
 	group, ok := p.Groups[groupName]
 	if !ok {
-		return nil, fmt.Errorf("%v:%v", ErrGroupNotFound, groupName)
+		return nil, fmt.Errorf("%v:%v", resource.ErrGroupNotFound, groupName)
 	}
 
 	workspace, ok := group.Workspaces[workspaceName]
 	if !ok {
-		return nil, fmt.Errorf("%v:group/%v,workspace/%v", ErrWorkspaceNotFound, groupName, workspaceName)
+		return nil, fmt.Errorf("%v:group/%v,workspace/%v", resource.ErrWorkspaceNotFound, groupName, workspaceName)
 	}
 
 	pis := make([]ServiceAccountInterface, 0)
@@ -134,7 +124,7 @@ func (p *ServiceAccountManager) ListGroup(groupName string) ([]ServiceAccountInt
 
 	group, ok := p.Groups[groupName]
 	if !ok {
-		return nil, fmt.Errorf("%v:%v", ErrGroupNotFound, groupName)
+		return nil, fmt.Errorf("%v:%v", resource.ErrGroupNotFound, groupName)
 	}
 
 	pis := make([]ServiceAccountInterface, 0)
@@ -217,11 +207,11 @@ func (p *ServiceAccountManager) Create(groupName, workspaceName string, data []b
 func (p *ServiceAccountManager) delete(groupName, workspaceName, resourceName string) error {
 	group, ok := p.Groups[groupName]
 	if !ok {
-		return fmt.Errorf("%v: group\\%v", ErrGroupNotFound, groupName)
+		return fmt.Errorf("%v: group\\%v", resource.ErrGroupNotFound, groupName)
 	}
 	workspace, ok := group.Workspaces[workspaceName]
 	if !ok {
-		return fmt.Errorf("%v: group\\%v,workspace\\%v", ErrWorkspaceNotFound, groupName, workspaceName)
+		return fmt.Errorf("%v: group\\%v,workspace\\%v", resource.ErrWorkspaceNotFound, groupName, workspaceName)
 	}
 
 	delete(workspace.ServiceAccounts, resourceName)

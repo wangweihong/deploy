@@ -20,18 +20,8 @@ import (
 )
 
 var (
-	rm *ReplicaSetManager
-	/* = &ReplicaSetManager{
-		Groups: make(map[string]ReplicaSetGroup),
-		locker: sync.Mutex{},
-	}
-	*/
+	rm         *ReplicaSetManager
 	Controller ReplicaSetController
-
-	ErrResourceNotFound  = fmt.Errorf("resource not found")
-	ErrResourceExists    = fmt.Errorf("resource has exists")
-	ErrWorkspaceNotFound = fmt.Errorf("workspace not found")
-	ErrGroupNotFound     = fmt.Errorf("group not found")
 )
 
 type ReplicaSetController interface {
@@ -85,17 +75,17 @@ func (p *ReplicaSetManager) get(groupName, workspaceName, replicasetName string)
 
 	group, ok := p.Groups[groupName]
 	if !ok {
-		return nil, ErrGroupNotFound
+		return nil, resource.ErrGroupNotFound
 	}
 
 	workspace, ok := group.Workspaces[workspaceName]
 	if !ok {
-		return nil, ErrWorkspaceNotFound
+		return nil, resource.ErrWorkspaceNotFound
 	}
 
 	replicaset, ok := workspace.ReplicaSets[replicasetName]
 	if !ok {
-		return nil, ErrResourceNotFound
+		return nil, resource.ErrResourceNotFound
 	}
 
 	return &replicaset, nil
@@ -113,7 +103,7 @@ func (p *ReplicaSetManager) ListGroup(groupName string) ([]ReplicaSetInterface, 
 
 	group, ok := p.Groups[groupName]
 	if !ok {
-		return nil, fmt.Errorf("%v:%v", ErrGroupNotFound, groupName)
+		return nil, fmt.Errorf("%v:%v", resource.ErrGroupNotFound, groupName)
 	}
 
 	pis := make([]ReplicaSetInterface, 0)
@@ -133,12 +123,12 @@ func (p *ReplicaSetManager) List(groupName, workspaceName string) ([]ReplicaSetI
 
 	group, ok := p.Groups[groupName]
 	if !ok {
-		return nil, fmt.Errorf("%v:%v", ErrGroupNotFound, groupName)
+		return nil, fmt.Errorf("%v:%v", resource.ErrGroupNotFound, groupName)
 	}
 
 	workspace, ok := group.Workspaces[workspaceName]
 	if !ok {
-		return nil, fmt.Errorf("%v:group/%v,workspace/%v", ErrWorkspaceNotFound, groupName, workspaceName)
+		return nil, fmt.Errorf("%v:group/%v,workspace/%v", resource.ErrWorkspaceNotFound, groupName, workspaceName)
 	}
 
 	pis := make([]ReplicaSetInterface, 0)
@@ -218,11 +208,11 @@ func (p *ReplicaSetManager) Create(groupName, workspaceName string, data []byte,
 func (p *ReplicaSetManager) delete(groupName, workspaceName, replicasetName string) error {
 	group, ok := p.Groups[groupName]
 	if !ok {
-		return ErrGroupNotFound
+		return resource.ErrGroupNotFound
 	}
 	workspace, ok := group.Workspaces[workspaceName]
 	if !ok {
-		return ErrWorkspaceNotFound
+		return resource.ErrWorkspaceNotFound
 	}
 
 	delete(workspace.ReplicaSets, replicasetName)

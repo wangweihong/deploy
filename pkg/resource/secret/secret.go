@@ -17,18 +17,8 @@ import (
 )
 
 var (
-	rm *SecretManager
-	/* = &SecretManager{
-		Groups: make(map[string]SecretGroup),
-		locker: sync.Mutex{},
-	}
-	*/
+	rm         *SecretManager
 	Controller SecretController
-
-	ErrResourceNotFound  = fmt.Errorf("resource not found")
-	ErrResourceExists    = fmt.Errorf("resource has exists")
-	ErrWorkspaceNotFound = fmt.Errorf("workspace not found")
-	ErrGroupNotFound     = fmt.Errorf("group not found")
 )
 
 type SecretController interface {
@@ -80,17 +70,17 @@ func (p *SecretManager) get(groupName, workspaceName, resourceName string) (*Sec
 
 	group, ok := p.Groups[groupName]
 	if !ok {
-		return nil, ErrGroupNotFound
+		return nil, resource.ErrGroupNotFound
 	}
 
 	workspace, ok := group.Workspaces[workspaceName]
 	if !ok {
-		return nil, ErrWorkspaceNotFound
+		return nil, resource.ErrWorkspaceNotFound
 	}
 
 	secret, ok := workspace.Secrets[resourceName]
 	if !ok {
-		return nil, ErrResourceNotFound
+		return nil, resource.ErrResourceNotFound
 	}
 
 	return &secret, nil
@@ -109,12 +99,12 @@ func (p *SecretManager) List(groupName, workspaceName string) ([]SecretInterface
 
 	group, ok := p.Groups[groupName]
 	if !ok {
-		return nil, fmt.Errorf("%v:%v", ErrGroupNotFound, groupName)
+		return nil, fmt.Errorf("%v:%v", resource.ErrGroupNotFound, groupName)
 	}
 
 	workspace, ok := group.Workspaces[workspaceName]
 	if !ok {
-		return nil, fmt.Errorf("%v:group/%v,workspace/%v", ErrWorkspaceNotFound, groupName, workspaceName)
+		return nil, fmt.Errorf("%v:group/%v,workspace/%v", resource.ErrWorkspaceNotFound, groupName, workspaceName)
 	}
 
 	pis := make([]SecretInterface, 0)
@@ -135,7 +125,7 @@ func (p *SecretManager) ListGroup(groupName string) ([]SecretInterface, error) {
 
 	group, ok := p.Groups[groupName]
 	if !ok {
-		return nil, fmt.Errorf("%v:%v", ErrGroupNotFound, groupName)
+		return nil, fmt.Errorf("%v:%v", resource.ErrGroupNotFound, groupName)
 	}
 
 	pis := make([]SecretInterface, 0)
@@ -216,11 +206,11 @@ func (p *SecretManager) Create(groupName, workspaceName string, data []byte, opt
 func (p *SecretManager) delete(groupName, workspaceName, resourceName string) error {
 	group, ok := p.Groups[groupName]
 	if !ok {
-		return ErrGroupNotFound
+		return resource.ErrGroupNotFound
 	}
 	workspace, ok := group.Workspaces[workspaceName]
 	if !ok {
-		return ErrWorkspaceNotFound
+		return resource.ErrWorkspaceNotFound
 	}
 
 	delete(workspace.Secrets, resourceName)

@@ -18,18 +18,8 @@ import (
 )
 
 var (
-	rm *IngressManager
-	/* = &IngressManager{
-		Groups: make(map[string]IngressGroup),
-		locker: sync.Mutex{},
-	}
-	*/
+	rm         *IngressManager
 	Controller IngressController
-
-	ErrResourceNotFound  = fmt.Errorf("resource not found")
-	ErrResourceExists    = fmt.Errorf("resource has exists")
-	ErrWorkspaceNotFound = fmt.Errorf("workspace not found")
-	ErrGroupNotFound     = fmt.Errorf("group not found")
 )
 
 type IngressController interface {
@@ -80,17 +70,17 @@ func (p *IngressManager) get(groupName, workspaceName, resourceName string) (*In
 
 	group, ok := p.Groups[groupName]
 	if !ok {
-		return nil, ErrGroupNotFound
+		return nil, resource.ErrGroupNotFound
 	}
 
 	workspace, ok := group.Workspaces[workspaceName]
 	if !ok {
-		return nil, ErrWorkspaceNotFound
+		return nil, resource.ErrWorkspaceNotFound
 	}
 
 	ingress, ok := workspace.Ingresss[resourceName]
 	if !ok {
-		return nil, ErrResourceNotFound
+		return nil, resource.ErrResourceNotFound
 	}
 
 	return &ingress, nil
@@ -109,12 +99,12 @@ func (p *IngressManager) List(groupName, workspaceName string) ([]IngressInterfa
 
 	group, ok := p.Groups[groupName]
 	if !ok {
-		return nil, fmt.Errorf("%v:%v", ErrGroupNotFound, groupName)
+		return nil, fmt.Errorf("%v:%v", resource.ErrGroupNotFound, groupName)
 	}
 
 	workspace, ok := group.Workspaces[workspaceName]
 	if !ok {
-		return nil, fmt.Errorf("%v:group/%v,workspace/%v", ErrWorkspaceNotFound, groupName, workspaceName)
+		return nil, fmt.Errorf("%v:group/%v,workspace/%v", resource.ErrWorkspaceNotFound, groupName, workspaceName)
 	}
 
 	pis := make([]IngressInterface, 0)
@@ -134,7 +124,7 @@ func (p *IngressManager) ListGroup(groupName string) ([]IngressInterface, error)
 
 	group, ok := p.Groups[groupName]
 	if !ok {
-		return nil, fmt.Errorf("%v:%v", ErrGroupNotFound, groupName)
+		return nil, fmt.Errorf("%v:%v", resource.ErrGroupNotFound, groupName)
 	}
 
 	pis := make([]IngressInterface, 0)
@@ -215,11 +205,11 @@ func (p *IngressManager) Create(groupName, workspaceName string, data []byte, op
 func (p *IngressManager) delete(groupName, workspaceName, resourceName string) error {
 	group, ok := p.Groups[groupName]
 	if !ok {
-		return ErrGroupNotFound
+		return resource.ErrGroupNotFound
 	}
 	workspace, ok := group.Workspaces[workspaceName]
 	if !ok {
-		return ErrWorkspaceNotFound
+		return resource.ErrWorkspaceNotFound
 	}
 
 	delete(workspace.Ingresss, resourceName)

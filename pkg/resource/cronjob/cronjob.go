@@ -21,18 +21,8 @@ import (
 )
 
 var (
-	rm *CronJobManager
-	/* = &CronJobManager{
-		Groups: make(map[string]CronJobGroup),
-		locker: sync.Mutex{},
-	}
-	*/
+	rm         *CronJobManager
 	Controller CronJobController
-
-	ErrResourceNotFound  = fmt.Errorf("resource not found")
-	ErrResourceExists    = fmt.Errorf("resource has exists")
-	ErrWorkspaceNotFound = fmt.Errorf("workspace not found")
-	ErrGroupNotFound     = fmt.Errorf("group not found")
 )
 
 type CronJobController interface {
@@ -85,17 +75,17 @@ func (p *CronJobManager) get(groupName, workspaceName, resourceName string) (*Cr
 
 	group, ok := p.Groups[groupName]
 	if !ok {
-		return nil, ErrGroupNotFound
+		return nil, resource.ErrGroupNotFound
 	}
 
 	workspace, ok := group.Workspaces[workspaceName]
 	if !ok {
-		return nil, ErrWorkspaceNotFound
+		return nil, resource.ErrWorkspaceNotFound
 	}
 
 	cronjob, ok := workspace.CronJobs[resourceName]
 	if !ok {
-		return nil, ErrResourceNotFound
+		return nil, resource.ErrResourceNotFound
 	}
 
 	return &cronjob, nil
@@ -114,12 +104,12 @@ func (p *CronJobManager) List(groupName, workspaceName string) ([]CronJobInterfa
 
 	group, ok := p.Groups[groupName]
 	if !ok {
-		return nil, fmt.Errorf("%v:%v", ErrGroupNotFound, groupName)
+		return nil, fmt.Errorf("%v:%v", resource.ErrGroupNotFound, groupName)
 	}
 
 	workspace, ok := group.Workspaces[workspaceName]
 	if !ok {
-		return nil, fmt.Errorf("%v:group/%v,workspace/%v", ErrWorkspaceNotFound, groupName, workspaceName)
+		return nil, fmt.Errorf("%v:group/%v,workspace/%v", resource.ErrWorkspaceNotFound, groupName, workspaceName)
 	}
 
 	pis := make([]CronJobInterface, 0)
@@ -140,7 +130,7 @@ func (p *CronJobManager) ListGroup(groupName string) ([]CronJobInterface, error)
 
 	group, ok := p.Groups[groupName]
 	if !ok {
-		return nil, fmt.Errorf("%v:%v", ErrGroupNotFound, groupName)
+		return nil, fmt.Errorf("%v:%v", resource.ErrGroupNotFound, groupName)
 	}
 
 	pis := make([]CronJobInterface, 0)
@@ -254,11 +244,11 @@ func (p *CronJobManager) Update(groupName, workspaceName string, resourceName st
 func (p *CronJobManager) delete(groupName, workspaceName, resourceName string) error {
 	group, ok := p.Groups[groupName]
 	if !ok {
-		return ErrGroupNotFound
+		return resource.ErrGroupNotFound
 	}
 	workspace, ok := group.Workspaces[workspaceName]
 	if !ok {
-		return ErrWorkspaceNotFound
+		return resource.ErrWorkspaceNotFound
 	}
 
 	delete(workspace.CronJobs, resourceName)
