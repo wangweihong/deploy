@@ -38,6 +38,7 @@ type ResourceController struct {
 	deploymentInformer extensioninformers.DeploymentInformer
 	ingressInformer    extensioninformers.IngressInformer
 	daemonsetInformer  extensioninformers.DaemonSetInformer
+	replicasetInformer extensioninformers.ReplicaSetInformer
 
 	//app
 	statefulsetInformer appinformers.StatefulSetInformer
@@ -57,6 +58,7 @@ func (c *ResourceController) Run(stopCh chan struct{}) error {
 		c.configmapInformer.Informer().HasSynced,
 		c.serviceaccountInformer.Informer().HasSynced,
 		c.deploymentInformer.Informer().HasSynced,
+		c.replicasetInformer.Informer().HasSynced,
 		c.statefulsetInformer.Informer().HasSynced,
 		c.ingressInformer.Informer().HasSynced,
 		c.daemonsetInformer.Informer().HasSynced,
@@ -160,6 +162,8 @@ func (c *ResourceController) resourceAdd(obj interface{}) {
 		SecretEventChan <- e
 	case *extensionsv1beta1.Deployment:
 		DeploymentEventChan <- e
+	case *extensionsv1beta1.ReplicaSet:
+		ReplicaSetEventChan <- e
 	case *extensionsv1beta1.DaemonSet:
 		DaemonSetEventChan <- e
 	case *extensionsv1beta1.Ingress:
@@ -203,6 +207,8 @@ func (c *ResourceController) resourceUpdate(obj, new interface{}) {
 		SecretEventChan <- e
 	case *extensionsv1beta1.Deployment:
 		DeploymentEventChan <- e
+	case *extensionsv1beta1.ReplicaSet:
+		ReplicaSetEventChan <- e
 	case *extensionsv1beta1.DaemonSet:
 		DaemonSetEventChan <- e
 	case *extensionsv1beta1.Ingress:
@@ -246,6 +252,8 @@ func (c *ResourceController) resourceDelete(obj interface{}) {
 		SecretEventChan <- e
 	case *extensionsv1beta1.Deployment:
 		DeploymentEventChan <- e
+	case *extensionsv1beta1.ReplicaSet:
+		ReplicaSetEventChan <- e
 	case *extensionsv1beta1.DaemonSet:
 		DaemonSetEventChan <- e
 	case *extensionsv1beta1.Ingress:
@@ -269,6 +277,7 @@ func NewResourceController(informerFactory informers.SharedInformerFactory, ws m
 	endpointInformer := informerFactory.Core().V1().Endpoints()
 	secretInformer := informerFactory.Core().V1().Secrets()
 	deploymentInformer := informerFactory.Extensions().V1beta1().Deployments()
+	replicasetInformer := informerFactory.Extensions().V1beta1().ReplicaSets()
 	daemonsetInformer := informerFactory.Extensions().V1beta1().DaemonSets()
 	ingressInformer := informerFactory.Extensions().V1beta1().Ingresses()
 	statefulsetInformer := informerFactory.Apps().V1beta1().StatefulSets()
@@ -285,6 +294,7 @@ func NewResourceController(informerFactory informers.SharedInformerFactory, ws m
 		serviceaccountInformer:        serviceaccountInformer,
 		secretInformer:                secretInformer,
 		deploymentInformer:            deploymentInformer,
+		replicasetInformer:            replicasetInformer,
 		daemonsetInformer:             daemonsetInformer,
 		ingressInformer:               ingressInformer,
 		statefulsetInformer:           statefulsetInformer,
@@ -375,6 +385,17 @@ func NewResourceController(informerFactory informers.SharedInformerFactory, ws m
 	)
 
 	deploymentInformer.Informer().AddEventHandler(
+		// Your custom resource event handlers.
+		cache.ResourceEventHandlerFuncs{
+			// Called on creation
+			AddFunc: c.resourceAdd,
+			// Called on resource update and every resyncPeriod on existing resources.
+			UpdateFunc: c.resourceUpdate,
+			// Called on resource deletion.
+			DeleteFunc: c.resourceDelete,
+		},
+	)
+	replicasetInformer.Informer().AddEventHandler(
 		// Your custom resource event handlers.
 		cache.ResourceEventHandlerFuncs{
 			// Called on creation

@@ -3,8 +3,10 @@ package controllers
 import (
 	"encoding/json"
 	"fmt"
-	jk "ufleet-deploy/pkg/resource/job"
-	pk "ufleet-deploy/pkg/resource/pod"
+	"ufleet-deploy/pkg/resource"
+	pk "ufleet-deploy/pkg/resource/job"
+	sk "ufleet-deploy/pkg/resource/pod"
+	"ufleet-deploy/pkg/user"
 )
 
 type JobController struct {
@@ -21,30 +23,34 @@ type JobController struct {
 // @Failure 500
 // @router /group/:group/workspace/:workspace [Get]
 func (this *JobController) ListGroupWorkspaceJobs() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
 
-	pis, err := jk.Controller.List(group, workspace)
+	pis, err := pk.Controller.List(group, workspace)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
 	}
-	//jobs := make([]jk.Job, 0)
-	jss := make([]jk.Status, 0)
+	//jobs := make([]pk.Job, 0)
+	jss := make([]pk.Status, 0)
 
 	for _, v := range pis {
-		js := &jk.Status{}
-		var err error
-		js, err = v.GetStatus()
+		js, err := v.GetStatus()
 		if err != nil {
+			js := &pk.Status{}
 			job := v.Info()
 			js.Name = job.Name
 			js.User = job.User
 			js.Workspace = job.Workspace
 			js.Group = job.Group
 			js.Reason = err.Error()
-			js.PodStatus = make([]pk.Status, 0)
+			js.PodStatus = make([]sk.Status, 0)
 			jss = append(jss, *js)
 			continue
 		}
@@ -53,6 +59,49 @@ func (this *JobController) ListGroupWorkspaceJobs() {
 	}
 
 	this.normalReturn(jss)
+}
+
+// GetJob
+// @Title Job
+// @Description   Job
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Param workspace path string true "工作区"
+// @Param job path string true "任务"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /:job/group/:group/workspace/:workspace [Get]
+func (this *JobController) GetJob() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
+
+	group := this.Ctx.Input.Param(":group")
+	workspace := this.Ctx.Input.Param(":workspace")
+	job := this.Ctx.Input.Param(":job")
+
+	pi, err := pk.Controller.Get(group, workspace, job)
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+	v := pi
+
+	js, err := v.GetStatus()
+	if err != nil {
+		js = &pk.Status{}
+		job := v.Info()
+		js.Name = job.Name
+		js.User = job.User
+		js.Workspace = job.Workspace
+		js.Group = job.Group
+		js.Reason = err.Error()
+		js.PodStatus = make([]sk.Status, 0)
+	}
+
+	this.normalReturn(js)
 }
 
 // ListGroupsJobs
@@ -64,6 +113,11 @@ func (this *JobController) ListGroupWorkspaceJobs() {
 // @Failure 500
 // @router /groups [Post]
 func (this *JobController) ListGroupsJobs() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	groups := make([]string, 0)
 	if this.Ctx.Input.RequestBody == nil {
@@ -79,29 +133,28 @@ func (this *JobController) ListGroupsJobs() {
 		return
 	}
 
-	pis := make([]jk.JobInterface, 0)
+	pis := make([]pk.JobInterface, 0)
 	for _, v := range groups {
-		tmp, err := jk.Controller.ListGroup(v)
+		tmp, err := pk.Controller.ListGroup(v)
 		if err != nil {
 			this.errReturn(err, 500)
 			return
 		}
 		pis = append(pis, tmp...)
 	}
-	//jobs := make([]jk.Job, 0)
-	jss := make([]jk.Status, 0)
+	//jobs := make([]pk.Job, 0)
+	jss := make([]pk.Status, 0)
 	for _, v := range pis {
-		js := &jk.Status{}
-		var err error
-		js, err = v.GetStatus()
+		js, err := v.GetStatus()
 		if err != nil {
+			js := &pk.Status{}
 			job := v.Info()
 			js.Name = job.Name
 			js.User = job.User
 			js.Workspace = job.Workspace
 			js.Group = job.Group
 			js.Reason = err.Error()
-			js.PodStatus = make([]pk.Status, 0)
+			js.PodStatus = make([]sk.Status, 0)
 			jss = append(jss, *js)
 			continue
 		}
@@ -121,27 +174,31 @@ func (this *JobController) ListGroupsJobs() {
 // @Failure 500
 // @router /group/:group [Get]
 func (this *JobController) ListGroupJobs() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	group := this.Ctx.Input.Param(":group")
-	pis, err := jk.Controller.ListGroup(group)
+	pis, err := pk.Controller.ListGroup(group)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
 	}
-	//jobs := make([]jk.Job, 0)
-	jss := make([]jk.Status, 0)
+	//jobs := make([]pk.Job, 0)
+	jss := make([]pk.Status, 0)
 	for _, v := range pis {
-		js := &jk.Status{}
-		var err error
-		js, err = v.GetStatus()
+		js, err := v.GetStatus()
 		if err != nil {
+			js := &pk.Status{}
 			job := v.Info()
 			js.Name = job.Name
 			js.User = job.User
 			js.Workspace = job.Workspace
 			js.Group = job.Group
 			js.Reason = err.Error()
-			js.PodStatus = make([]pk.Status, 0)
+			js.PodStatus = make([]sk.Status, 0)
 			jss = append(jss, *js)
 			continue
 		}
@@ -154,7 +211,7 @@ func (this *JobController) ListGroupJobs() {
 
 // CreateJob
 // @Title Job
-// @Description  创建容器组
+// @Description  创建一次性任务
 // @Param Token header string true 'Token'
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
@@ -163,29 +220,44 @@ func (this *JobController) ListGroupJobs() {
 // @Failure 500
 // @router /group/:group/workspace/:workspace [Post]
 func (this *JobController) CreateJob() {
+	token := this.Ctx.Request.Header.Get("token")
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.audit(token, "", true)
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	//token := this.Ctx.Request.Header.Get("token")
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
 
 	if this.Ctx.Input.RequestBody == nil {
+		this.audit(token, "", true)
 		err := fmt.Errorf("must commit resource json/yaml data")
 		this.errReturn(err, 500)
 		return
 	}
 
-	/*
-		ui := user.NewUserClient(token)
-		ui.GetUserName()
-	*/
-
-	var opt jk.CreateOptions
-	err := jk.Controller.Create(group, workspace, this.Ctx.Input.RequestBody, opt)
+	ui := user.NewUserClient(token)
+	who, err := ui.GetUserName()
 	if err != nil {
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
 
+	var opt resource.CreateOption
+	opt.User = who
+
+	err = pk.Controller.Create(group, workspace, this.Ctx.Input.RequestBody, opt)
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+
+	this.audit(token, "", false)
 	this.normalReturn("ok")
 }
 
@@ -201,6 +273,13 @@ func (this *JobController) CreateJob() {
 // @Failure 500
 // @router /:job/group/:group/workspace/:workspace [Put]
 func (this *JobController) UpdateJob() {
+	token := this.Ctx.Request.Header.Get("token")
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.audit(token, "", true)
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	//token := this.Ctx.Request.Header.Get("token")
 	group := this.Ctx.Input.Param(":group")
@@ -209,6 +288,7 @@ func (this *JobController) UpdateJob() {
 
 	if this.Ctx.Input.RequestBody == nil {
 		err := fmt.Errorf("must commit resource json/yaml data")
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -218,11 +298,13 @@ func (this *JobController) UpdateJob() {
 		ui.GetUserName()
 	*/
 
-	err := jk.Controller.Update(group, workspace, job, this.Ctx.Input.RequestBody)
+	err := pk.Controller.Update(group, workspace, job, this.Ctx.Input.RequestBody)
 	if err != nil {
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
+	this.audit(token, "", false)
 
 	this.normalReturn("ok")
 }
@@ -238,17 +320,26 @@ func (this *JobController) UpdateJob() {
 // @Failure 500
 // @router /:job/group/:group/workspace/:workspace [Delete]
 func (this *JobController) DeleteJob() {
+	token := this.Ctx.Request.Header.Get("token")
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.audit(token, "", true)
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
 	job := this.Ctx.Input.Param(":job")
 
-	err := jk.Controller.Delete(group, workspace, job, jk.DeleteOption{})
+	err := pk.Controller.Delete(group, workspace, job, resource.DeleteOption{})
 	if err != nil {
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
 
+	this.audit(token, "", false)
 	this.normalReturn("ok")
 }
 
@@ -263,12 +354,17 @@ func (this *JobController) DeleteJob() {
 // @Failure 500
 // @router /:job/group/:group/workspace/:workspace/template [Get]
 func (this *JobController) GetJobTemplate() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
 	job := this.Ctx.Input.Param(":job")
 
-	ji, err := jk.Controller.Get(group, workspace, job)
+	ji, err := pk.Controller.Get(group, workspace, job)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
@@ -280,4 +376,39 @@ func (this *JobController) GetJobTemplate() {
 	}
 
 	this.normalReturn(t)
+}
+
+// GetJobEvent
+// @Title Job
+// @Description   Job container event
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Param workspace path string true "工作区"
+// @Param job path string true "一次性任务"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /:job/group/:group/workspace/:workspace/event [Get]
+func (this *JobController) GetJobEvent() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
+
+	group := this.Ctx.Input.Param(":group")
+	workspace := this.Ctx.Input.Param(":workspace")
+	job := this.Ctx.Input.Param(":job")
+
+	pi, err := pk.Controller.Get(group, workspace, job)
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+	es, err := pi.Event()
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+
+	this.normalReturn(es)
 }

@@ -1,4 +1,4 @@
-package ingress
+package replicaset
 
 import (
 	"ufleet-deploy/pkg/backend"
@@ -6,15 +6,15 @@ import (
 )
 
 const (
-	backendKind  = backend.ResourceIngresss
-	resourceKind = "Ingress"
+	backendKind  = backend.ResourceReplicaSets
+	resourceKind = "ReplicaSet"
 )
 
 func Init() {
 	be := backend.NewBackendHandler()
 
 	var err error
-	Controller, err = InitIngressController(be)
+	Controller, err = InitReplicaSetController(be)
 	if err != nil {
 		panic(err.Error())
 	}

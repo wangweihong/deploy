@@ -1,11 +1,21 @@
 package cluster
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"sort"
+	"strconv"
 	"time"
 	"ufleet-deploy/pkg/log"
 
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/strategicpatch"
+	//	k8sapi "k8s.io/kubernetes/pkg/api"
+
+	"k8s.io/kubernetes/pkg/controller"
+
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	corev1 "k8s.io/client-go/pkg/api/v1"
@@ -13,6 +23,12 @@ import (
 	batchv1 "k8s.io/client-go/pkg/apis/batch/v1"
 	batchv2alpha1 "k8s.io/client-go/pkg/apis/batch/v2alpha1"
 	extensionsv1beta1 "k8s.io/client-go/pkg/apis/extensions/v1beta1"
+	externalclientset "k8s.io/kubernetes/pkg/client/clientset_generated/clientset"
+	core "k8s.io/kubernetes/pkg/client/clientset_generated/clientset/typed/core/v1"
+	extensions "k8s.io/kubernetes/pkg/client/clientset_generated/clientset/typed/extensions/v1beta1"
+
+	watch "k8s.io/apimachinery/pkg/watch"
+	deploymentutil "k8s.io/kubernetes/pkg/controller/deployment/util"
 )
 
 var (
@@ -32,7 +48,7 @@ type PodHandler interface {
 	Delete(namespace string, name string) error
 	Create(namespace string, pod *corev1.Pod) error
 	Log(namespace, podName string, containerName string, opt LogOption) (string, error)
-	Event(namespace, podName string) ([]corev1.Event, error)
+	Event(namespace, resourceName string) ([]corev1.Event, error)
 	Update(namespace string, pod *corev1.Pod) error
 }
 
@@ -122,6 +138,7 @@ type ServiceHandler interface {
 	Delete(namespace string, name string) error
 	Create(namespace string, service *corev1.Service) error
 	Update(namespace string, service *corev1.Service) error
+	GetPods(namespace, name string) ([]*corev1.Pod, error)
 }
 
 func NewServiceHandler(group, workspace string) (ServiceHandler, error) {
@@ -153,6 +170,22 @@ func (h *serviceHandler) Update(namespace string, service *corev1.Service) error
 
 func (h *serviceHandler) Delete(namespace, serviceName string) error {
 	return h.clientset.CoreV1().Services(namespace).Delete(serviceName, nil)
+}
+
+func (h *serviceHandler) GetPods(namespace, name string) ([]*corev1.Pod, error) {
+	svc, err := h.Get(namespace, name)
+	if err != nil {
+		return nil, err
+	}
+
+	selectorStr := svc.Spec.Selector
+	selector := labels.Set(selectorStr).AsSelector()
+	pods, err := h.informerController.podInformer.Lister().List(selector)
+	if err != nil {
+		return nil, err
+	}
+	return pods, nil
+
 }
 
 /* ------------------------ Configmap ----------------------------*/
@@ -203,6 +236,8 @@ type ReplicationControllerHandler interface {
 	Delete(namespace string, name string) error
 	GetPods(namespace, name string) ([]*corev1.Pod, error)
 	Update(namespace string, resource *corev1.ReplicationController) error
+	Scale(namespace, name string, num int32) error
+	Event(namespace, resourceName string) ([]corev1.Event, error)
 }
 
 func NewReplicationControllerHandler(group, workspace string) (ReplicationControllerHandler, error) {
@@ -232,6 +267,20 @@ func (h *replicationcontrollerHandler) Update(namespace string, resource *corev1
 	return err
 }
 
+func (h *replicationcontrollerHandler) Event(namespace, resourceName string) ([]corev1.Event, error) {
+	//	pod, err := h.clientset.Pods(namespace).Get(podName, metav1.GetOptions{})
+	selector := h.clientset.CoreV1().Events(namespace).GetFieldSelector(&resourceName, &namespace, nil, nil)
+	options := metav1.ListOptions{FieldSelector: selector.String()}
+	events, err2 := h.clientset.CoreV1().Events(namespace).List(options)
+	if err2 != nil {
+		return nil, err2
+	}
+
+	//获取不到Pod,但有Pod事件
+	sort.Sort(SortableEvents(events.Items))
+	return events.Items, nil
+}
+
 func (h *replicationcontrollerHandler) Delete(namespace, replicationcontrollerName string) error {
 	return h.clientset.CoreV1().ReplicationControllers(namespace).Delete(replicationcontrollerName, nil)
 }
@@ -252,6 +301,54 @@ func (h *replicationcontrollerHandler) GetPods(namespace, name string) ([]*corev
 	}
 
 	return pos, nil
+}
+func (h *replicationcontrollerHandler) Scale(namespace, replicationcontrollerName string, num int32) error {
+	rc, err := h.Get(namespace, replicationcontrollerName)
+	if err != nil {
+		return err
+	}
+
+	if rc.Spec.Replicas != nil {
+		if *rc.Spec.Replicas == num {
+			return nil
+		}
+	} else {
+		if num == 1 {
+			return nil
+		}
+	}
+
+	rc.Spec.Replicas = &num
+	oldrv := rc.ResourceVersion
+	rc.ResourceVersion = ""
+	err = h.Update(namespace, rc)
+	if err != nil {
+		return err
+	}
+
+	for {
+		newrc, err := h.Get(namespace, replicationcontrollerName)
+		if err != nil {
+			return err
+		}
+		if newrc.ResourceVersion == oldrv {
+			time.Sleep(500 * time.Microsecond)
+			continue
+		}
+
+		if *newrc.Spec.Replicas > newrc.Status.Replicas {
+			for _, v := range newrc.Status.Conditions {
+				if v.Type == corev1.ReplicationControllerReplicaFailure {
+					if v.Status == corev1.ConditionTrue {
+						return fmt.Errorf(v.Message)
+					}
+				}
+			}
+		} else {
+			return nil
+		}
+	}
+	return nil
 }
 
 /* ------------------------ ServiceAccount ----------------------------*/
@@ -383,6 +480,13 @@ type DeploymentHandler interface {
 	Update(namespace string, resource *extensionsv1beta1.Deployment) error
 	Scale(namespace, name string, num int32) error
 	GetPods(namespace, name string) ([]*corev1.Pod, error)
+	Event(namespace, resourceName string) ([]corev1.Event, error)
+	Revision(namespace, name string) (*int64, error)
+	GetRevisionsAndDescribe(namespace, name string) (map[int64]*corev1.PodTemplateSpec, error)
+	GetRevisionsAndReplicas(namespace, name string) (map[int64]*extensionsv1beta1.ReplicaSet, error)
+	Rollback(namespace, name string, revision int64) (*string, error)
+	ResumeRollout(namespace, name string) error
+	PauseRollout(namespace, name string) error
 }
 
 func NewDeploymentHandler(group, workspace string) (DeploymentHandler, error) {
@@ -413,7 +517,42 @@ func (h *deploymentHandler) Update(namespace string, resource *extensionsv1beta1
 }
 
 func (h *deploymentHandler) Delete(namespace, deploymentName string) error {
-	return h.clientset.ExtensionsV1beta1().Deployments(namespace).Delete(deploymentName, nil)
+	//	return h.clientset.ExtensionsV1beta1().Deployments(namespace).Delete(deploymentName, nil)
+	d, err := h.Get(namespace, deploymentName)
+	if err != nil {
+		return err
+	}
+	allOldRSs, newRs, err := h.GetAllReplicaSets(namespace, deploymentName)
+	allRSs := allOldRSs
+	if newRs != nil {
+		allRSs = append(allRSs, newRs)
+	}
+
+	err = h.clientset.ExtensionsV1beta1().Deployments(namespace).Delete(deploymentName, nil)
+	if err != nil {
+		return err
+	}
+
+	for _, v := range allRSs {
+		err := h.clientset.ExtensionsV1beta1().ReplicaSets(namespace).Delete(v.Name, nil)
+		if err != nil {
+			if !apierrors.IsNotFound(err) {
+				log.ErrorPrint(fmt.Sprintf("try to delete rs %v fail for %v", v.Name, err))
+			}
+		}
+	}
+
+	selector, err := metav1.LabelSelectorAsSelector(d.Spec.Selector)
+	if err != nil {
+		log.ErrorPrint(fmt.Sprintf("try to delete pods fail for %v", err))
+	}
+
+	opt := metav1.ListOptions{LabelSelector: selector.String()}
+	err = h.clientset.CoreV1().Pods(namespace).DeleteCollection(nil, opt)
+	if err != nil {
+		log.ErrorPrint(fmt.Sprintf("try to delete pods fail for %v", err))
+	}
+	return nil
 }
 
 func (h *deploymentHandler) Scale(namespace, name string, num int32) error {
@@ -469,6 +608,339 @@ func (h *deploymentHandler) GetPods(namespace, name string) ([]*corev1.Pod, erro
 	return pos, nil
 }
 
+func (h *deploymentHandler) Rollback(namespace, name string, revision int64) (*string, error) {
+	d, err := h.Get(namespace, name)
+	if err != nil {
+		return nil, err
+	}
+
+	if d.Spec.Paused {
+		return nil, fmt.Errorf("deployment is paused, cannot rollback")
+	}
+
+	rm, err := h.GetRevisionsAndDescribe(namespace, name)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(rm) == 0 {
+		s := fmt.Sprintf("not rollout history found")
+		return &s, nil
+	}
+
+	_, ok := rm[revision]
+	if !ok {
+		return nil, fmt.Errorf("revision is not found")
+	}
+
+	drb := &extensionsv1beta1.DeploymentRollback{
+		Name: name,
+		RollbackTo: extensionsv1beta1.RollbackConfig{
+			Revision: revision,
+		},
+	}
+
+	event, err := h.clientset.Events(namespace).List(metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	err = h.clientset.ExtensionsV1beta1().Deployments(namespace).Rollback(drb)
+	if err != nil {
+		return nil, err
+	}
+
+	watch, err := h.clientset.CoreV1().Events(namespace).Watch(metav1.ListOptions{Watch: true, ResourceVersion: event.ResourceVersion})
+	if err != nil {
+		return nil, err
+	}
+
+	result := ""
+	result = watchRollbackEvent(watch)
+
+	return &result, nil
+}
+
+func (h *deploymentHandler) Event(namespace, resourceName string) ([]corev1.Event, error) {
+	//	pod, err := h.clientset.Pods(namespace).Get(podName, metav1.GetOptions{})
+	selector := h.clientset.CoreV1().Events(namespace).GetFieldSelector(&resourceName, &namespace, nil, nil)
+	options := metav1.ListOptions{FieldSelector: selector.String()}
+	events, err2 := h.clientset.CoreV1().Events(namespace).List(options)
+	if err2 != nil {
+		return nil, err2
+	}
+
+	//获取不到Pod,但有Pod事件
+	sort.Sort(SortableEvents(events.Items))
+	return events.Items, nil
+}
+func (h *deploymentHandler) ResumeRollout(namespace, name string) error {
+	d, err := h.Get(namespace, name)
+	if err != nil {
+		return err
+	}
+
+	if !d.Spec.Paused {
+		return fmt.Errorf("deployments \"%v\" is not paused")
+	}
+	d.Spec.Paused = false
+	_, err = h.clientset.ExtensionsV1beta1().Deployments(namespace).Update(d)
+	if err != nil {
+		return err
+	}
+	return nil
+
+}
+
+func (h *deploymentHandler) PauseRollout(namespace, name string) error {
+	d, err := h.Get(namespace, name)
+	if err != nil {
+		return err
+	}
+
+	if d.Spec.Paused {
+		return fmt.Errorf("deployments \"%v\" is already paused")
+	}
+	d.Spec.Paused = true
+	_, err = h.clientset.ExtensionsV1beta1().Deployments(namespace).Update(d)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+func (h *deploymentHandler) Revision(namespace, name string) (*int64, error) {
+	d, err := h.Get(namespace, name)
+	if err != nil {
+		return nil, err
+	}
+	revision, err := GetCurrentDeploymentRevision(d)
+	if err != nil {
+		return nil, err
+	}
+
+	return &revision, nil
+}
+
+func (h *deploymentHandler) GetAllReplicaSets(namespace string, name string) ([]*extensionsv1beta1.ReplicaSet, *extensionsv1beta1.ReplicaSet, error) {
+	//func (h *deploymentHandler) GetAllReplicaSets(namespace string, name string) ([]*k8sextensions.ReplicaSet, *k8sextensions.ReplicaSet, error) {
+
+	internalExtensionClientset := extensions.New(h.clientset.ExtensionsV1beta1().RESTClient())
+	internalCoreClientset := core.New(h.clientset.CoreV1().RESTClient())
+	versionedClient := &externalclientset.Clientset{
+		CoreV1Client:            internalCoreClientset,
+		ExtensionsV1beta1Client: internalExtensionClientset,
+	}
+
+	deployment, err := versionedClient.Extensions().Deployments(namespace).Get(name, metav1.GetOptions{})
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to retrieve deployment %s: %v", name, err)
+	}
+	_, allOldRSs, newRS, err := deploymentutil.GetAllReplicaSets(deployment, versionedClient)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to retrieve replica sets from deployment %s: %v", name, err)
+	}
+
+	clientAllOldRSs := make([]*extensionsv1beta1.ReplicaSet, 0)
+	for _, v := range allOldRSs {
+		rs, err := h.informerController.replicasetInformer.Lister().ReplicaSets(namespace).Get(v.Name)
+		if err != nil {
+			return nil, nil, err
+		}
+		clientAllOldRSs = append(clientAllOldRSs, rs)
+	}
+
+	clientNewRSs, err := h.informerController.replicasetInformer.Lister().ReplicaSets(namespace).Get(newRS.Name)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return clientAllOldRSs, clientNewRSs, nil
+}
+
+func GetCurrentDeploymentRevision(d *extensionsv1beta1.Deployment) (int64, error) {
+	revisionStr, ok := d.Annotations[deploymentutil.RevisionAnnotation]
+	if !ok {
+		return 0, fmt.Errorf("revision doesn't exists")
+	}
+
+	revision, err := strconv.ParseInt(revisionStr, 10, 32)
+	if err != nil {
+		return 0, err
+	}
+	return revision, nil
+}
+
+func (h *deploymentHandler) GetRevisionsAndDescribe(namespace, name string) (map[int64]*corev1.PodTemplateSpec, error) {
+	allOldRSs, newRs, err := h.GetAllReplicaSets(namespace, name)
+	if err != nil {
+		return nil, err
+	}
+
+	allRSs := allOldRSs
+	if newRs != nil {
+		allRSs = append(allRSs, newRs)
+	}
+
+	revisionToSpec := make(map[int64]*corev1.PodTemplateSpec)
+	for _, rs := range allRSs {
+		v, err := deploymentutil.Revision(rs)
+		if err != nil {
+			log.ErrorPrint(err)
+			continue
+		}
+		revisionToSpec[v] = &rs.Spec.Template
+	}
+	return revisionToSpec, nil
+}
+
+func (h *deploymentHandler) GetRevisionsAndReplicas(namespace, name string) (map[int64]*extensionsv1beta1.ReplicaSet, error) {
+	allOldRSs, newRs, err := h.GetAllReplicaSets(namespace, name)
+	if err != nil {
+		return nil, err
+	}
+
+	allRSs := allOldRSs
+	if newRs != nil {
+		allRSs = append(allRSs, newRs)
+	}
+
+	revisionToReplicas := make(map[int64]*extensionsv1beta1.ReplicaSet)
+	for _, rs := range allRSs {
+		v, err := deploymentutil.Revision(rs)
+		if err != nil {
+			log.ErrorPrint(err)
+			continue
+		}
+		revisionToReplicas[v] = rs
+	}
+	return revisionToReplicas, nil
+
+}
+
+/* ------------------------ ReplicaSet---------------------------*/
+
+type ReplicaSetHandler interface {
+	Get(namespace string, name string) (*extensionsv1beta1.ReplicaSet, error)
+	Create(namespace string, cm *extensionsv1beta1.ReplicaSet) error
+	Delete(namespace string, name string) error
+	GetPods(namespace, name string) ([]*corev1.Pod, error)
+	Update(namespace string, resource *extensionsv1beta1.ReplicaSet) error
+	Scale(namespace, name string, num int32) error
+	Event(namespace, resourceName string) ([]corev1.Event, error)
+}
+
+func NewReplicaSetHandler(group, workspace string) (ReplicaSetHandler, error) {
+	Cluster, err := Controller.GetCluster(group, workspace)
+	if err != nil {
+		return nil, log.DebugPrint(err)
+	}
+
+	return &replicasetHandler{Cluster: Cluster}, nil
+}
+
+type replicasetHandler struct {
+	*Cluster
+}
+
+func (h *replicasetHandler) Get(namespace, name string) (*extensionsv1beta1.ReplicaSet, error) {
+	return h.informerController.replicasetInformer.Lister().ReplicaSets(namespace).Get(name)
+}
+
+func (h *replicasetHandler) Create(namespace string, replicaset *extensionsv1beta1.ReplicaSet) error {
+	_, err := h.clientset.ExtensionsV1beta1().ReplicaSets(namespace).Create(replicaset)
+	return err
+}
+
+func (h *replicasetHandler) Update(namespace string, resource *extensionsv1beta1.ReplicaSet) error {
+	_, err := h.clientset.ExtensionsV1beta1().ReplicaSets(namespace).Update(resource)
+	return err
+}
+
+func (h *replicasetHandler) Event(namespace, resourceName string) ([]corev1.Event, error) {
+	//	pod, err := h.clientset.Pods(namespace).Get(podName, metav1.GetOptions{})
+	selector := h.clientset.CoreV1().Events(namespace).GetFieldSelector(&resourceName, &namespace, nil, nil)
+	options := metav1.ListOptions{FieldSelector: selector.String()}
+	events, err2 := h.clientset.CoreV1().Events(namespace).List(options)
+	if err2 != nil {
+		return nil, err2
+	}
+
+	//获取不到Pod,但有Pod事件
+	sort.Sort(SortableEvents(events.Items))
+	return events.Items, nil
+}
+
+func (h *replicasetHandler) Delete(namespace, replicasetName string) error {
+	return h.clientset.ExtensionsV1beta1().ReplicaSets(namespace).Delete(replicasetName, nil)
+}
+func (h *replicasetHandler) GetPods(namespace, name string) ([]*corev1.Pod, error) {
+	d, err := h.informerController.replicasetInformer.Lister().ReplicaSets(namespace).Get(name)
+	if err != nil {
+		return nil, nil
+	}
+	//rsSelector := d.Spec.Selector.MatchLabels
+	rsSelector := d.Spec.Selector.MatchLabels
+	selector := labels.Set(rsSelector).AsSelector()
+
+	//	selector := labels.Set(rsSelector).AsSelector()
+	//opts := corev1.ListOptions{LabelSelector: selector.String()}
+	//po, err := h.clientset.ExtensionsV1beta1().Pods(namespace).List(opts)
+	pos, err := h.informerController.podInformer.Lister().List(selector)
+	if err != nil {
+		return nil, err
+	}
+
+	return pos, nil
+}
+func (h *replicasetHandler) Scale(namespace, replicasetName string, num int32) error {
+	rc, err := h.Get(namespace, replicasetName)
+	if err != nil {
+		return err
+	}
+
+	if rc.Spec.Replicas != nil {
+		if *rc.Spec.Replicas == num {
+			return nil
+		}
+	} else {
+		if num == 1 {
+			return nil
+		}
+	}
+
+	rc.Spec.Replicas = &num
+	oldrv := rc.ResourceVersion
+	rc.ResourceVersion = ""
+	err = h.Update(namespace, rc)
+	if err != nil {
+		return err
+	}
+
+	for {
+		newrc, err := h.Get(namespace, replicasetName)
+		if err != nil {
+			return err
+		}
+		if newrc.ResourceVersion == oldrv {
+			time.Sleep(500 * time.Microsecond)
+			continue
+		}
+
+		if *newrc.Spec.Replicas > newrc.Status.Replicas {
+			for _, v := range newrc.Status.Conditions {
+				if v.Type == extensionsv1beta1.ReplicaSetReplicaFailure {
+					if v.Status == corev1.ConditionTrue {
+						return fmt.Errorf(v.Message)
+					}
+				}
+			}
+		} else {
+			return nil
+		}
+	}
+	return nil
+}
+
 /*----------------- DaemonSet -----------------*/
 
 type DaemonSetHandler interface {
@@ -476,6 +948,11 @@ type DaemonSetHandler interface {
 	Create(namespace string, ds *extensionsv1beta1.DaemonSet) error
 	Delete(namespace string, name string) error
 	Update(namespace string, resource *extensionsv1beta1.DaemonSet) error
+	GetPods(namespace, name string) ([]*corev1.Pod, error)
+	Event(namespace, resourceName string) ([]corev1.Event, error)
+	Revision(namespace, name string) (int64, error)
+	GetRevisionsAndDescribe(namespace, name string) (map[int64]*corev1.PodTemplateSpec, error)
+	Rollback(namespace, name string, revision int64) (*string, error)
 }
 
 func NewDaemonSetHandler(group, workspace string) (DaemonSetHandler, error) {
@@ -507,6 +984,221 @@ func (h *daemonsetHandler) Delete(namespace, daemonsetName string) error {
 func (h *daemonsetHandler) Update(namespace string, resource *extensionsv1beta1.DaemonSet) error {
 	_, err := h.clientset.ExtensionsV1beta1().DaemonSets(namespace).Update(resource)
 	return err
+}
+
+func (h *daemonsetHandler) GetPods(namespace, name string) ([]*corev1.Pod, error) {
+	d, err := h.informerController.daemonsetInformer.Lister().DaemonSets(namespace).Get(name)
+	if err != nil {
+		return nil, nil
+	}
+	rsSelector := d.Spec.Selector.MatchLabels
+	selector := labels.Set(rsSelector).AsSelector()
+	//opts := corev1.ListOptions{LabelSelector: selector.String()}
+	//po, err := h.clientset.CoreV1().Pods(namespace).List(opts)
+	pos, err := h.informerController.podInformer.Lister().List(selector)
+	if err != nil {
+		return nil, err
+	}
+
+	return pos, nil
+}
+
+func (h *daemonsetHandler) Event(namespace, resourceName string) ([]corev1.Event, error) {
+	//	pod, err := h.clientset.Pods(namespace).Get(podName, metav1.GetOptions{})
+	selector := h.clientset.CoreV1().Events(namespace).GetFieldSelector(&resourceName, &namespace, nil, nil)
+	options := metav1.ListOptions{FieldSelector: selector.String()}
+	events, err2 := h.clientset.CoreV1().Events(namespace).List(options)
+	if err2 != nil {
+		return nil, err2
+	}
+
+	//获取不到Pod,但有Pod事件
+	sort.Sort(SortableEvents(events.Items))
+	return events.Items, nil
+}
+
+//参考自:k8s.io/kubernetes/pkg/kubectl/history.go
+func (h *daemonsetHandler) GetControllerRevisions(namespace, name string) (*extensionsv1beta1.DaemonSet, map[int64]*appv1beta1.ControllerRevision, error) {
+	/*
+		d, err := h.Get(namespace, name)
+		if err != nil {
+			return nil, err
+		}
+	*/
+	d, err := h.clientset.ExtensionsV1beta1().DaemonSets(namespace).Get(name, metav1.GetOptions{})
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var allHistory []*appv1beta1.ControllerRevision
+	selector, err := metav1.LabelSelectorAsSelector(d.Spec.Selector)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	historyList, err := h.clientset.AppsV1beta1().ControllerRevisions(namespace).List(metav1.ListOptions{LabelSelector: selector.String()})
+	if err != nil {
+		return nil, nil, err
+	}
+	for i := range historyList.Items {
+		history := historyList.Items[i]
+		// Skip history that doesn't belong to the DaemonSet
+		if controllerRef := controller.GetControllerOf(&history); controllerRef == nil || controllerRef.UID != d.UID {
+			continue
+		}
+		//		log.DebugPrint(string(history.Data.Raw))
+		//		log.DebugPrint(history.Data.Object)
+		allHistory = append(allHistory, &history)
+	}
+
+	historyInfo := make(map[int64]*appv1beta1.ControllerRevision)
+	for _, v := range allHistory {
+		historyInfo[v.Revision] = v
+	}
+
+	//	h.clientset.AppsV1beta1().ControllerRevisions(namespace).
+	return d, historyInfo, nil
+
+}
+func (h *daemonsetHandler) GetRevisionsAndDescribe(namespace, name string) (map[int64]*corev1.PodTemplateSpec, error) {
+	/*
+		d, err := h.clientset.ExtensionsV1beta1().DaemonSets(namespace).Get(name, metav1.GetOptions{})
+		if err != nil {
+			return nil, err
+		}
+	*/
+	/*
+		d, err := h.Get(namespace, name)
+		if err != nil {
+			return nil, err
+		}
+	*/
+	d, allHistory, err := h.GetControllerRevisions(namespace, name)
+	if err != nil {
+		return nil, err
+	}
+
+	historySpecInfo := make(map[int64]*corev1.PodTemplateSpec)
+	for _, v := range allHistory {
+		//	historyInfo[v.Revision] = v
+		dsOfHistory, err := applyHistory(d, v)
+		if err != nil {
+			return nil, fmt.Errorf("unable to parse history %s:%v", v.Name, err)
+		}
+		historySpecInfo[v.Revision] = &dsOfHistory.Spec.Template
+	}
+
+	//	h.clientset.AppsV1beta1().ControllerRevisions(namespace).
+	return historySpecInfo, nil
+
+}
+
+func (h *daemonsetHandler) Revision(namespace, name string) (int64, error) {
+	d, err := h.Get(namespace, name)
+	if err != nil {
+		return 0, err
+	}
+	return d.Generation, nil
+
+}
+func applyHistory(ds *extensionsv1beta1.DaemonSet, history *appv1beta1.ControllerRevision) (*extensionsv1beta1.DaemonSet, error) {
+	/*
+		obj, err := k8sapi.Scheme.New(ds.GroupVersionKind())
+		if err != nil {
+			return nil, err
+		}
+		_ = obj.(*extensionsv1beta1.DaemonSet)
+	*/
+	clone := &extensionsv1beta1.DaemonSet{}
+	cloneBytes, err := json.Marshal(clone)
+	if err != nil {
+		return nil, err
+	}
+	patched, err := strategicpatch.StrategicMergePatch(cloneBytes, history.Data.Raw, clone)
+	if err != nil {
+		return nil, err
+	}
+	err = json.Unmarshal(patched, clone)
+	if err != nil {
+		return nil, err
+	}
+	return clone, nil
+}
+
+//参考自:k8s.io/kubernetes/pkg/kubectl/rollback.go
+func (h *daemonsetHandler) Rollback(namespace, name string, revision int64) (*string, error) {
+	/*
+		d, err := h.Get(namespace, name)
+		if err != nil {
+			return nil, err
+		}
+	*/
+
+	d, allHistory, err := h.GetControllerRevisions(namespace, name)
+	if err != nil {
+		return nil, err
+	}
+	if len(allHistory) == 0 {
+		s := fmt.Sprintf("not rollout history found")
+		return &s, nil
+	}
+	toHistory, ok := allHistory[revision]
+	if !ok {
+		return nil, fmt.Errorf("revision is not found")
+	}
+
+	if revision == 0 && len(allHistory) <= 1 {
+		return nil, fmt.Errorf("no last revision to roll back to")
+	}
+
+	// Skip if the revision already matches current DaemonSet
+	done, err := Match(d, toHistory)
+	if err != nil {
+		return nil, err
+	}
+
+	rollbackSkipped := "skipped rollback"
+
+	if done {
+		s := fmt.Sprintf("%s (current template already matches revision %d)", rollbackSkipped, revision)
+		return &s, nil
+	}
+	if _, err = h.clientset.ExtensionsV1beta1().DaemonSets(namespace).Patch(name, types.StrategicMergePatchType, toHistory.Data.Raw); err != nil {
+		return nil, fmt.Errorf("failed restoring revision %d: %v", revision, err)
+	}
+	rollbackSuccess := "rolled back"
+	return &rollbackSuccess, nil
+}
+
+func Match(ds *extensionsv1beta1.DaemonSet, history *appv1beta1.ControllerRevision) (bool, error) {
+	patch, err := getPatch(ds)
+	if err != nil {
+		return false, err
+	}
+	return bytes.Equal(patch, history.Data.Raw), nil
+}
+
+func getPatch(ds *extensionsv1beta1.DaemonSet) ([]byte, error) {
+	dsBytes, err := json.Marshal(ds)
+	if err != nil {
+		return nil, err
+	}
+	var raw map[string]interface{}
+	err = json.Unmarshal(dsBytes, &raw)
+	if err != nil {
+		return nil, err
+	}
+	objCopy := make(map[string]interface{})
+	specCopy := make(map[string]interface{})
+
+	// Create a patch of the DaemonSet that replaces spec.template
+	spec := raw["spec"].(map[string]interface{})
+	template := spec["template"].(map[string]interface{})
+	specCopy["template"] = template
+	template["$patch"] = "replace"
+	objCopy["spec"] = specCopy
+	patch, err := json.Marshal(objCopy)
+	return patch, err
 }
 
 /* --------------- Ingress --------------*/
@@ -597,6 +1289,7 @@ type CronJobHandler interface {
 	Delete(namespace string, name string) error
 	Update(namespace string, resource *batchv2alpha1.CronJob) error
 	GetJobs(namespace, name string) ([]*batchv1.Job, error)
+	Event(namespace, resourceName string) ([]corev1.Event, error)
 }
 
 func NewCronJobHandler(group, workspace string) (CronJobHandler, error) {
@@ -678,6 +1371,20 @@ func (h *cronjobHandler) GetJobs(namespace, cronjobName string) ([]*batchv1.Job,
 	return jobs, nil
 }
 
+func (h *cronjobHandler) Event(namespace, resourceName string) ([]corev1.Event, error) {
+	//	pod, err := h.clientset.Pods(namespace).Get(podName, metav1.GetOptions{})
+	selector := h.clientset.CoreV1().Events(namespace).GetFieldSelector(&resourceName, &namespace, nil, nil)
+	options := metav1.ListOptions{FieldSelector: selector.String()}
+	events, err2 := h.clientset.CoreV1().Events(namespace).List(options)
+	if err2 != nil {
+		return nil, err2
+	}
+
+	//获取不到Pod,但有Pod事件
+	sort.Sort(SortableEvents(events.Items))
+	return events.Items, nil
+}
+
 /* ------------------------- Job ---------------------*/
 type JobHandler interface {
 	Get(namespace, name string) (*batchv1.Job, error)
@@ -685,6 +1392,7 @@ type JobHandler interface {
 	Delete(namespace string, name string) error
 	Update(namespace string, resource *batchv1.Job) error
 	GetPods(Namespace, name string) ([]*corev1.Pod, error)
+	Event(namespace, resourceName string) ([]corev1.Event, error)
 }
 
 func NewJobHandler(group, workspace string) (JobHandler, error) {
@@ -756,7 +1464,55 @@ func (h *jobHandler) GetPods(namespace, jobName string) ([]*corev1.Pod, error) {
 	}
 
 	return pods, nil
+}
+func (h *jobHandler) Event(namespace, resourceName string) ([]corev1.Event, error) {
+	//	pod, err := h.clientset.Pods(namespace).Get(podName, metav1.GetOptions{})
+	selector := h.clientset.CoreV1().Events(namespace).GetFieldSelector(&resourceName, &namespace, nil, nil)
+	options := metav1.ListOptions{FieldSelector: selector.String()}
+	events, err2 := h.clientset.CoreV1().Events(namespace).List(options)
+	if err2 != nil {
+		return nil, err2
+	}
 
+	//获取不到Pod,但有Pod事件
+	sort.Sort(SortableEvents(events.Items))
+	return events.Items, nil
 }
 
 /*  helpers */
+
+func watchRollbackEvent(w watch.Interface) string {
+	for {
+		select {
+		case event, ok := <-w.ResultChan():
+			if !ok {
+				return ""
+			}
+			obj, ok := event.Object.(*corev1.Event)
+			if !ok {
+				w.Stop()
+				return ""
+			}
+			isRollback, result := isRollbackEvent(obj)
+			if isRollback {
+				w.Stop()
+				return result
+			}
+			//		case <-signals:
+			//			w.Stop()
+		}
+	}
+}
+
+func isRollbackEvent(e *corev1.Event) (bool, string) {
+	rollbackEventReasons := []string{deploymentutil.RollbackRevisionNotFound, deploymentutil.RollbackTemplateUnchanged, deploymentutil.RollbackDone}
+	for _, reason := range rollbackEventReasons {
+		if e.Reason == reason {
+			if reason == deploymentutil.RollbackDone {
+				return true, "rolled back"
+			}
+			return true, fmt.Sprintf("skipped rollback (%s:%s)", e.Reason, e.Message)
+		}
+	}
+	return false, ""
+}

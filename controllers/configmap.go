@@ -3,20 +3,17 @@ package controllers
 import (
 	"encoding/json"
 	"fmt"
-	sk "ufleet-deploy/pkg/resource/configmap"
-	pk "ufleet-deploy/pkg/resource/statefulset"
+	"ufleet-deploy/pkg/resource"
+	pk "ufleet-deploy/pkg/resource/configmap"
+	"ufleet-deploy/pkg/user"
+
+	yaml "gopkg.in/yaml.v2"
+
+	corev1 "k8s.io/client-go/pkg/api/v1"
 )
 
 type ConfigMapController struct {
 	baseController
-}
-
-type ConfigMapState struct {
-	Name       string `json:"name"`
-	Group      string `json:"group"`
-	Workspace  string `json:"workspace"`
-	User       string `json:"user"`
-	CreateTime int64  `json:"createtime"`
 }
 
 // ListConfigMaps
@@ -29,22 +26,28 @@ type ConfigMapState struct {
 // @Failure 500
 // @router /group/:group/workspace/:workspace [Get]
 func (this *ConfigMapController) ListGroupWorkspaceConfigMaps() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
 
-	pis, err := sk.Controller.List(group, workspace)
+	pis, err := pk.Controller.List(group, workspace)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
 	}
-	configmaps := make([]sk.ConfigMap, 0)
+
+	jss := make([]pk.Status, 0)
 	for _, v := range pis {
-		t := v.Info()
-		configmaps = append(configmaps, *t)
+		js := v.GetStatus()
+		jss = append(jss, *js)
 	}
 
-	this.normalReturn(configmaps)
+	this.normalReturn(jss)
 }
 
 // ListGroupsConfigMaps
@@ -56,6 +59,11 @@ func (this *ConfigMapController) ListGroupWorkspaceConfigMaps() {
 // @Failure 500
 // @router /groups [Post]
 func (this *ConfigMapController) ListGroupsConfigMaps() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	groups := make([]string, 0)
 	if this.Ctx.Input.RequestBody == nil {
@@ -71,27 +79,23 @@ func (this *ConfigMapController) ListGroupsConfigMaps() {
 		return
 	}
 
-	pis := make([]sk.ConfigMapInterface, 0)
+	pis := make([]pk.ConfigMapInterface, 0)
 
 	for _, v := range groups {
-		tmp, err := sk.Controller.ListGroup(v)
+		tmp, err := pk.Controller.ListGroup(v)
 		if err != nil {
 			this.errReturn(err, 500)
 			return
 		}
 		pis = append(pis, tmp...)
 	}
-	pss := make([]ConfigMapState, 0)
+	jss := make([]pk.Status, 0)
 	for _, v := range pis {
-		var ps ConfigMapState
-		ps.Name = v.Info().Name
-		ps.Group = v.Info().Group
-		ps.Workspace = v.Info().Workspace
-		ps.User = v.Info().User
-
+		js := v.GetStatus()
+		jss = append(jss, *js)
 	}
 
-	this.normalReturn(pss)
+	this.normalReturn(jss)
 }
 
 // ListGroupConfigMaps
@@ -103,30 +107,32 @@ func (this *ConfigMapController) ListGroupsConfigMaps() {
 // @Failure 500
 // @router /group/:group [Get]
 func (this *ConfigMapController) ListGroupConfigMaps() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	group := this.Ctx.Input.Param(":group")
 
-	pis, err := sk.Controller.ListGroup(group)
+	pis, err := pk.Controller.ListGroup(group)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
 	}
-	pss := make([]ConfigMapState, 0)
-	for _, v := range pis {
-		var ps ConfigMapState
-		ps.Name = v.Info().Name
-		ps.Group = v.Info().Group
-		ps.Workspace = v.Info().Workspace
-		ps.User = v.Info().User
 
+	jss := make([]pk.Status, 0)
+	for _, v := range pis {
+		js := v.GetStatus()
+		jss = append(jss, *js)
 	}
 
-	this.normalReturn(pss)
+	this.normalReturn(jss)
 }
 
 // CreateConfigMap
 // @Title ConfigMap
-// @Description  创建容器组
+// @Description  创建配置
 // @Param Token header string true 'Token'
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
@@ -135,29 +141,131 @@ func (this *ConfigMapController) ListGroupConfigMaps() {
 // @Failure 500
 // @router /group/:group/workspace/:workspace [Post]
 func (this *ConfigMapController) CreateConfigMap() {
+	token := this.Ctx.Request.Header.Get("token")
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.audit(token, "", true)
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
-	//token := this.Ctx.Request.Header.Get("token")
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
 
 	if this.Ctx.Input.RequestBody == nil {
 		err := fmt.Errorf("must commit resource json/yaml data")
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
 
-	/*
-		ui := user.NewUserClient(token)
-		ui.GetUserName()
-	*/
-
-	var opt sk.CreateOptions
-	err := sk.Controller.Create(group, workspace, this.Ctx.Input.RequestBody, opt)
+	ui := user.NewUserClient(token)
+	who, err := ui.GetUserName()
 	if err != nil {
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
 
+	var opt resource.CreateOption
+	opt.User = who
+
+	err = pk.Controller.Create(group, workspace, this.Ctx.Input.RequestBody, opt)
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+
+	this.audit(token, "", false)
+	this.normalReturn("ok")
+}
+
+type ConfigMapCreateOption struct {
+	Comment string `json:"comment"`
+	//Data map[string]string `json:"data"`
+	Data string `json:"data"`
+	Name string `json:"name"`
+}
+
+// CreateConfigMapV1
+// @Title ConfigMap
+// @Description  创建配置
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Param workspace path string true "工作区"
+// @Param body body string true "资源描述"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /group/:group/workspace/:workspace/custom [Post]
+func (this *ConfigMapController) CreateConfigMapCustom() {
+	token := this.Ctx.Request.Header.Get("token")
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.audit(token, "", true)
+		this.abilityErrorReturn(aerr)
+		return
+	}
+
+	group := this.Ctx.Input.Param(":group")
+	workspace := this.Ctx.Input.Param(":workspace")
+
+	if this.Ctx.Input.RequestBody == nil {
+		err := fmt.Errorf("must commit resource json/yaml data")
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+	var co ConfigMapCreateOption
+	err := json.Unmarshal(this.Ctx.Input.RequestBody, &co)
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+
+	data := make(map[string]string)
+	err = yaml.Unmarshal([]byte(co.Data), &data)
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+
+	cm := corev1.ConfigMap{}
+	cm.Name = co.Name
+	//	cm.Data = co.Data
+	cm.Data = data
+	cm.Kind = "ConfigMap"
+	cm.APIVersion = "v1"
+
+	bytedata, err := json.Marshal(cm)
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+
+	ui := user.NewUserClient(token)
+	who, err := ui.GetUserName()
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+
+	var opt resource.CreateOption
+	opt.Comment = co.Comment
+	opt.User = who
+
+	err = pk.Controller.Create(group, workspace, bytedata, opt)
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+
+	this.audit(token, "", false)
 	this.normalReturn("ok")
 }
 
@@ -167,22 +275,31 @@ func (this *ConfigMapController) CreateConfigMap() {
 // @Param Token header string true 'Token'
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
-// @Param configmap path string true "容器组"
+// @Param configmap path string true "配置"
 // @Success 201 {string} create success!
 // @Failure 500
 // @router /:configmap/group/:group/workspace/:workspace [Delete]
 func (this *ConfigMapController) DeleteConfigMap() {
+	token := this.Ctx.Request.Header.Get("token")
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.audit(token, "", true)
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
 	configmap := this.Ctx.Input.Param(":configmap")
 
-	err := sk.Controller.Delete(group, workspace, configmap, sk.DeleteOption{})
+	err := pk.Controller.Delete(group, workspace, configmap, resource.DeleteOption{})
 	if err != nil {
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
 
+	this.audit(token, configmap, false)
 	this.normalReturn("ok")
 }
 
@@ -198,6 +315,13 @@ func (this *ConfigMapController) DeleteConfigMap() {
 // @Failure 500
 // @router /:configmap/group/:group/workspace/:workspace [Put]
 func (this *ConfigMapController) UpdateConfigMap() {
+	token := this.Ctx.Request.Header.Get("token")
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.audit(token, "", true)
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	//token := this.Ctx.Request.Header.Get("token")
 	group := this.Ctx.Input.Param(":group")
@@ -206,21 +330,19 @@ func (this *ConfigMapController) UpdateConfigMap() {
 
 	if this.Ctx.Input.RequestBody == nil {
 		err := fmt.Errorf("must commit resource json/yaml data")
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
-
-	/*
-		ui := user.NewUserClient(token)
-		ui.GetUserName()
-	*/
 
 	err := pk.Controller.Update(group, workspace, configmap, this.Ctx.Input.RequestBody)
 	if err != nil {
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
 
+	this.audit(token, configmap, false)
 	this.normalReturn("ok")
 }
 
@@ -230,17 +352,22 @@ func (this *ConfigMapController) UpdateConfigMap() {
 // @Param Token header string true 'Token'
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
-// @Param configmap path string true "容器组"
+// @Param configmap path string true "配置"
 // @Success 201 {string} create success!
 // @Failure 500
 // @router /:configmap/group/:group/workspace/:workspace/template [Get]
 func (this *ConfigMapController) GetConfigMapTemplate() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
 	configmap := this.Ctx.Input.Param(":configmap")
 
-	pi, err := sk.Controller.Get(group, workspace, configmap)
+	pi, err := pk.Controller.Get(group, workspace, configmap)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
@@ -253,4 +380,39 @@ func (this *ConfigMapController) GetConfigMapTemplate() {
 	}
 
 	this.normalReturn(t)
+}
+
+// GetConfigMapContainerEvents
+// @Title ConfigMap
+// @Description   ConfigMap container event
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Param workspace path string true "工作区"
+// @Param configmap path string true "容器组"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /:configmap/group/:group/workspace/:workspace/event [Get]
+func (this *ConfigMapController) GetConfigMapEvent() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
+
+	group := this.Ctx.Input.Param(":group")
+	workspace := this.Ctx.Input.Param(":workspace")
+	configmap := this.Ctx.Input.Param(":configmap")
+
+	pi, err := pk.Controller.Get(group, workspace, configmap)
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+	es, err := pi.Event()
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+
+	this.normalReturn(es)
 }

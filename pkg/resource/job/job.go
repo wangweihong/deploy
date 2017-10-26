@@ -8,8 +8,10 @@ import (
 	"ufleet-deploy/pkg/backend"
 	"ufleet-deploy/pkg/cluster"
 	"ufleet-deploy/pkg/log"
+	"ufleet-deploy/pkg/resource"
 	pk "ufleet-deploy/pkg/resource/pod"
 	"ufleet-deploy/pkg/resource/util"
+	"ufleet-deploy/pkg/sign"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 
@@ -19,22 +21,13 @@ import (
 
 var (
 	rm *JobManager
-	/* = &JobManager{
-		Groups: make(map[string]JobGroup),
-		locker: sync.Mutex{},
-	}
-	*/
-	Controller JobController
 
-	ErrResourceNotFound  = fmt.Errorf("resource not found")
-	ErrResourceExists    = fmt.Errorf("resource has exists")
-	ErrWorkspaceNotFound = fmt.Errorf("workspace not found")
-	ErrGroupNotFound     = fmt.Errorf("group not found")
+	Controller JobController
 )
 
 type JobController interface {
-	Create(group, workspace string, data []byte, opt CreateOptions) error
-	Delete(group, workspace, job string, opt DeleteOption) error
+	Create(group, workspace string, data []byte, opt resource.CreateOption) error
+	Delete(group, workspace, job string, opt resource.DeleteOption) error
 	Get(group, workspace, job string) (JobInterface, error)
 	List(group, workspace string) ([]JobInterface, error)
 	Update(group, workspace, resource string, newdata []byte) error
@@ -46,6 +39,7 @@ type JobInterface interface {
 	GetRuntime() (*Runtime, error)
 	GetStatus() (*Status, error)
 	GetTemplate() (string, error)
+	Event() ([]corev1.Event, error)
 	//	Runtime()
 }
 
@@ -72,24 +66,8 @@ type Runtime struct {
 //在Job构建到内存的时候,就开始绑定K8s资源,
 //可以根据事件及时更新Job的信息
 type Job struct {
-	Name       string `json:"name"`
-	Workspace  string `json:"workspace"`
-	Group      string `json:"group"`
-	AppStack   string `json:"app"`
-	User       string `json:"user"`
-	Cluster    string `json:"cluster"`
-	Template   string `json:"template"`
-	CreateTime int64  `json:"createtime"`
-	memoryOnly bool   //用于判定pod是否由k8s自动创建
-}
-
-type GetOptions struct{}
-type DeleteOption struct{}
-type CreateOptions struct {
-	//	MemoryOnly bool    //只在内存中创建,不创建k8s资源/也不保存在etcd中.由k8s daemonset/job等主动创建的资源.
-	//废弃,直接通过JobManager来调用
-	App  *string //所属app
-	User string  //创建的用户
+	resource.ObjectMeta
+	memoryOnly bool //用于判定pod是否由k8s自动创建
 }
 
 //注意这里没锁
@@ -97,17 +75,17 @@ func (p *JobManager) get(groupName, workspaceName, resourceName string) (*Job, e
 
 	group, ok := p.Groups[groupName]
 	if !ok {
-		return nil, ErrGroupNotFound
+		return nil, resource.ErrGroupNotFound
 	}
 
 	workspace, ok := group.Workspaces[workspaceName]
 	if !ok {
-		return nil, ErrWorkspaceNotFound
+		return nil, resource.ErrWorkspaceNotFound
 	}
 
 	job, ok := workspace.Jobs[resourceName]
 	if !ok {
-		return nil, ErrResourceNotFound
+		return nil, resource.ErrResourceNotFound
 	}
 
 	return &job, nil
@@ -125,7 +103,7 @@ func (p *JobManager) ListGroup(groupName string) ([]JobInterface, error) {
 
 	group, ok := p.Groups[groupName]
 	if !ok {
-		return nil, fmt.Errorf("%v:%v", ErrGroupNotFound, groupName)
+		return nil, fmt.Errorf("%v:%v", resource.ErrGroupNotFound, groupName)
 	}
 
 	pis := make([]JobInterface, 0)
@@ -145,12 +123,12 @@ func (p *JobManager) List(groupName, workspaceName string) ([]JobInterface, erro
 
 	group, ok := p.Groups[groupName]
 	if !ok {
-		return nil, fmt.Errorf("%v:%v", ErrGroupNotFound, groupName)
+		return nil, fmt.Errorf("%v:%v", resource.ErrGroupNotFound, groupName)
 	}
 
 	workspace, ok := group.Workspaces[workspaceName]
 	if !ok {
-		return nil, fmt.Errorf("%v:group/%v,workspace/%v", ErrWorkspaceNotFound, groupName, workspaceName)
+		return nil, fmt.Errorf("%v:group/%v,workspace/%v", resource.ErrWorkspaceNotFound, groupName, workspaceName)
 	}
 
 	pis := make([]JobInterface, 0)
@@ -164,7 +142,7 @@ func (p *JobManager) List(groupName, workspaceName string) ([]JobInterface, erro
 	return pis, nil
 }
 
-func (p *JobManager) Create(groupName, workspaceName string, data []byte, opt CreateOptions) error {
+func (p *JobManager) Create(groupName, workspaceName string, data []byte, opt resource.CreateOption) error {
 
 	p.locker.Lock()
 	defer p.locker.Unlock()
@@ -181,25 +159,28 @@ func (p *JobManager) Create(groupName, workspaceName string, data []byte, opt Cr
 	if len(exts) != 1 {
 		return log.DebugPrint("must offer one  resource json/yaml data")
 	}
-	var job batchv1.Job
-	err = json.Unmarshal(exts[0].Raw, &job)
+	var obj batchv1.Job
+	err = json.Unmarshal(exts[0].Raw, &obj)
 	if err != nil {
 		return log.DebugPrint(err)
 	}
 
-	if job.Kind != "Job" {
+	if obj.Kind != "Job" {
 		return log.DebugPrint("must offer one  resource json/yaml data")
 	}
+	obj.ResourceVersion = ""
+	obj.Annotations = make(map[string]string)
+	obj.Annotations[sign.SignFromUfleetKey] = sign.SignFromUfleetValue
 
 	var cp Job
 	cp.CreateTime = time.Now().Unix()
-	cp.Name = job.Name
+	cp.Name = obj.Name
 	cp.Group = groupName
 	cp.Workspace = workspaceName
 	cp.Template = string(data)
 	cp.User = opt.User
 	if opt.App != nil {
-		cp.AppStack = *opt.App
+		cp.App = *opt.App
 	}
 
 	be := backend.NewBackendHandler()
@@ -208,7 +189,7 @@ func (p *JobManager) Create(groupName, workspaceName string, data []byte, opt Cr
 		return log.DebugPrint(err)
 	}
 
-	err = ph.Create(workspaceName, &job)
+	err = ph.Create(workspaceName, &obj)
 	if err != nil {
 		err2 := be.DeleteResource(backendKind, groupName, workspaceName, cp.Name)
 		if err2 != nil {
@@ -223,11 +204,11 @@ func (p *JobManager) Create(groupName, workspaceName string, data []byte, opt Cr
 func (p *JobManager) delete(groupName, workspaceName, resourceName string) error {
 	group, ok := p.Groups[groupName]
 	if !ok {
-		return ErrGroupNotFound
+		return resource.ErrGroupNotFound
 	}
 	workspace, ok := group.Workspaces[workspaceName]
 	if !ok {
-		return ErrWorkspaceNotFound
+		return resource.ErrWorkspaceNotFound
 	}
 
 	delete(workspace.Jobs, resourceName)
@@ -236,19 +217,20 @@ func (p *JobManager) delete(groupName, workspaceName, resourceName string) error
 	return nil
 }
 
-func (p *JobManager) Delete(group, workspace, resourceName string, opt DeleteOption) error {
+func (p *JobManager) Delete(group, workspace, resourceName string, opt resource.DeleteOption) error {
 	p.locker.Lock()
 	defer p.locker.Unlock()
 	ph, err := cluster.NewJobHandler(group, workspace)
 	if err != nil {
 		return log.DebugPrint(err)
 	}
-	job, err := p.get(group, workspace, resourceName)
+
+	res, err := p.get(group, workspace, resourceName)
 	if err != nil {
 		return log.DebugPrint(err)
 	}
 
-	if job.memoryOnly {
+	if res.memoryOnly {
 
 		//触发集群控制器来删除内存中的数据
 		err = ph.Delete(workspace, resourceName)
@@ -269,6 +251,19 @@ func (p *JobManager) Delete(group, workspace, resourceName string, opt DeleteOpt
 			if !apierrors.IsNotFound(err) {
 				return log.DebugPrint(err)
 			}
+		}
+		if !opt.DontCallApp && res.App != "" {
+			go func() {
+				var re resource.ResourceEvent
+				re.Group = group
+				re.Workspace = workspace
+				re.Kind = resourceKind
+				re.Action = resource.ResourceActionDelete
+				re.Resource = res.Name
+				re.App = res.App
+
+				resource.ResourceEventChan <- re
+			}()
 		}
 		return nil
 
@@ -334,23 +329,25 @@ func (j *Job) GetRuntime() (*Runtime, error) {
 }
 
 type Status struct {
-	Name        string   `json:"name"`
-	User        string   `json:"user"`
-	Workspace   string   `json:"workspace"`
-	Group       string   `json:"group"`
-	Images      []string `json:"images"`
-	Containers  []string `json:"containers"`
-	PodNum      int      `json:"podnum"`
-	ClusterIP   string   `json:"clusterip"`
-	CompleteNum int      `json:"completenum"`
-	ParamNum    int      `json:"paramnum"`
-	Succeeded   int      `json:"succeeded"`
-	Failed      int      `json:"failed"`
-	CreateTime  int64    `json:"createtime"`
-	StartTime   int64    `json:"starttime"`
-	Reason      string   `json:"reason"`
+	resource.ObjectMeta
+	Images      []string          `json:"images"`
+	Containers  []string          `json:"containers"`
+	PodNum      int               `json:"podnum"`
+	ClusterIP   string            `json:"clusterip"`
+	CompleteNum int               `json:"completenum"`
+	ParamNum    int               `json:"paramnum"`
+	Succeeded   int               `json:"succeeded"`
+	Failed      int               `json:"failed"`
+	CreateTime  int64             `json:"createtime"`
+	StartTime   int64             `json:"starttime"`
+	Labels      map[string]string `json:"labels"`
+	Selector    map[string]string `json:"selector"`
+	Reason      string            `json:"reason"`
+	//-1表示没有设置
+	ActiveDeadlineSeconds int64 `json:"activeDeadlineSeconds"`
 	//	Pods       []string `json:"pods"`
-	PodStatus []pk.Status `json:"podstatus"`
+	PodStatus      []pk.Status        `json:"podstatus"`
+	ContainerSpecs []pk.ContainerSpec `json:"containerspec"`
 }
 
 //不包含PodStatus的信息
@@ -359,6 +356,13 @@ func K8sJobToJobStatus(job *batchv1.Job) *Status {
 	js.Name = job.Name
 	js.Images = make([]string, 0)
 	js.PodStatus = make([]pk.Status, 0)
+	js.Labels = make(map[string]string)
+	js.Selector = make(map[string]string)
+
+	js.Labels = job.Labels
+	if job.Spec.Selector != nil {
+		js.Selector = job.Spec.Selector.MatchLabels
+	}
 	js.CreateTime = job.CreationTimestamp.Unix()
 	if job.Spec.Parallelism != nil {
 		js.ParamNum = int(*job.Spec.Parallelism)
@@ -371,12 +375,21 @@ func K8sJobToJobStatus(job *batchv1.Job) *Status {
 		js.StartTime = job.Status.StartTime.Unix()
 	}
 
+	if job.Spec.ActiveDeadlineSeconds != nil {
+		js.ActiveDeadlineSeconds = *job.Spec.ActiveDeadlineSeconds
+	} else {
+		//表示没有设置
+		js.ActiveDeadlineSeconds = -1
+	}
+
 	js.Succeeded = int(job.Status.Succeeded)
 	js.Failed = int(job.Status.Failed)
 
+	js.ContainerSpecs = make([]pk.ContainerSpec, 0)
 	for _, v := range job.Spec.Template.Spec.Containers {
 		js.Containers = append(js.Containers, v.Name)
 		js.Images = append(js.Images, v.Image)
+		js.ContainerSpecs = append(js.ContainerSpecs, *pk.K8sContainerSpecTran(&v))
 	}
 	return &js
 
@@ -399,6 +412,10 @@ func (j *Job) GetStatus() (*Status, error) {
 	js.Group = info.Group
 	js.Workspace = info.Workspace
 
+	if js.CreateTime == 0 {
+		js.CreateTime = runtime.Job.CreationTimestamp.Unix()
+	}
+
 	for _, v := range runtime.Pods {
 		ps := pk.V1PodToPodStatus(*v)
 		js.PodStatus = append(js.PodStatus, *ps)
@@ -417,9 +434,19 @@ func (j *Job) GetTemplate() (string, error) {
 	if err != nil {
 		return "", log.DebugPrint(err)
 	}
+	prefix := "apiVersion: batch/v1\nkind: Job"
+	*t = fmt.Sprintf("%v\n%v", prefix, *t)
 
 	return *t, nil
 
+}
+func (j *Job) Event() ([]corev1.Event, error) {
+	ph, err := cluster.NewJobHandler(j.Group, j.Workspace)
+	if err != nil {
+		return nil, log.DebugPrint(err)
+	}
+
+	return ph.Event(j.Workspace, j.Name)
 }
 
 func InitJobController(be backend.BackendHandler) (JobController, error) {
@@ -450,7 +477,6 @@ func InitJobController(be backend.BackendHandler) (JobController, error) {
 		}
 		rm.Groups[k] = group
 	}
-	log.DebugPrint(rm)
 	return rm, nil
 
 }

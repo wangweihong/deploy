@@ -9,7 +9,9 @@ import (
 	"ufleet-deploy/pkg/backend"
 	"ufleet-deploy/pkg/cluster"
 	"ufleet-deploy/pkg/log"
+	"ufleet-deploy/pkg/resource"
 	"ufleet-deploy/pkg/resource/util"
+	"ufleet-deploy/pkg/sign"
 	cadvisor "ufleet-deploy/util/cadvisor"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -21,16 +23,11 @@ import (
 var (
 	rm         *PodManager
 	Controller PodController
-
-	ErrResourceNotFound  = fmt.Errorf("resource not found")
-	ErrResourceExists    = fmt.Errorf("resource has exists")
-	ErrWorkspaceNotFound = fmt.Errorf("workspace not found")
-	ErrGroupNotFound     = fmt.Errorf("group not found")
 )
 
 type PodController interface {
-	Create(group, workspace string, data []byte, opt CreateOptions) error
-	Delete(group, workspace, pod string, opt DeleteOption) error
+	Create(group, workspace string, data []byte, opt resource.CreateOption) error
+	Delete(group, workspace, pod string, opt resource.DeleteOption) error
 	Get(group, workspace, pod string) (PodInterface, error)
 	Update(group, workspace, resource string, newdata []byte) error
 	List(group, workspace string) ([]PodInterface, error)
@@ -81,32 +78,22 @@ type Pod struct {
 	memoryOnly bool
 }
 
-type GetOptions struct{}
-type DeleteOption struct{}
-
-type CreateOptions struct {
-	//	MemoryOnly bool    //只在内存中创建,不创建k8s资源/也不保存在etcd中.由k8s daemonset/deployment等主动创建的资源.
-	//废弃,直接通过PodManager来调用
-	App  *string //所属app
-	User string  //创建的用户
-}
-
 //注意这里没锁
 func (p *PodManager) get(groupName, workspaceName, podName string) (*Pod, error) {
 
 	group, ok := p.Groups[groupName]
 	if !ok {
-		return nil, ErrGroupNotFound
+		return nil, resource.ErrGroupNotFound
 	}
 
 	workspace, ok := group.Workspaces[workspaceName]
 	if !ok {
-		return nil, ErrWorkspaceNotFound
+		return nil, resource.ErrWorkspaceNotFound
 	}
 
 	pod, ok := workspace.Pods[podName]
 	if !ok {
-		return nil, ErrResourceNotFound
+		return nil, resource.ErrResourceNotFound
 	}
 
 	return &pod, nil
@@ -125,12 +112,12 @@ func (p *PodManager) List(groupName, workspaceName string) ([]PodInterface, erro
 
 	group, ok := p.Groups[groupName]
 	if !ok {
-		return nil, fmt.Errorf("%v:%v", ErrGroupNotFound, groupName)
+		return nil, fmt.Errorf("%v:%v", resource.ErrGroupNotFound, groupName)
 	}
 
 	workspace, ok := group.Workspaces[workspaceName]
 	if !ok {
-		return nil, fmt.Errorf("%v:group/%v,workspace/%v", ErrWorkspaceNotFound, groupName, workspaceName)
+		return nil, fmt.Errorf("%v:group/%v,workspace/%v", resource.ErrWorkspaceNotFound, groupName, workspaceName)
 	}
 
 	pis := make([]PodInterface, 0)
@@ -151,7 +138,7 @@ func (p *PodManager) ListGroup(groupName string) ([]PodInterface, error) {
 
 	group, ok := p.Groups[groupName]
 	if !ok {
-		return nil, fmt.Errorf("%v:%v", ErrGroupNotFound, groupName)
+		return nil, fmt.Errorf("%v:%v", resource.ErrGroupNotFound, groupName)
 	}
 
 	pis := make([]PodInterface, 0)
@@ -167,7 +154,7 @@ func (p *PodManager) ListGroup(groupName string) ([]PodInterface, error) {
 	return pis, nil
 }
 
-func (p *PodManager) Create(groupName, workspaceName string, data []byte, opt CreateOptions) error {
+func (p *PodManager) Create(groupName, workspaceName string, data []byte, opt resource.CreateOption) error {
 
 	p.locker.Lock()
 	defer p.locker.Unlock()
@@ -185,19 +172,22 @@ func (p *PodManager) Create(groupName, workspaceName string, data []byte, opt Cr
 		return log.DebugPrint("must  offer  one  resource json/yaml data")
 	}
 
-	var pod corev1.Pod
-	err = json.Unmarshal(exts[0].Raw, &pod)
+	var obj corev1.Pod
+	err = json.Unmarshal(exts[0].Raw, &obj)
 	if err != nil {
 		return log.DebugPrint(err)
 	}
 
-	if pod.Kind != "Pod" {
+	if obj.Kind != "Pod" {
 		return log.DebugPrint("must and  offer one resource json/yaml data")
 	}
+	obj.ResourceVersion = ""
+	obj.Annotations = make(map[string]string)
+	obj.Annotations[sign.SignFromUfleetKey] = sign.SignFromUfleetValue
 
 	var cp Pod
 	cp.CreateTime = time.Now().Unix()
-	cp.Name = pod.Name
+	cp.Name = obj.Name
 	cp.Workspace = workspaceName
 	cp.Group = groupName
 	cp.Template = string(data)
@@ -205,14 +195,14 @@ func (p *PodManager) Create(groupName, workspaceName string, data []byte, opt Cr
 		cp.AppStack = *opt.App
 	}
 	cp.User = opt.User
-	//因为pod创建时,触发informer,所以优先创建etcd
+	//因为obj创建时,触发informer,所以优先创建etcd
 	be := backend.NewBackendHandler()
 	err = be.CreateResource(backendKind, groupName, workspaceName, cp.Name, cp)
 	if err != nil {
 		return log.DebugPrint(err)
 	}
 
-	err = ph.Create(workspaceName, &pod)
+	err = ph.Create(workspaceName, &obj)
 	if err != nil {
 		err2 := be.DeleteResource(backendKind, groupName, workspaceName, cp.Name)
 		if err2 != nil {
@@ -229,14 +219,25 @@ func (p *PodManager) Update(groupName, workspaceName string, resourceName string
 	p.locker.Lock()
 	defer p.locker.Unlock()
 
+	log.DebugPrint("%v %v %v", groupName, workspaceName, resourceName)
 	_, err := p.get(groupName, workspaceName, resourceName)
 	if err != nil {
-		return err
+		return log.DebugPrint(err)
+	}
+
+	exts, err := util.ParseJsonOrYaml(data)
+	if err != nil {
+		return log.DebugPrint(err)
+	}
+	if len(exts) != 1 {
+		return log.DebugPrint("must  offer only one  resource json/yaml data")
 	}
 
 	//说明是主动创建的..
 	var newr corev1.Pod
-	err = util.GetObjectFromYamlTemplate(data, &newr)
+	//	err = util.GetObjectFromYamlTemplate(data, &newr)
+	//	err = util.GetObjectFromYamlTemplate(exts[0].Raw, &newr)
+	err = json.Unmarshal(exts[0].Raw, &newr)
 	if err != nil {
 		return log.DebugPrint(err)
 	}
@@ -263,11 +264,11 @@ func (p *PodManager) Update(groupName, workspaceName string, resourceName string
 func (p *PodManager) delete(groupName, workspaceName, podName string) error {
 	group, ok := p.Groups[groupName]
 	if !ok {
-		return ErrGroupNotFound
+		return resource.ErrGroupNotFound
 	}
 	workspace, ok := group.Workspaces[workspaceName]
 	if !ok {
-		return ErrWorkspaceNotFound
+		return resource.ErrWorkspaceNotFound
 	}
 
 	delete(workspace.Pods, podName)
@@ -276,7 +277,7 @@ func (p *PodManager) delete(groupName, workspaceName, podName string) error {
 	return nil
 }
 
-func (p *PodManager) Delete(group, workspace, podName string, opt DeleteOption) error {
+func (p *PodManager) Delete(group, workspace, podName string, opt resource.DeleteOption) error {
 	ph, err := cluster.NewPodHandler(group, workspace)
 	if err != nil {
 		return log.DebugPrint(err)
@@ -303,12 +304,27 @@ func (p *PodManager) Delete(group, workspace, podName string, opt DeleteOption) 
 		if err != nil {
 			return log.DebugPrint(err)
 		}
+
 		err = ph.Delete(workspace, podName)
 		if err != nil {
 			if !apierrors.IsNotFound(err) {
 				return log.DebugPrint(err)
 			}
 		}
+		if !opt.DontCallApp && pod.AppStack != "" {
+			go func() {
+				var re resource.ResourceEvent
+				re.Group = group
+				re.Workspace = workspace
+				re.Kind = resourceKind
+				re.Action = resource.ResourceActionDelete
+				re.Resource = podName
+				re.App = pod.AppStack
+
+				resource.ResourceEventChan <- re
+			}()
+		}
+
 		return nil
 	}
 }
@@ -355,9 +371,10 @@ type Status struct {
 	Phase             string            `json:"phase"`
 	IP                string            `json:"ip"`
 	HostIP            string            `json:"hostip"`
-	StartTime         int64             `json:"starttime"`
+	CreateTime        int64             `json:"createtime"`
 	Running           int               `json:"running"`
 	Total             int               `json:"total"`
+	ID                string            `json:"id"`
 	Restarts          int               `json:"restarts"`
 	Labels            map[string]string `json:"labels"`
 	Annotations       map[string]string `json:"annotations"`
@@ -399,7 +416,7 @@ type Probe struct {
 	Type string `json:"type"`
 }
 
-func k8sContainerSpecTran(cspec *corev1.Container) *ContainerSpec {
+func K8sContainerSpecTran(cspec *corev1.Container) *ContainerSpec {
 	cs := new(ContainerSpec)
 	cs.Command = make([]string, 0)
 	cs.Args = make([]string, 0)
@@ -483,6 +500,7 @@ func V1PodToPodStatus(pod corev1.Pod) *Status {
 	s.Phase = string(ps.Phase)
 	s.IP = ps.PodIP
 	s.Containers = make([]string, 0)
+	s.ID = string(pod.UID)
 	s.Total = len(pod.Spec.Containers)
 	s.HostIP = ps.HostIP
 	s.Labels = make(map[string]string)
@@ -498,10 +516,10 @@ func V1PodToPodStatus(pod corev1.Pod) *Status {
 	s.RestartPolicy = string(pod.Spec.RestartPolicy)
 
 	if ps.StartTime != nil {
-		s.StartTime = ps.StartTime.Unix()
+		s.CreateTime = ps.StartTime.Unix()
 	}
 	for _, v := range pod.Spec.Containers {
-		cs := k8sContainerSpecTran(&v)
+		cs := K8sContainerSpecTran(&v)
 		s.ContainerSpecs = append(s.ContainerSpecs, *cs)
 		s.Containers = append(s.Containers, v.Name)
 
@@ -542,6 +560,8 @@ func (p *Pod) GetTemplate() (string, error) {
 	if err != nil {
 		return "", log.DebugPrint(err)
 	}
+	prefix := "apiVersion: v1\nkind: Pod"
+	*t = fmt.Sprintf("%v\n%v", prefix, *t)
 
 	return *t, nil
 }

@@ -8,30 +8,24 @@ import (
 	"ufleet-deploy/pkg/backend"
 	"ufleet-deploy/pkg/cluster"
 	"ufleet-deploy/pkg/log"
+	"ufleet-deploy/pkg/resource"
 	"ufleet-deploy/pkg/resource/util"
+	"ufleet-deploy/pkg/sign"
+
+	"github.com/ghodss/yaml"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	corev1 "k8s.io/client-go/pkg/api/v1"
 )
 
 var (
-	rm *ConfigMapManager
-	/* = &ConfigMapManager{
-		Groups: make(map[string]ConfigMapGroup),
-		locker: sync.Mutex{},
-	}
-	*/
+	rm         *ConfigMapManager
 	Controller ConfigMapController
-
-	ErrResourceNotFound  = fmt.Errorf("resource not found")
-	ErrResourceExists    = fmt.Errorf("resource has exists")
-	ErrWorkspaceNotFound = fmt.Errorf("workspace not found")
-	ErrGroupNotFound     = fmt.Errorf("group not found")
 )
 
 type ConfigMapController interface {
-	Create(group, workspace string, data []byte, opt CreateOptions) error
-	Delete(group, workspace, configmap string, opt DeleteOption) error
+	Create(group, workspace string, data []byte, opt resource.CreateOption) error
+	Delete(group, workspace, configmap string, opt resource.DeleteOption) error
 	Get(group, workspace, configmap string) (ConfigMapInterface, error)
 	Update(group, workspace, resource string, newdata []byte) error
 	List(group, workspace string) ([]ConfigMapInterface, error)
@@ -42,6 +36,8 @@ type ConfigMapInterface interface {
 	Info() *ConfigMap
 	GetRuntime() (*Runtime, error)
 	GetTemplate() (string, error)
+	GetStatus() *Status
+	Event() ([]corev1.Event, error)
 }
 
 type ConfigMapManager struct {
@@ -66,26 +62,9 @@ type Runtime struct {
 //在ConfigMap构建到内存的时候,就开始绑定K8s资源,
 //可以根据事件及时更新ConfigMap的信息
 type ConfigMap struct {
-	Name       string `json:"name"`
-	Workspace  string `json:"workspace"`
-	Group      string `json:"group"`
-	AppStack   string `json:"app"`
-	User       string `json:"user"`
+	resource.ObjectMeta
 	Cluster    string `json:"cluster"`
-	CreateTime int64  `json:"createtime"`
-	Template   string `json:"template"`
 	memoryOnly bool
-}
-
-type GetOptions struct {
-}
-type DeleteOption struct{}
-
-type CreateOptions struct {
-	//	MemoryOnly bool    //只在内存中创建,不创建k8s资源/也不保存在etcd中.由k8s daemonset/deployment等主动创建的资源.
-	//废弃,直接通过ConfigMapManager来调用
-	App  *string //所属app
-	User string  //创建的用户
 }
 
 //注意这里没锁
@@ -93,17 +72,17 @@ func (p *ConfigMapManager) get(groupName, workspaceName, resourceName string) (*
 
 	group, ok := p.Groups[groupName]
 	if !ok {
-		return nil, ErrGroupNotFound
+		return nil, resource.ErrGroupNotFound
 	}
 
 	workspace, ok := group.Workspaces[workspaceName]
 	if !ok {
-		return nil, ErrWorkspaceNotFound
+		return nil, resource.ErrWorkspaceNotFound
 	}
 
 	configmap, ok := workspace.ConfigMaps[resourceName]
 	if !ok {
-		return nil, ErrResourceNotFound
+		return nil, resource.ErrResourceNotFound
 	}
 
 	return &configmap, nil
@@ -122,12 +101,12 @@ func (p *ConfigMapManager) List(groupName, workspaceName string) ([]ConfigMapInt
 
 	group, ok := p.Groups[groupName]
 	if !ok {
-		return nil, fmt.Errorf("%v:%v", ErrGroupNotFound, groupName)
+		return nil, fmt.Errorf("%v:%v", resource.ErrGroupNotFound, groupName)
 	}
 
 	workspace, ok := group.Workspaces[workspaceName]
 	if !ok {
-		return nil, fmt.Errorf("%v:group/%v,workspace/%v", ErrWorkspaceNotFound, groupName, workspaceName)
+		return nil, fmt.Errorf("%v:group/%v,workspace/%v", resource.ErrWorkspaceNotFound, groupName, workspaceName)
 	}
 
 	pis := make([]ConfigMapInterface, 0)
@@ -148,7 +127,7 @@ func (p *ConfigMapManager) ListGroup(groupName string) ([]ConfigMapInterface, er
 
 	group, ok := p.Groups[groupName]
 	if !ok {
-		return nil, fmt.Errorf("%v:%v", ErrGroupNotFound, groupName)
+		return nil, fmt.Errorf("%v:%v", resource.ErrGroupNotFound, groupName)
 	}
 
 	pis := make([]ConfigMapInterface, 0)
@@ -164,7 +143,7 @@ func (p *ConfigMapManager) ListGroup(groupName string) ([]ConfigMapInterface, er
 	return pis, nil
 }
 
-func (p *ConfigMapManager) Create(groupName, workspaceName string, data []byte, opt CreateOptions) error {
+func (p *ConfigMapManager) Create(groupName, workspaceName string, data []byte, opt resource.CreateOption) error {
 
 	p.locker.Lock()
 	defer p.locker.Unlock()
@@ -182,24 +161,29 @@ func (p *ConfigMapManager) Create(groupName, workspaceName string, data []byte, 
 		return log.DebugPrint("must  offer  one  resource json/yaml data")
 	}
 
-	var svc corev1.ConfigMap
-	err = json.Unmarshal(exts[0].Raw, &svc)
+	var obj corev1.ConfigMap
+	err = json.Unmarshal(exts[0].Raw, &obj)
 	if err != nil {
 		return log.DebugPrint(err)
 	}
 
-	if svc.Kind != "ConfigMap" {
+	if obj.Kind != "ConfigMap" {
 		return log.DebugPrint("must and  offer one resource json/yaml data")
 	}
 
+	obj.ResourceVersion = ""
+	obj.Annotations = make(map[string]string)
+	obj.Annotations[sign.SignFromUfleetKey] = sign.SignFromUfleetValue
+
 	var cp ConfigMap
 	cp.CreateTime = time.Now().Unix()
-	cp.Name = svc.Name
+	cp.Name = obj.Name
+	cp.Comment = opt.Comment
 	cp.Workspace = workspaceName
 	cp.Group = groupName
 	cp.Template = string(data)
 	if opt.App != nil {
-		cp.AppStack = *opt.App
+		cp.App = *opt.App
 	}
 	cp.User = opt.User
 	//因为pod创建时,触发informer,所以优先创建etcd
@@ -209,7 +193,7 @@ func (p *ConfigMapManager) Create(groupName, workspaceName string, data []byte, 
 		return log.DebugPrint(err)
 	}
 
-	err = ph.Create(workspaceName, &svc)
+	err = ph.Create(workspaceName, &obj)
 	if err != nil {
 		err2 := be.DeleteResource(backendKind, groupName, workspaceName, cp.Name)
 		if err2 != nil {
@@ -258,11 +242,11 @@ func (p *ConfigMapManager) Update(groupName, workspaceName string, resourceName 
 func (p *ConfigMapManager) delete(groupName, workspaceName, resourceName string) error {
 	group, ok := p.Groups[groupName]
 	if !ok {
-		return ErrGroupNotFound
+		return resource.ErrGroupNotFound
 	}
 	workspace, ok := group.Workspaces[workspaceName]
 	if !ok {
-		return ErrWorkspaceNotFound
+		return resource.ErrWorkspaceNotFound
 	}
 
 	delete(workspace.ConfigMaps, resourceName)
@@ -271,19 +255,19 @@ func (p *ConfigMapManager) delete(groupName, workspaceName, resourceName string)
 	return nil
 }
 
-func (p *ConfigMapManager) Delete(group, workspace, resourceName string, opt DeleteOption) error {
+func (p *ConfigMapManager) Delete(group, workspace, resourceName string, opt resource.DeleteOption) error {
 	p.locker.Lock()
 	defer p.locker.Unlock()
 	ph, err := cluster.NewConfigMapHandler(group, workspace)
 	if err != nil {
 		return log.DebugPrint(err)
 	}
-	configmap, err := p.get(group, workspace, resourceName)
+	res, err := p.get(group, workspace, resourceName)
 	if err != nil {
 		return log.DebugPrint(err)
 	}
 
-	if configmap.memoryOnly {
+	if res.memoryOnly {
 
 		//触发集群控制器来删除内存中的数据
 		err = ph.Delete(workspace, resourceName)
@@ -304,7 +288,20 @@ func (p *ConfigMapManager) Delete(group, workspace, resourceName string, opt Del
 				return log.DebugPrint(err)
 			}
 		}
-		return nil
+
+		if !opt.DontCallApp && res.App != "" {
+			go func() {
+				var re resource.ResourceEvent
+				re.Group = group
+				re.Workspace = workspace
+				re.Kind = resourceKind
+				re.Action = resource.ResourceActionDelete
+				re.Resource = res.Name
+				re.App = res.App
+
+				resource.ResourceEventChan <- re
+			}()
+		}
 		return nil
 	}
 }
@@ -335,8 +332,49 @@ func (s *ConfigMap) GetTemplate() (string, error) {
 	if err != nil {
 		return "", log.DebugPrint(err)
 	}
+
+	prefix := "apiVersion: v1\nkind: ConfigMap"
+	*t = fmt.Sprintf("%v\n%v", prefix, *t)
 	return *t, nil
 
+}
+
+type Status struct {
+	resource.ObjectMeta
+	Reason     string            `json:"reason"`
+	Data       map[string]string `json:"data"`
+	DataString string            `json:"datastring"`
+}
+
+func (s *ConfigMap) GetStatus() *Status {
+
+	js := Status{ObjectMeta: s.ObjectMeta}
+	js.Data = make(map[string]string)
+	js.Comment = s.Comment
+
+	runtime, err := s.GetRuntime()
+	if err != nil {
+		js.Reason = err.Error()
+		return &js
+	}
+	if js.CreateTime == 0 {
+		js.CreateTime = runtime.CreationTimestamp.Unix()
+	}
+
+	bc, err := yaml.Marshal(runtime.Data)
+	if err != nil {
+		js.Reason = err.Error()
+		return &js
+
+	}
+	js.DataString = string(bc)
+	js.Data = runtime.Data
+
+	return &js
+}
+func (s *ConfigMap) Event() ([]corev1.Event, error) {
+	e := make([]corev1.Event, 0)
+	return e, nil
 }
 
 func InitConfigMapController(be backend.BackendHandler) (ConfigMapController, error) {

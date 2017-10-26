@@ -8,37 +8,44 @@ import (
 	"ufleet-deploy/pkg/backend"
 	"ufleet-deploy/pkg/cluster"
 	"ufleet-deploy/pkg/log"
+	"ufleet-deploy/pkg/resource"
 	"ufleet-deploy/pkg/resource/util"
+	"ufleet-deploy/pkg/sign"
+
+	pk "ufleet-deploy/pkg/resource/pod"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	corev1 "k8s.io/client-go/pkg/api/v1"
 	extensionsv1beta1 "k8s.io/client-go/pkg/apis/extensions/v1beta1"
 )
 
 var (
-	rm *DeploymentManager
-	/* = &DeploymentManager{
-		Groups: make(map[string]DeploymentGroup),
-		locker: sync.Mutex{},
-	}
-	*/
+	rm         *DeploymentManager
 	Controller DeploymentController
-
-	ErrResourceNotFound  = fmt.Errorf("resource not found")
-	ErrResourceExists    = fmt.Errorf("resource has exists")
-	ErrWorkspaceNotFound = fmt.Errorf("workspace not found")
-	ErrGroupNotFound     = fmt.Errorf("group not found")
 )
 
 type DeploymentController interface {
-	Create(group, workspace string, data []byte, opt CreateOptions) error
-	Delete(group, workspace, deployment string, opt DeleteOption) error
+	Create(group, workspace string, data []byte, opt resource.CreateOption) error
+	Delete(group, workspace, deployment string, opt resource.DeleteOption) error
 	Get(group, workspace, deployment string) (DeploymentInterface, error)
 	Update(group, workspace, resource string, newdata []byte) error
 	List(group, workspace string) ([]DeploymentInterface, error)
+	ListGroup(groupName string) ([]DeploymentInterface, error)
 }
 
 type DeploymentInterface interface {
 	Info() *Deployment
+	GetRuntime() (*Runtime, error)
+	GetStatus() *Status
+	Scale(num int) error
+	Event() ([]corev1.Event, error)
+	GetTemplate() (string, error)
+	GetAllReplicaSets() (map[int64]*extensionsv1beta1.ReplicaSet, error)
+	GetRevisionsAndDescribe() (map[int64]string, error)
+	Rollback(revision int64) (*string, error)
+	GetAutoScale() (*HPA, error)
+	StartAutoScale(min int, max int, cpuPercent int, memPercent int, diskPercent int, NetPercent int) error
+	ResumeOrPauseRollOut() error
 }
 
 type DeploymentManager struct {
@@ -54,8 +61,9 @@ type DeploymentWorkspace struct {
 	Deployments map[string]Deployment `json:"deployments"`
 }
 
-type DeploymentRuntime struct {
-	*extensionsv1beta1.Deployment
+type Runtime struct {
+	Deployment *extensionsv1beta1.Deployment
+	Pods       []*corev1.Pod
 }
 
 //TODO:是否可以添加一个特定的只存于内存的标记位
@@ -63,26 +71,19 @@ type DeploymentRuntime struct {
 //在Deployment构建到内存的时候,就开始绑定K8s资源,
 //可以根据事件及时更新Deployment的信息
 type Deployment struct {
-	Name       string `json:"name"`
-	Workspace  string `json:"workspace"`
-	Group      string `json:"group"`
-	AppStack   string `json:"app"`
-	User       string `json:"user"`
-	Cluster    string `json:"cluster"`
-	CreateTime int64  `json:"createtime"`
-	Template   string `json:"template"`
+	resource.ObjectMeta
 	memoryOnly bool
+	AutoScaler HPA `json:"autoscaler"`
 }
 
-type GetOptions struct {
-}
-type DeleteOption struct{}
-
-type CreateOptions struct {
-	//	MemoryOnly bool    //只在内存中创建,不创建k8s资源/也不保存在etcd中.由k8s daemonset/deployment等主动创建的资源.
-	//废弃,直接通过DeploymentManager来调用
-	App  *string //所属app
-	User string  //创建的用户
+type HPA struct {
+	Deployed      bool `json:"deployed"`
+	CpuPercernt   int  `json:"cpuPercent"`
+	MemoryPercent int  `json:"memPercent"`
+	DiskPercent   int  `json:"diskPercent"`
+	NetPercent    int  `json:"netPercent"`
+	MinReplicas   int  `json:"minReplicas"`
+	MaxReplicas   int  `json:"maxReplicas"`
 }
 
 //注意这里没锁
@@ -90,17 +91,17 @@ func (p *DeploymentManager) get(groupName, workspaceName, resourceName string) (
 
 	group, ok := p.Groups[groupName]
 	if !ok {
-		return nil, ErrGroupNotFound
+		return nil, resource.ErrGroupNotFound
 	}
 
 	workspace, ok := group.Workspaces[workspaceName]
 	if !ok {
-		return nil, ErrWorkspaceNotFound
+		return nil, resource.ErrWorkspaceNotFound
 	}
 
 	deployment, ok := workspace.Deployments[resourceName]
 	if !ok {
-		return nil, ErrResourceNotFound
+		return nil, resource.ErrResourceNotFound
 	}
 
 	return &deployment, nil
@@ -119,12 +120,12 @@ func (p *DeploymentManager) List(groupName, workspaceName string) ([]DeploymentI
 
 	group, ok := p.Groups[groupName]
 	if !ok {
-		return nil, fmt.Errorf("%v:%v", ErrGroupNotFound, groupName)
+		return nil, fmt.Errorf("%v:%v", resource.ErrGroupNotFound, groupName)
 	}
 
 	workspace, ok := group.Workspaces[workspaceName]
 	if !ok {
-		return nil, fmt.Errorf("%v:group/%v,workspace/%v", ErrWorkspaceNotFound, groupName, workspaceName)
+		return nil, fmt.Errorf("%v:group/%v,workspace/%v", resource.ErrWorkspaceNotFound, groupName, workspaceName)
 	}
 
 	pis := make([]DeploymentInterface, 0)
@@ -138,7 +139,26 @@ func (p *DeploymentManager) List(groupName, workspaceName string) ([]DeploymentI
 	return pis, nil
 }
 
-func (p *DeploymentManager) Create(groupName, workspaceName string, data []byte, opt CreateOptions) error {
+func (p *DeploymentManager) ListGroup(groupName string) ([]DeploymentInterface, error) {
+	p.locker.Lock()
+	defer p.locker.Unlock()
+
+	group, ok := p.Groups[groupName]
+	if !ok {
+		return nil, fmt.Errorf("%v:%v", resource.ErrGroupNotFound, groupName)
+	}
+
+	pis := make([]DeploymentInterface, 0)
+	for _, v := range group.Workspaces {
+		for k := range v.Deployments {
+			t := v.Deployments[k]
+			pis = append(pis, &t)
+		}
+	}
+	return pis, nil
+}
+
+func (p *DeploymentManager) Create(groupName, workspaceName string, data []byte, opt resource.CreateOption) error {
 
 	p.locker.Lock()
 	defer p.locker.Unlock()
@@ -156,24 +176,27 @@ func (p *DeploymentManager) Create(groupName, workspaceName string, data []byte,
 		return log.DebugPrint("must  offer  one  resource json/yaml data")
 	}
 
-	var svc extensionsv1beta1.Deployment
-	err = json.Unmarshal(exts[0].Raw, &svc)
+	var obj extensionsv1beta1.Deployment
+	err = json.Unmarshal(exts[0].Raw, &obj)
 	if err != nil {
 		return log.DebugPrint(err)
 	}
 
-	if svc.Kind != "Deployment" {
+	if obj.Kind != "Deployment" {
 		return log.DebugPrint("must and  offer one resource json/yaml data")
 	}
+	obj.ResourceVersion = ""
+	obj.Annotations = make(map[string]string)
+	obj.Annotations[sign.SignFromUfleetKey] = sign.SignFromUfleetValue
 
 	var cp Deployment
 	cp.CreateTime = time.Now().Unix()
-	cp.Name = svc.Name
+	cp.Name = obj.Name
 	cp.Workspace = workspaceName
 	cp.Group = groupName
 	cp.Template = string(data)
 	if opt.App != nil {
-		cp.AppStack = *opt.App
+		cp.App = *opt.App
 	}
 	cp.User = opt.User
 	//因为pod创建时,触发informer,所以优先创建etcd
@@ -183,7 +206,7 @@ func (p *DeploymentManager) Create(groupName, workspaceName string, data []byte,
 		return log.DebugPrint(err)
 	}
 
-	err = ph.Create(workspaceName, &svc)
+	err = ph.Create(workspaceName, &obj)
 	if err != nil {
 		err2 := be.DeleteResource(backendKind, groupName, workspaceName, cp.Name)
 		if err2 != nil {
@@ -199,11 +222,11 @@ func (p *DeploymentManager) Create(groupName, workspaceName string, data []byte,
 func (p *DeploymentManager) delete(groupName, workspaceName, resourceName string) error {
 	group, ok := p.Groups[groupName]
 	if !ok {
-		return ErrGroupNotFound
+		return resource.ErrGroupNotFound
 	}
 	workspace, ok := group.Workspaces[workspaceName]
 	if !ok {
-		return ErrWorkspaceNotFound
+		return resource.ErrWorkspaceNotFound
 	}
 
 	delete(workspace.Deployments, resourceName)
@@ -212,19 +235,20 @@ func (p *DeploymentManager) delete(groupName, workspaceName, resourceName string
 	return nil
 }
 
-func (p *DeploymentManager) Delete(group, workspace, resourceName string, opt DeleteOption) error {
+func (p *DeploymentManager) Delete(group, workspace, resourceName string, opt resource.DeleteOption) error {
 	p.locker.Lock()
 	defer p.locker.Unlock()
 	ph, err := cluster.NewDeploymentHandler(group, workspace)
 	if err != nil {
 		return log.DebugPrint(err)
 	}
-	deployment, err := p.get(group, workspace, resourceName)
+
+	res, err := p.get(group, workspace, resourceName)
 	if err != nil {
 		return log.DebugPrint(err)
 	}
 
-	if deployment.memoryOnly {
+	if res.memoryOnly {
 
 		//触发集群控制器来删除内存中的数据
 		err = ph.Delete(workspace, resourceName)
@@ -245,10 +269,46 @@ func (p *DeploymentManager) Delete(group, workspace, resourceName string, opt De
 				return log.DebugPrint(err)
 			}
 		}
+		if !opt.DontCallApp && res.App != "" {
+			go func() {
+				var re resource.ResourceEvent
+				re.Group = group
+				re.Workspace = workspace
+				re.Kind = resourceKind
+				re.Action = resource.ResourceActionDelete
+				re.Resource = res.Name
+				re.App = res.App
+
+				resource.ResourceEventChan <- re
+			}()
+		}
 		return nil
 	}
 }
+func (p *DeploymentManager) update(groupName, workspaceName string, resourceName string, d *Deployment) error {
 
+	//	p.locker.Lock()
+	//	defer p.locker.Unlock()
+
+	group, ok := p.Groups[groupName]
+	if !ok {
+		return resource.ErrGroupNotFound
+	}
+
+	workspace, ok := group.Workspaces[workspaceName]
+	if !ok {
+		return resource.ErrWorkspaceNotFound
+	}
+
+	_, ok = workspace.Deployments[resourceName]
+	if !ok {
+		return resource.ErrResourceNotFound
+	}
+	workspace.Deployments[resourceName] = *d
+	group.Workspaces[workspaceName] = workspace
+	rm.Groups[groupName] = group
+	return nil
+}
 func (p *DeploymentManager) Update(groupName, workspaceName string, resourceName string, data []byte) error {
 	p.locker.Lock()
 	defer p.locker.Unlock()
@@ -287,6 +347,328 @@ func (deployment *Deployment) Info() *Deployment {
 	return deployment
 }
 
+func (j *Deployment) GetRuntime() (*Runtime, error) {
+	ph, err := cluster.NewDeploymentHandler(j.Group, j.Workspace)
+	if err != nil {
+		return nil, log.DebugPrint(err)
+	}
+	deployment, err := ph.Get(j.Workspace, j.Name)
+	if err != nil {
+		return nil, log.DebugPrint(err)
+	}
+
+	pods, err := ph.GetPods(j.Workspace, j.Name)
+	if err != nil {
+		return nil, log.DebugPrint(err)
+	}
+	var runtime Runtime
+	runtime.Pods = pods
+	runtime.Deployment = deployment
+	return &runtime, nil
+}
+
+type Status struct {
+	resource.ObjectMeta
+
+	Images     []string `json:"images"`
+	Containers []string `json:"containers"`
+	PodNum     int      `json:"podnum"`
+	ClusterIP  string   `json:"clusterip"`
+	//Replicas    int32             `json:"replicas"`
+	Strategy    extensionsv1beta1.DeploymentStrategy `json:"Strategy"`
+	Desire      int                                  `json:"desire"`
+	Current     int                                  `json:"current"`
+	Available   int                                  `json:"available"`
+	UpToDate    int                                  `json:"uptodate"`
+	Ready       int                                  `json:"ready"`
+	Labels      map[string]string                    `json:"labels"`
+	Annotations map[string]string                    `json:"annotations"`
+	Selectors   map[string]string                    `json:"selectors"`
+	Reason      string                               `json:"reason"`
+	timeout     int64                                `json:"timemout"`
+	Paused      bool                                 `json:"paused"`
+	Revision    int64                                `json:"revision"`
+	//	Pods       []string `json:"pods"`
+	PodStatus      []pk.Status        `json:"podstatus"`
+	ContainerSpecs []pk.ContainerSpec `json:"containerspecs"`
+	extensionsv1beta1.DeploymentStatus
+}
+
+//不包含PodStatus的信息
+func K8sDeploymentToDeploymentStatus(deployment *extensionsv1beta1.Deployment) *Status {
+	js := Status{DeploymentStatus: deployment.Status}
+	js.Name = deployment.Name
+	js.Images = make([]string, 0)
+	js.PodStatus = make([]pk.Status, 0)
+	js.ContainerSpecs = make([]pk.ContainerSpec, 0)
+	js.CreateTime = deployment.CreationTimestamp.Unix()
+	if deployment.Spec.Replicas != nil {
+		js.Replicas = *deployment.Spec.Replicas
+	}
+
+	js.Strategy = deployment.Spec.Strategy
+	js.Labels = make(map[string]string)
+	if deployment.Labels != nil {
+		js.Labels = deployment.Labels
+	}
+
+	js.Annotations = make(map[string]string)
+	if deployment.Annotations != nil {
+		js.Labels = deployment.Annotations
+	}
+
+	js.Selectors = make(map[string]string)
+	if deployment.Spec.Selector != nil {
+		js.Selectors = deployment.Spec.Selector.MatchLabels
+	}
+
+	if deployment.Spec.Replicas != nil {
+		js.Desire = int(*deployment.Spec.Replicas)
+	} else {
+		js.Desire = 1
+
+	}
+
+	js.Paused = deployment.Spec.Paused
+
+	js.Current = int(deployment.Status.AvailableReplicas)
+	js.Ready = int(deployment.Status.ReadyReplicas)
+	js.Available = int(deployment.Status.AvailableReplicas)
+	js.UpToDate = int(deployment.Status.UpdatedReplicas)
+
+	for _, v := range deployment.Spec.Template.Spec.Containers {
+		js.Containers = append(js.Containers, v.Name)
+		js.Images = append(js.Images, v.Image)
+		js.ContainerSpecs = append(js.ContainerSpecs, *pk.K8sContainerSpecTran(&v))
+	}
+	return &js
+
+}
+
+func (j *Deployment) GetStatus() *Status {
+	runtime, err := j.GetRuntime()
+	if err != nil {
+		js := Status{ObjectMeta: j.ObjectMeta}
+		js.Images = make([]string, 0)
+		js.PodStatus = make([]pk.Status, 0)
+		js.ContainerSpecs = make([]pk.ContainerSpec, 0)
+		js.Labels = make(map[string]string)
+		js.Annotations = make(map[string]string)
+		js.Selectors = make(map[string]string)
+		js.Reason = err.Error()
+
+		return &js
+	}
+
+	revision, err := cluster.GetCurrentDeploymentRevision(runtime.Deployment)
+	if err != nil {
+		js := Status{ObjectMeta: j.ObjectMeta}
+		js.Images = make([]string, 0)
+		js.PodStatus = make([]pk.Status, 0)
+		js.ContainerSpecs = make([]pk.ContainerSpec, 0)
+		js.Labels = make(map[string]string)
+		js.Annotations = make(map[string]string)
+		js.Selectors = make(map[string]string)
+		js.Reason = fmt.Errorf("get revision failed for %v", err).Error()
+
+		return &js
+	}
+
+	deployment := runtime.Deployment
+	js := Status{ObjectMeta: j.ObjectMeta, DeploymentStatus: deployment.Status}
+	js.Revision = revision
+	js.Images = make([]string, 0)
+	js.PodStatus = make([]pk.Status, 0)
+	js.ContainerSpecs = make([]pk.ContainerSpec, 0)
+	js.Labels = make(map[string]string)
+	js.Annotations = make(map[string]string)
+	js.Selectors = make(map[string]string)
+
+	if js.CreateTime == 0 {
+		js.CreateTime = deployment.CreationTimestamp.Unix()
+	}
+
+	if deployment.Spec.Replicas != nil {
+		js.Replicas = *deployment.Spec.Replicas
+	}
+	if deployment.Labels != nil {
+		js.Labels = deployment.Labels
+	}
+	if deployment.Annotations != nil {
+		js.Annotations = deployment.Annotations
+	}
+
+	if deployment.Spec.Selector != nil {
+		js.Selectors = deployment.Spec.Selector.MatchLabels
+	}
+
+	if deployment.Spec.Replicas != nil {
+		js.Desire = int(*deployment.Spec.Replicas)
+	} else {
+		js.Desire = 1
+
+	}
+	js.Current = int(deployment.Status.AvailableReplicas)
+	js.Ready = int(deployment.Status.ReadyReplicas)
+	js.Available = int(deployment.Status.AvailableReplicas)
+	js.UpToDate = int(deployment.Status.UpdatedReplicas)
+
+	for _, v := range deployment.Spec.Template.Spec.Containers {
+		js.Containers = append(js.Containers, v.Name)
+		js.Images = append(js.Images, v.Image)
+		js.ContainerSpecs = append(js.ContainerSpecs, *pk.K8sContainerSpecTran(&v))
+	}
+	js.PodNum = len(runtime.Pods)
+	if js.PodNum != 0 {
+		pod := runtime.Pods[0]
+		js.ClusterIP = pod.Status.HostIP
+	}
+
+	for _, v := range runtime.Pods {
+		ps := pk.V1PodToPodStatus(*v)
+		js.PodStatus = append(js.PodStatus, *ps)
+	}
+
+	return &js
+}
+
+func (j *Deployment) Scale(num int) error {
+
+	jh, err := cluster.NewDeploymentHandler(j.Group, j.Workspace)
+	if err != nil {
+		return err
+	}
+
+	err = jh.Scale(j.Workspace, j.Name, int32(num))
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+func (j *Deployment) Event() ([]corev1.Event, error) {
+	ph, err := cluster.NewDeploymentHandler(j.Group, j.Workspace)
+	if err != nil {
+		return nil, log.DebugPrint(err)
+	}
+
+	return ph.Event(j.Workspace, j.Name)
+}
+
+func (j *Deployment) GetTemplate() (string, error) {
+	runtime, err := j.GetRuntime()
+	if err != nil {
+		return "", log.DebugPrint(err)
+	}
+
+	t, err := util.GetYamlTemplateFromObject(runtime.Deployment)
+	if err != nil {
+		return "", log.DebugPrint(err)
+	}
+	prefix := "apiVersion: extensions/v1beta1\nkind: Deployment"
+	*t = fmt.Sprintf("%v\n%v", prefix, *t)
+
+	return *t, nil
+}
+
+func (j *Deployment) GetAllReplicaSets() (map[int64]*extensionsv1beta1.ReplicaSet, error) {
+	ph, err := cluster.NewDeploymentHandler(j.Group, j.Workspace)
+	if err != nil {
+		return nil, log.DebugPrint(err)
+	}
+	rm, err := ph.GetRevisionsAndReplicas(j.Workspace, j.Name)
+	if err != nil {
+		return nil, log.DebugPrint(err)
+	}
+	return rm, nil
+
+}
+
+func (j *Deployment) GetRevisionsAndDescribe() (map[int64]string, error) {
+	ph, err := cluster.NewDeploymentHandler(j.Group, j.Workspace)
+	if err != nil {
+		return nil, log.DebugPrint(err)
+	}
+	rm, err := ph.GetRevisionsAndDescribe(j.Workspace, j.Name)
+	if err != nil {
+		return nil, log.DebugPrint(err)
+	}
+	rs := make(map[int64]string, 0)
+	for k, v := range rm {
+		str, err := json.Marshal(v)
+		if err != nil {
+			return nil, log.DebugPrint(err)
+		}
+		rs[k] = string(str)
+	}
+
+	return rs, nil
+}
+
+func (j *Deployment) Rollback(revision int64) (*string, error) {
+	ph, err := cluster.NewDeploymentHandler(j.Group, j.Workspace)
+	if err != nil {
+		return nil, log.DebugPrint(err)
+	}
+	return ph.Rollback(j.Workspace, j.Name, revision)
+
+}
+
+//需要加锁
+func (j *Deployment) StartAutoScale(min int, max int, cpuPercent int, memPercent int, diskPercent int, NetPercent int) error {
+
+	j.AutoScaler.Deployed = true
+	j.AutoScaler.CpuPercernt = cpuPercent
+	j.AutoScaler.MemoryPercent = memPercent
+	j.AutoScaler.NetPercent = NetPercent
+	j.AutoScaler.DiskPercent = diskPercent
+	j.AutoScaler.MaxReplicas = max
+	j.AutoScaler.MinReplicas = min
+
+	if j.memoryOnly != true {
+
+		be := backend.NewBackendHandler()
+		err := be.UpdateResource(backendKind, j.Group, j.Workspace, j.Name, j)
+		if err != nil {
+			return log.DebugPrint(err)
+		}
+	} else {
+		/*
+			rm.locker.Lock()
+			defer rm.locker.Unlock()
+			err := rm.update(j.Group, j.Workspace, j.Name, j)
+			if err != nil {
+				return err
+			}
+
+		*/
+		return fmt.Errorf("deployment is not created by ufleet directly doesn't support autoscale")
+	}
+	return nil
+}
+
+func (j *Deployment) GetAutoScale() (*HPA, error) {
+	return &j.AutoScaler, nil
+}
+
+func (j *Deployment) ResumeOrPauseRollOut() error {
+	runtime, err := j.GetRuntime()
+	if err != nil {
+		return err
+	}
+
+	ph, err := cluster.NewDeploymentHandler(j.Group, j.Workspace)
+	if err != nil {
+		return log.DebugPrint(err)
+	}
+
+	if runtime.Deployment.Spec.Paused {
+		return ph.ResumeRollout(j.Workspace, j.Name)
+	} else {
+		return ph.PauseRollout(j.Workspace, j.Name)
+	}
+
+}
 func InitDeploymentController(be backend.BackendHandler) (DeploymentController, error) {
 	rm = &DeploymentManager{}
 	rm.Groups = make(map[string]DeploymentGroup)

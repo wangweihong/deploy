@@ -17,6 +17,8 @@ var (
 	SecretEventChan                = make(chan Event)
 
 	DeploymentEventChan = make(chan Event)
+	ReplicaSetEventChan = make(chan Event)
+	RelicaSetEventChan  = make(chan Event)
 	DaemonSetEventChan  = make(chan Event)
 	IngressEventChan    = make(chan Event)
 

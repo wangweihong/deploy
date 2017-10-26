@@ -1,9 +1,13 @@
 package replicationcontroller
 
-import "ufleet-deploy/pkg/backend"
+import (
+	"ufleet-deploy/pkg/backend"
+	"ufleet-deploy/pkg/resource"
+)
 
 const (
-	backendKind = backend.ResourceReplicationControllers
+	backendKind  = backend.ResourceReplicationControllers
+	resourceKind = "ReplicationController"
 )
 
 func Init() {
@@ -11,6 +15,10 @@ func Init() {
 
 	var err error
 	Controller, err = InitReplicationControllerController(be)
+	if err != nil {
+		panic(err.Error())
+	}
+	err = resource.RegisterCURInterface(resourceKind, Controller)
 	if err != nil {
 		panic(err.Error())
 	}

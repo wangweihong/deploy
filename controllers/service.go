@@ -3,8 +3,9 @@ package controllers
 import (
 	"encoding/json"
 	"fmt"
-	sk "ufleet-deploy/pkg/resource/service"
-	pk "ufleet-deploy/pkg/resource/statefulset"
+	"ufleet-deploy/pkg/resource"
+	pk "ufleet-deploy/pkg/resource/service"
+	"ufleet-deploy/pkg/user"
 )
 
 type ServiceController struct {
@@ -29,22 +30,62 @@ type ServiceState struct {
 // @Failure 500
 // @router /group/:group/workspace/:workspace [Get]
 func (this *ServiceController) ListGroupWorkspaceServices() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
 
-	pis, err := sk.Controller.List(group, workspace)
+	pis, err := pk.Controller.List(group, workspace)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
 	}
-	services := make([]sk.Service, 0)
+
+	jss := make([]pk.Status, 0)
 	for _, v := range pis {
-		t := v.Info()
-		services = append(services, *t)
+		js := v.GetStatus()
+		jss = append(jss, *js)
 	}
 
-	this.normalReturn(services)
+	this.normalReturn(jss)
+}
+
+// GetServices
+// @Title Service
+// @Description  Service
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Param workspace path string true "工作区"
+// @Param service path string true "服务"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /:service/group/:group/workspace/:workspace [Get]
+func (this *ServiceController) GetGroupWorkspaceService() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
+
+	group := this.Ctx.Input.Param(":group")
+	workspace := this.Ctx.Input.Param(":workspace")
+	service := this.Ctx.Input.Param(":service")
+
+	pi, err := pk.Controller.Get(group, workspace, service)
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+	v := pi
+
+	var js *pk.Status
+	js = v.GetStatus()
+
+	this.normalReturn(js)
 }
 
 // ListGroupsServices
@@ -56,6 +97,11 @@ func (this *ServiceController) ListGroupWorkspaceServices() {
 // @Failure 500
 // @router /groups [Post]
 func (this *ServiceController) ListGroupsServices() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	groups := make([]string, 0)
 	if this.Ctx.Input.RequestBody == nil {
@@ -71,27 +117,24 @@ func (this *ServiceController) ListGroupsServices() {
 		return
 	}
 
-	pis := make([]sk.ServiceInterface, 0)
+	pis := make([]pk.ServiceInterface, 0)
 
 	for _, v := range groups {
-		tmp, err := sk.Controller.ListGroup(v)
+		tmp, err := pk.Controller.ListGroup(v)
 		if err != nil {
 			this.errReturn(err, 500)
 			return
 		}
 		pis = append(pis, tmp...)
 	}
-	pss := make([]ServiceState, 0)
-	for _, v := range pis {
-		var ps ServiceState
-		ps.Name = v.Info().Name
-		ps.Group = v.Info().Group
-		ps.Workspace = v.Info().Workspace
-		ps.User = v.Info().User
 
+	jss := make([]pk.Status, 0)
+	for _, v := range pis {
+		js := v.GetStatus()
+		jss = append(jss, *js)
 	}
 
-	this.normalReturn(pss)
+	this.normalReturn(jss)
 }
 
 // ListGroupServices
@@ -103,24 +146,25 @@ func (this *ServiceController) ListGroupsServices() {
 // @Failure 500
 // @router /group/:group [Get]
 func (this *ServiceController) ListGroupServices() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	group := this.Ctx.Input.Param(":group")
-	pis, err := sk.Controller.ListGroup(group)
+	pis, err := pk.Controller.ListGroup(group)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
 	}
-	pss := make([]ServiceState, 0)
+	jss := make([]pk.Status, 0)
 	for _, v := range pis {
-		var ps ServiceState
-		ps.Name = v.Info().Name
-		ps.Group = v.Info().Group
-		ps.Workspace = v.Info().Workspace
-		ps.User = v.Info().User
-
+		js := v.GetStatus()
+		jss = append(jss, *js)
 	}
 
-	this.normalReturn(pss)
+	this.normalReturn(jss)
 }
 
 // CreateService
@@ -134,6 +178,12 @@ func (this *ServiceController) ListGroupServices() {
 // @Failure 500
 // @router /group/:group/workspace/:workspace [Post]
 func (this *ServiceController) CreateService() {
+	token := this.Ctx.Request.Header.Get("token")
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	//token := this.Ctx.Request.Header.Get("token")
 	group := this.Ctx.Input.Param(":group")
@@ -141,22 +191,29 @@ func (this *ServiceController) CreateService() {
 
 	if this.Ctx.Input.RequestBody == nil {
 		err := fmt.Errorf("must commit resource json/yaml data")
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
 
-	/*
-		ui := user.NewUserClient(token)
-		ui.GetUserName()
-	*/
-
-	var opt pk.CreateOptions
-	err := pk.Controller.Create(group, workspace, this.Ctx.Input.RequestBody, opt)
+	ui := user.NewUserClient(token)
+	who, err := ui.GetUserName()
 	if err != nil {
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
 
+	var opt resource.CreateOption
+	opt.User = who
+	err = pk.Controller.Create(group, workspace, this.Ctx.Input.RequestBody, opt)
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+
+	this.audit(token, "", false)
 	this.normalReturn("ok")
 }
 
@@ -172,6 +229,13 @@ func (this *ServiceController) CreateService() {
 // @Failure 500
 // @router /:service/group/:group/workspace/:workspace [Put]
 func (this *ServiceController) UpdateService() {
+	token := this.Ctx.Request.Header.Get("token")
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		this.audit(token, "", true)
+		return
+	}
 
 	//token := this.Ctx.Request.Header.Get("token")
 	group := this.Ctx.Input.Param(":group")
@@ -181,20 +245,18 @@ func (this *ServiceController) UpdateService() {
 	if this.Ctx.Input.RequestBody == nil {
 		err := fmt.Errorf("must commit resource json/yaml data")
 		this.errReturn(err, 500)
+		this.audit(token, "", true)
 		return
 	}
-
-	/*
-		ui := user.NewUserClient(token)
-		ui.GetUserName()
-	*/
 
 	err := pk.Controller.Update(group, workspace, service, this.Ctx.Input.RequestBody)
 	if err != nil {
 		this.errReturn(err, 500)
+		this.audit(token, "", true)
 		return
 	}
 
+	this.audit(token, "", false)
 	this.normalReturn("ok")
 }
 
@@ -209,17 +271,26 @@ func (this *ServiceController) UpdateService() {
 // @Failure 500
 // @router /:service/group/:group/workspace/:workspace [Delete]
 func (this *ServiceController) DeleteService() {
+	token := this.Ctx.Request.Header.Get("token")
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.audit(token, "", true)
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
 	service := this.Ctx.Input.Param(":service")
 
-	err := sk.Controller.Delete(group, workspace, service, sk.DeleteOption{})
+	err := pk.Controller.Delete(group, workspace, service, resource.DeleteOption{})
 	if err != nil {
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
 
+	this.audit(token, "", false)
 	this.normalReturn("ok")
 }
 
@@ -234,12 +305,17 @@ func (this *ServiceController) DeleteService() {
 // @Failure 500
 // @router /:service/group/:group/workspace/:workspace/template [Get]
 func (this *ServiceController) GetServiceTemplate() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
 
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
 	service := this.Ctx.Input.Param(":service")
 
-	pi, err := sk.Controller.Get(group, workspace, service)
+	pi, err := pk.Controller.Get(group, workspace, service)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
@@ -252,4 +328,39 @@ func (this *ServiceController) GetServiceTemplate() {
 	}
 
 	this.normalReturn(t)
+}
+
+// GetServiceContainerEvents
+// @Title Service
+// @Description   Service container event
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Param workspace path string true "工作区"
+// @Param service path string true "容器组"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /:service/group/:group/workspace/:workspace/event [Get]
+func (this *ServiceController) GetServiceEvent() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
+
+	group := this.Ctx.Input.Param(":group")
+	workspace := this.Ctx.Input.Param(":workspace")
+	service := this.Ctx.Input.Param(":service")
+
+	pi, err := pk.Controller.Get(group, workspace, service)
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+	es, err := pi.Event()
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+
+	this.normalReturn(es)
 }

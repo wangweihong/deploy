@@ -8,37 +8,39 @@ import (
 	"ufleet-deploy/pkg/backend"
 	"ufleet-deploy/pkg/cluster"
 	"ufleet-deploy/pkg/log"
+	"ufleet-deploy/pkg/resource"
+	pk "ufleet-deploy/pkg/resource/pod"
 	"ufleet-deploy/pkg/resource/util"
+	"ufleet-deploy/pkg/sign"
+
+	corev1 "k8s.io/client-go/pkg/api/v1"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	extensionsv1beta1 "k8s.io/client-go/pkg/apis/extensions/v1beta1"
 )
 
 var (
-	rm *DaemonSetManager
-	/* = &DaemonSetManager{
-		Groups: make(map[string]DaemonSetGroup),
-		locker: sync.Mutex{},
-	}
-	*/
+	rm         *DaemonSetManager
 	Controller DaemonSetController
-
-	ErrResourceNotFound  = fmt.Errorf("resource not found")
-	ErrResourceExists    = fmt.Errorf("resource has exists")
-	ErrWorkspaceNotFound = fmt.Errorf("workspace not found")
-	ErrGroupNotFound     = fmt.Errorf("group not found")
 )
 
 type DaemonSetController interface {
-	Create(group, workspace string, data []byte, opt CreateOptions) error
-	Delete(group, workspace, daemonset string, opt DeleteOption) error
+	Create(group, workspace string, data []byte, opt resource.CreateOption) error
+	Delete(group, workspace, daemonset string, opt resource.DeleteOption) error
 	Get(group, workspace, daemonset string) (DaemonSetInterface, error)
 	Update(group, workspace, resource string, newdata []byte) error
 	List(group, workspace string) ([]DaemonSetInterface, error)
+	ListGroup(groupName string) ([]DaemonSetInterface, error)
 }
 
 type DaemonSetInterface interface {
 	Info() *DaemonSet
+	GetRuntime() (*Runtime, error)
+	GetStatus() *Status
+	Event() ([]corev1.Event, error)
+	GetTemplate() (string, error)
+	GetRevisionsAndDescribe() (map[int64]string, error)
+	Rollback(revision int64) (*string, error)
 }
 
 type DaemonSetManager struct {
@@ -54,8 +56,9 @@ type DaemonSetWorkspace struct {
 	DaemonSets map[string]DaemonSet `json:"daemonsets"`
 }
 
-type DaemonSetRuntime struct {
-	*extensionsv1beta1.DaemonSet
+type Runtime struct {
+	DaemonSet *extensionsv1beta1.DaemonSet
+	Pods      []*corev1.Pod
 }
 
 //TODO:是否可以添加一个特定的只存于内存的标记位
@@ -63,26 +66,8 @@ type DaemonSetRuntime struct {
 //在DaemonSet构建到内存的时候,就开始绑定K8s资源,
 //可以根据事件及时更新DaemonSet的信息
 type DaemonSet struct {
-	Name       string `json:"name"`
-	Workspace  string `json:"workspace"`
-	Group      string `json:"group"`
-	AppStack   string `json:"app"`
-	User       string `json:"user"`
-	Cluster    string `json:"cluster"`
-	CreateTime int64  `json:"createtime"`
-	Template   string `json:"template"`
+	resource.ObjectMeta
 	memoryOnly bool
-}
-
-type GetOptions struct {
-}
-type DeleteOption struct{}
-
-type CreateOptions struct {
-	//	MemoryOnly bool    //只在内存中创建,不创建k8s资源/也不保存在etcd中.由k8s daemonset/daemonset等主动创建的资源.
-	//废弃,直接通过DaemonSetManager来调用
-	App  *string //所属app
-	User string  //创建的用户
 }
 
 //注意这里没锁
@@ -90,17 +75,17 @@ func (p *DaemonSetManager) get(groupName, workspaceName, resourceName string) (*
 
 	group, ok := p.Groups[groupName]
 	if !ok {
-		return nil, ErrGroupNotFound
+		return nil, resource.ErrGroupNotFound
 	}
 
 	workspace, ok := group.Workspaces[workspaceName]
 	if !ok {
-		return nil, ErrWorkspaceNotFound
+		return nil, resource.ErrWorkspaceNotFound
 	}
 
 	daemonset, ok := workspace.DaemonSets[resourceName]
 	if !ok {
-		return nil, ErrResourceNotFound
+		return nil, resource.ErrResourceNotFound
 	}
 
 	return &daemonset, nil
@@ -119,12 +104,12 @@ func (p *DaemonSetManager) List(groupName, workspaceName string) ([]DaemonSetInt
 
 	group, ok := p.Groups[groupName]
 	if !ok {
-		return nil, fmt.Errorf("%v:%v", ErrGroupNotFound, groupName)
+		return nil, fmt.Errorf("%v:%v", resource.ErrGroupNotFound, groupName)
 	}
 
 	workspace, ok := group.Workspaces[workspaceName]
 	if !ok {
-		return nil, fmt.Errorf("%v:group/%v,workspace/%v", ErrWorkspaceNotFound, groupName, workspaceName)
+		return nil, fmt.Errorf("%v:group/%v,workspace/%v", resource.ErrWorkspaceNotFound, groupName, workspaceName)
 	}
 
 	pis := make([]DaemonSetInterface, 0)
@@ -138,7 +123,26 @@ func (p *DaemonSetManager) List(groupName, workspaceName string) ([]DaemonSetInt
 	return pis, nil
 }
 
-func (p *DaemonSetManager) Create(groupName, workspaceName string, data []byte, opt CreateOptions) error {
+func (p *DaemonSetManager) ListGroup(groupName string) ([]DaemonSetInterface, error) {
+	p.locker.Lock()
+	defer p.locker.Unlock()
+
+	group, ok := p.Groups[groupName]
+	if !ok {
+		return nil, fmt.Errorf("%v:%v", resource.ErrGroupNotFound, groupName)
+	}
+
+	pis := make([]DaemonSetInterface, 0)
+	for _, v := range group.Workspaces {
+		for k := range v.DaemonSets {
+			t := v.DaemonSets[k]
+			pis = append(pis, &t)
+		}
+	}
+	return pis, nil
+}
+
+func (p *DaemonSetManager) Create(groupName, workspaceName string, data []byte, opt resource.CreateOption) error {
 
 	p.locker.Lock()
 	defer p.locker.Unlock()
@@ -157,24 +161,28 @@ func (p *DaemonSetManager) Create(groupName, workspaceName string, data []byte, 
 		return log.DebugPrint("must  offer  one  resource json/yaml data")
 	}
 
-	var svc extensionsv1beta1.DaemonSet
-	err = json.Unmarshal(exts[0].Raw, &svc)
+	var obj extensionsv1beta1.DaemonSet
+	err = json.Unmarshal(exts[0].Raw, &obj)
 	if err != nil {
 		return log.DebugPrint(err)
 	}
 
-	if svc.Kind != "DaemonSet" {
+	if obj.Kind != "DaemonSet" {
 		return log.DebugPrint("must and  offer one resource json/yaml data")
 	}
+	obj.ResourceVersion = ""
+	obj.Annotations = make(map[string]string)
+	obj.Annotations[sign.SignFromUfleetKey] = sign.SignFromUfleetValue
 
 	var cp DaemonSet
 	cp.CreateTime = time.Now().Unix()
-	cp.Name = svc.Name
+	cp.Name = obj.Name
 	cp.Workspace = workspaceName
 	cp.Group = groupName
 	cp.Template = string(data)
+	cp.CreateTime = time.Now().Unix()
 	if opt.App != nil {
-		cp.AppStack = *opt.App
+		cp.App = *opt.App
 	}
 	cp.User = opt.User
 	//因为pod创建时,触发informer,所以优先创建etcd
@@ -184,7 +192,7 @@ func (p *DaemonSetManager) Create(groupName, workspaceName string, data []byte, 
 		return log.DebugPrint(err)
 	}
 
-	err = ph.Create(workspaceName, &svc)
+	err = ph.Create(workspaceName, &obj)
 	if err != nil {
 		err2 := be.DeleteResource(backendKind, groupName, workspaceName, cp.Name)
 		if err2 != nil {
@@ -200,11 +208,11 @@ func (p *DaemonSetManager) Create(groupName, workspaceName string, data []byte, 
 func (p *DaemonSetManager) delete(groupName, workspaceName, resourceName string) error {
 	group, ok := p.Groups[groupName]
 	if !ok {
-		return ErrGroupNotFound
+		return resource.ErrGroupNotFound
 	}
 	workspace, ok := group.Workspaces[workspaceName]
 	if !ok {
-		return ErrWorkspaceNotFound
+		return resource.ErrWorkspaceNotFound
 	}
 
 	delete(workspace.DaemonSets, resourceName)
@@ -213,19 +221,19 @@ func (p *DaemonSetManager) delete(groupName, workspaceName, resourceName string)
 	return nil
 }
 
-func (p *DaemonSetManager) Delete(group, workspace, resourceName string, opt DeleteOption) error {
+func (p *DaemonSetManager) Delete(group, workspace, resourceName string, opt resource.DeleteOption) error {
 	p.locker.Lock()
 	defer p.locker.Unlock()
 	ph, err := cluster.NewDaemonSetHandler(group, workspace)
 	if err != nil {
 		return log.DebugPrint(err)
 	}
-	daemonset, err := p.get(group, workspace, resourceName)
+	res, err := p.get(group, workspace, resourceName)
 	if err != nil {
 		return log.DebugPrint(err)
 	}
 
-	if daemonset.memoryOnly {
+	if res.memoryOnly {
 
 		//触发集群控制器来删除内存中的数据
 		err = ph.Delete(workspace, resourceName)
@@ -245,6 +253,19 @@ func (p *DaemonSetManager) Delete(group, workspace, resourceName string, opt Del
 			if !apierrors.IsNotFound(err) {
 				return log.DebugPrint(err)
 			}
+		}
+		if !opt.DontCallApp && res.App != "" {
+			go func() {
+				var re resource.ResourceEvent
+				re.Group = group
+				re.Workspace = workspace
+				re.Kind = resourceKind
+				re.Action = resource.ResourceActionDelete
+				re.Resource = res.Name
+				re.App = res.App
+
+				resource.ResourceEventChan <- re
+			}()
 		}
 		return nil
 	}
@@ -286,6 +307,163 @@ func (p *DaemonSetManager) Update(groupName, workspaceName string, resourceName 
 
 func (daemonset *DaemonSet) Info() *DaemonSet {
 	return daemonset
+}
+
+func (j *DaemonSet) GetRuntime() (*Runtime, error) {
+	ph, err := cluster.NewDaemonSetHandler(j.Group, j.Workspace)
+	if err != nil {
+		return nil, log.DebugPrint(err)
+	}
+	daemonset, err := ph.Get(j.Workspace, j.Name)
+	if err != nil {
+		return nil, log.DebugPrint(err)
+	}
+
+	pods, err := ph.GetPods(j.Workspace, j.Name)
+	if err != nil {
+		return nil, log.DebugPrint(err)
+	}
+	var runtime Runtime
+	runtime.Pods = pods
+	runtime.DaemonSet = daemonset
+	return &runtime, nil
+}
+
+type Status struct {
+	resource.ObjectMeta
+	Images         []string          `json:"images"`
+	Containers     []string          `json:"containers"`
+	PodNum         int               `json:"podnum"`
+	ClusterIP      string            `json:"clusterip"`
+	Labels         map[string]string `json:"labels"`
+	Annotatiosn    map[string]string `json:"annotations"`
+	Selectors      map[string]string `json:"selectors"`
+	Reason         string            `json:"reason"`
+	Revision       int64             `json:"revision"`
+	UpdateStrategy string            `json:"updatestrategy"`
+	//	Pods       []string `json:"pods"`
+	PodStatus      []pk.Status        `json:"podstatus"`
+	ContainerSpecs []pk.ContainerSpec `json:"containerspec"`
+	extensionsv1beta1.DaemonSetStatus
+}
+
+func (j *DaemonSet) GetStatus() *Status {
+	runtime, err := j.GetRuntime()
+	if err != nil {
+		js := Status{ObjectMeta: j.ObjectMeta}
+		js.Images = make([]string, 0)
+		js.PodStatus = make([]pk.Status, 0)
+		js.ContainerSpecs = make([]pk.ContainerSpec, 0)
+		js.Labels = make(map[string]string)
+		js.Annotatiosn = make(map[string]string)
+		js.Selectors = make(map[string]string)
+		js.Reason = err.Error()
+		return &js
+	}
+
+	daemonset := runtime.DaemonSet
+	js := Status{ObjectMeta: j.ObjectMeta, DaemonSetStatus: runtime.DaemonSet.Status}
+	js.Images = make([]string, 0)
+	js.PodStatus = make([]pk.Status, 0)
+	js.ContainerSpecs = make([]pk.ContainerSpec, 0)
+	js.Labels = make(map[string]string)
+	js.Annotatiosn = make(map[string]string)
+	js.Selectors = make(map[string]string)
+
+	if js.CreateTime == 0 {
+		js.CreateTime = daemonset.CreationTimestamp.Unix()
+	}
+
+	if daemonset.Labels != nil {
+		js.Labels = daemonset.Labels
+	}
+
+	if daemonset.Annotations != nil {
+		js.Labels = daemonset.Annotations
+	}
+
+	if daemonset.Spec.Selector != nil {
+		js.Selectors = daemonset.Spec.Selector.MatchLabels
+	}
+	//	js := K8sDaemonSetToDaemonSetStatus(runtime.DaemonSet)
+	js.PodNum = len(runtime.Pods)
+	if js.PodNum != 0 {
+		pod := runtime.Pods[0]
+		js.ClusterIP = pod.Status.HostIP
+	}
+
+	js.Revision = runtime.DaemonSet.Generation
+
+	js.UpdateStrategy = string(daemonset.Spec.UpdateStrategy.Type)
+	for _, v := range daemonset.Spec.Template.Spec.Containers {
+		js.Containers = append(js.Containers, v.Name)
+		js.Images = append(js.Images, v.Image)
+		js.ContainerSpecs = append(js.ContainerSpecs, *pk.K8sContainerSpecTran(&v))
+	}
+
+	for _, v := range runtime.Pods {
+		ps := pk.V1PodToPodStatus(*v)
+		js.PodStatus = append(js.PodStatus, *ps)
+	}
+
+	return &js
+}
+
+func (j *DaemonSet) Event() ([]corev1.Event, error) {
+	ph, err := cluster.NewDaemonSetHandler(j.Group, j.Workspace)
+	if err != nil {
+		return nil, log.DebugPrint(err)
+	}
+
+	return ph.Event(j.Workspace, j.Name)
+}
+
+func (j *DaemonSet) GetTemplate() (string, error) {
+	runtime, err := j.GetRuntime()
+	if err != nil {
+		return "", log.DebugPrint(err)
+	}
+
+	t, err := util.GetYamlTemplateFromObject(runtime.DaemonSet)
+	if err != nil {
+		return "", log.DebugPrint(err)
+	}
+
+	prefix := "apiVersion: extensions/v1beta1\nkind: DaemonSet"
+	*t = fmt.Sprintf("%v\n%v", prefix, *t)
+	return *t, nil
+
+	return *t, nil
+}
+
+func (j *DaemonSet) GetRevisionsAndDescribe() (map[int64]string, error) {
+	ph, err := cluster.NewDaemonSetHandler(j.Group, j.Workspace)
+	if err != nil {
+		return nil, log.DebugPrint(err)
+	}
+	rm, err := ph.GetRevisionsAndDescribe(j.Workspace, j.Name)
+	if err != nil {
+		return nil, log.DebugPrint(err)
+	}
+	rs := make(map[int64]string, 0)
+	for k, v := range rm {
+		str, err := json.Marshal(v)
+		if err != nil {
+			return nil, log.DebugPrint(err)
+		}
+		rs[k] = string(str)
+	}
+
+	return rs, nil
+}
+
+func (j *DaemonSet) Rollback(revision int64) (*string, error) {
+	ph, err := cluster.NewDaemonSetHandler(j.Group, j.Workspace)
+	if err != nil {
+		return nil, log.DebugPrint(err)
+	}
+	return ph.Rollback(j.Workspace, j.Name, revision)
+
 }
 
 func InitDaemonSetController(be backend.BackendHandler) (DaemonSetController, error) {

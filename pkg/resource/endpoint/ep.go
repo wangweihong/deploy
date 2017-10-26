@@ -8,37 +8,34 @@ import (
 	"ufleet-deploy/pkg/backend"
 	"ufleet-deploy/pkg/cluster"
 	"ufleet-deploy/pkg/log"
+	"ufleet-deploy/pkg/resource"
 	"ufleet-deploy/pkg/resource/util"
+	"ufleet-deploy/pkg/sign"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	corev1 "k8s.io/client-go/pkg/api/v1"
 )
 
 var (
-	rm *EndpointManager
-	/* = &EndpointManager{
-		Groups: make(map[string]EndpointGroup),
-		locker: sync.Mutex{},
-	}
-	*/
+	rm         *EndpointManager
 	Controller EndpointController
-
-	ErrResourceNotFound  = fmt.Errorf("resource not found")
-	ErrResourceExists    = fmt.Errorf("resource has exists")
-	ErrWorkspaceNotFound = fmt.Errorf("workspace not found")
-	ErrGroupNotFound     = fmt.Errorf("group not found")
 )
 
 type EndpointController interface {
-	Create(group, workspace string, data []byte, opt CreateOptions) error
-	Delete(group, workspace, endpoint string, opt DeleteOption) error
+	Create(group, workspace string, data []byte, opt resource.CreateOption) error
+	Delete(group, workspace, endpoint string, opt resource.DeleteOption) error
 	Get(group, workspace, endpoint string) (EndpointInterface, error)
 	Update(group, workspace, resource string, newdata []byte) error
+	ListGroup(group string) ([]EndpointInterface, error)
 	List(group, workspace string) ([]EndpointInterface, error)
 }
 
 type EndpointInterface interface {
 	Info() *Endpoint
+	GetRuntime() (*Runtime, error)
+	GetTemplate() (string, error)
+	GetStatus() *Status
+	Event() ([]corev1.Event, error)
 }
 
 type EndpointManager struct {
@@ -54,8 +51,8 @@ type EndpointWorkspace struct {
 	Endpoints map[string]Endpoint `json:"endpoints"`
 }
 
-type EndpointRuntime struct {
-	*corev1.Endpoints
+type Runtime struct {
+	Endpoint *corev1.Endpoints
 }
 
 //TODO:是否可以添加一个特定的只存于内存的标记位
@@ -63,26 +60,8 @@ type EndpointRuntime struct {
 //在Endpoint构建到内存的时候,就开始绑定K8s资源,
 //可以根据事件及时更新Endpoint的信息
 type Endpoint struct {
-	Name       string `json:"name"`
-	Workspace  string `json:"workspace"`
-	Group      string `json:"group"`
-	AppStack   string `json:"app"`
-	User       string `json:"user"`
-	Cluster    string `json:"cluster"`
-	CreateTime int64  `json:"createtime"`
-	Template   string `json:"template"`
+	resource.ObjectMeta
 	memoryOnly bool
-}
-
-type GetOptions struct {
-}
-type DeleteOption struct{}
-
-type CreateOptions struct {
-	//	MemoryOnly bool    //只在内存中创建,不创建k8s资源/也不保存在etcd中.由k8s daemonset/deployment等主动创建的资源.
-	//废弃,直接通过EndpointManager来调用
-	App  *string //所属app
-	User string  //创建的用户
 }
 
 //注意这里没锁
@@ -90,17 +69,17 @@ func (p *EndpointManager) get(groupName, workspaceName, resourceName string) (*E
 
 	group, ok := p.Groups[groupName]
 	if !ok {
-		return nil, ErrGroupNotFound
+		return nil, resource.ErrGroupNotFound
 	}
 
 	workspace, ok := group.Workspaces[workspaceName]
 	if !ok {
-		return nil, ErrWorkspaceNotFound
+		return nil, resource.ErrWorkspaceNotFound
 	}
 
 	endpoint, ok := workspace.Endpoints[resourceName]
 	if !ok {
-		return nil, ErrResourceNotFound
+		return nil, resource.ErrResourceNotFound
 	}
 
 	return &endpoint, nil
@@ -119,12 +98,12 @@ func (p *EndpointManager) List(groupName, workspaceName string) ([]EndpointInter
 
 	group, ok := p.Groups[groupName]
 	if !ok {
-		return nil, fmt.Errorf("%v:%v", ErrGroupNotFound, groupName)
+		return nil, fmt.Errorf("%v:%v", resource.ErrGroupNotFound, groupName)
 	}
 
 	workspace, ok := group.Workspaces[workspaceName]
 	if !ok {
-		return nil, fmt.Errorf("%v:group/%v,workspace/%v", ErrWorkspaceNotFound, groupName, workspaceName)
+		return nil, fmt.Errorf("%v:group/%v,workspace/%v", resource.ErrWorkspaceNotFound, groupName, workspaceName)
 	}
 
 	pis := make([]EndpointInterface, 0)
@@ -138,7 +117,29 @@ func (p *EndpointManager) List(groupName, workspaceName string) ([]EndpointInter
 	return pis, nil
 }
 
-func (p *EndpointManager) Create(groupName, workspaceName string, data []byte, opt CreateOptions) error {
+func (p *EndpointManager) ListGroup(groupName string) ([]EndpointInterface, error) {
+
+	p.locker.Lock()
+	defer p.locker.Unlock()
+
+	group, ok := p.Groups[groupName]
+	if !ok {
+		return nil, fmt.Errorf("%v:%v", resource.ErrGroupNotFound, groupName)
+	}
+
+	pis := make([]EndpointInterface, 0)
+
+	//不能够直接使用k,v来赋值,会出现值都是同一个的问题
+	for _, v := range group.Workspaces {
+		for k := range v.Endpoints {
+			t := v.Endpoints[k]
+			pis = append(pis, &t)
+		}
+	}
+
+	return pis, nil
+}
+func (p *EndpointManager) Create(groupName, workspaceName string, data []byte, opt resource.CreateOption) error {
 
 	p.locker.Lock()
 	defer p.locker.Unlock()
@@ -157,24 +158,27 @@ func (p *EndpointManager) Create(groupName, workspaceName string, data []byte, o
 		return log.DebugPrint("must  offer  one  resource json/yaml data")
 	}
 
-	var svc corev1.Endpoints
-	err = json.Unmarshal(exts[0].Raw, &svc)
+	var obj corev1.Endpoints
+	err = json.Unmarshal(exts[0].Raw, &obj)
 	if err != nil {
 		return log.DebugPrint(err)
 	}
 
-	if svc.Kind != "Endpoint" {
+	if obj.Kind != "Endpoint" {
 		return log.DebugPrint("must and  offer one resource json/yaml data")
 	}
+	obj.ResourceVersion = ""
+	obj.Annotations = make(map[string]string)
+	obj.Annotations[sign.SignFromUfleetKey] = sign.SignFromUfleetValue
 
 	var cp Endpoint
 	cp.CreateTime = time.Now().Unix()
-	cp.Name = svc.Name
+	cp.Name = obj.Name
 	cp.Workspace = workspaceName
 	cp.Group = groupName
 	cp.Template = string(data)
 	if opt.App != nil {
-		cp.AppStack = *opt.App
+		cp.App = *opt.App
 	}
 	cp.User = opt.User
 	//因为pod创建时,触发informer,所以优先创建etcd
@@ -184,7 +188,7 @@ func (p *EndpointManager) Create(groupName, workspaceName string, data []byte, o
 		return log.DebugPrint(err)
 	}
 
-	err = ph.Create(workspaceName, &svc)
+	err = ph.Create(workspaceName, &obj)
 	if err != nil {
 		err2 := be.DeleteResource(backendKind, groupName, workspaceName, cp.Name)
 		if err2 != nil {
@@ -201,11 +205,11 @@ func (p *EndpointManager) Create(groupName, workspaceName string, data []byte, o
 func (p *EndpointManager) delete(groupName, workspaceName, resourceName string) error {
 	group, ok := p.Groups[groupName]
 	if !ok {
-		return ErrGroupNotFound
+		return resource.ErrGroupNotFound
 	}
 	workspace, ok := group.Workspaces[workspaceName]
 	if !ok {
-		return ErrWorkspaceNotFound
+		return resource.ErrWorkspaceNotFound
 	}
 
 	delete(workspace.Endpoints, resourceName)
@@ -214,19 +218,19 @@ func (p *EndpointManager) delete(groupName, workspaceName, resourceName string) 
 	return nil
 }
 
-func (p *EndpointManager) Delete(group, workspace, resourceName string, opt DeleteOption) error {
+func (p *EndpointManager) Delete(group, workspace, resourceName string, opt resource.DeleteOption) error {
 	p.locker.Lock()
 	defer p.locker.Unlock()
 	ph, err := cluster.NewEndpointHandler(group, workspace)
 	if err != nil {
 		return log.DebugPrint(err)
 	}
-	endpoint, err := p.get(group, workspace, resourceName)
+	res, err := p.get(group, workspace, resourceName)
 	if err != nil {
 		return log.DebugPrint(err)
 	}
 
-	if endpoint.memoryOnly {
+	if res.memoryOnly {
 
 		//触发集群控制器来删除内存中的数据
 		err = ph.Delete(workspace, resourceName)
@@ -246,6 +250,19 @@ func (p *EndpointManager) Delete(group, workspace, resourceName string, opt Dele
 			if !apierrors.IsNotFound(err) {
 				return log.DebugPrint(err)
 			}
+		}
+		if !opt.DontCallApp && res.App != "" {
+			go func() {
+				var re resource.ResourceEvent
+				re.Group = group
+				re.Workspace = workspace
+				re.Kind = resourceKind
+				re.Action = resource.ResourceActionDelete
+				re.Resource = res.Name
+				re.App = res.App
+
+				resource.ResourceEventChan <- re
+			}()
 		}
 		return nil
 	}
@@ -287,6 +304,59 @@ func (p *EndpointManager) Update(groupName, workspaceName string, resourceName s
 
 func (endpoint *Endpoint) Info() *Endpoint {
 	return endpoint
+}
+func (s *Endpoint) GetRuntime() (*Runtime, error) {
+	ph, err := cluster.NewEndpointHandler(s.Group, s.Workspace)
+	if err != nil {
+		return nil, err
+	}
+
+	svc, err := ph.Get(s.Workspace, s.Name)
+	if err != nil {
+		return nil, err
+	}
+	return &Runtime{Endpoint: svc}, nil
+}
+
+func (s *Endpoint) GetTemplate() (string, error) {
+	runtime, err := s.GetRuntime()
+	if err != nil {
+		return "", err
+	}
+	t, err := util.GetYamlTemplateFromObject(runtime.Endpoint)
+	if err != nil {
+		return "", log.DebugPrint(err)
+	}
+
+	prefix := "apiVersion: v1\nkind: Endpoints"
+	*t = fmt.Sprintf("%v\n%v", prefix, *t)
+	return *t, nil
+
+}
+
+type Status struct {
+	resource.ObjectMeta
+	Reason string `json:"reason"`
+}
+
+func (s *Endpoint) GetStatus() *Status {
+	js := Status{ObjectMeta: s.ObjectMeta}
+	runtime, err := s.GetRuntime()
+	if err != nil {
+		js.Reason = err.Error()
+		return &js
+	}
+
+	if js.CreateTime == 0 {
+		js.CreateTime = runtime.Endpoint.CreationTimestamp.Unix()
+	}
+	return &js
+
+}
+
+func (s *Endpoint) Event() ([]corev1.Event, error) {
+	e := make([]corev1.Event, 0)
+	return e, nil
 }
 
 func InitEndpointController(be backend.BackendHandler) (EndpointController, error) {

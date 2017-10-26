@@ -105,6 +105,7 @@ func HandleClusterResourceEvent() {
 	}
 }
 
+//监听etcd的数据
 func EventHandler(e backend.ResourceEvent) {
 	rm.locker.Lock()
 	defer rm.locker.Unlock()
@@ -215,5 +216,3 @@ func NoticeStack(stack string, e NoticeStackEvent) {
 	}
 
 }
-
-func HandleStackEvent(stack string) {}

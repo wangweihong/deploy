@@ -3,26 +3,26 @@ package controllers
 import (
 	"encoding/json"
 	"fmt"
-	"ufleet-deploy/models"
+	"strconv"
 	"ufleet-deploy/pkg/resource"
-	pk "ufleet-deploy/pkg/resource/endpoint"
+	pk "ufleet-deploy/pkg/resource/replicaset"
 	"ufleet-deploy/pkg/user"
 )
 
-type EndpointController struct {
+type ReplicaSetController struct {
 	baseController
 }
 
-// ListEndpoints
-// @Title Endpoint
-// @Description   Endpoint
+// ListReplicaSets
+// @Title ReplicaSet
+// @Description   ReplicaSet
 // @Param Token header string true 'Token'
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
 // @Success 201 {string} create success!
 // @Failure 500
 // @router /group/:group/workspace/:workspace [Get]
-func (this *EndpointController) ListEndpoints() {
+func (this *ReplicaSetController) ListGroupWorkspaceReplicaSets() {
 	aerr := this.checkRouteControllerAbility()
 	if aerr != nil {
 		this.abilityErrorReturn(aerr)
@@ -37,58 +37,61 @@ func (this *EndpointController) ListEndpoints() {
 		this.errReturn(err, 500)
 		return
 	}
+	//replicasets := make([]pk.ReplicaSet, 0)
 	jss := make([]pk.Status, 0)
+
 	for _, v := range pis {
 		js := v.GetStatus()
+
 		jss = append(jss, *js)
 	}
 
 	this.normalReturn(jss)
 }
 
-// GetEndpoints
-// @Title Endpoint
-// @Description  Endpoint
+// GetReplicaSet
+// @Title ReplicaSet
+// @Description   ReplicaSet
 // @Param Token header string true 'Token'
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
-// @Param endpoint path string true "服务"
+// @Param rc path string true "副本控制器"
 // @Success 201 {string} create success!
 // @Failure 500
-// @router /:endpoint/group/:group/workspace/:workspace [Get]
-func (this *EndpointController) GetGroupWorkspaceEndpoint() {
-
+// @router /:rc/group/:group/workspace/:workspace [Get]
+func (this *ReplicaSetController) GetReplicaSet() {
 	aerr := this.checkRouteControllerAbility()
 	if aerr != nil {
 		this.abilityErrorReturn(aerr)
 		return
 	}
+
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
-	endpoint := this.Ctx.Input.Param(":endpoint")
+	rc := this.Ctx.Input.Param(":rc")
 
-	pi, err := pk.Controller.Get(group, workspace, endpoint)
+	pi, err := pk.Controller.Get(group, workspace, rc)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
 	}
+	//replicasets := make([]pk.ReplicaSet, 0)
 	v := pi
 
-	var js *pk.Status
-	js = v.GetStatus()
+	js := v.GetStatus()
 
 	this.normalReturn(js)
 }
 
-// ListGroupsEndpoints
-// @Title Endpoint
-// @Description   Endpoint
+// ListGroupsReplicaSets
+// @Title ReplicaSet
+// @Description   ReplicaSet
 // @Param Token header string true 'Token'
 // @Param body body string true "组数组"
 // @Success 201 {string} create success!
 // @Failure 500
 // @router /groups [Post]
-func (this *EndpointController) ListGroupsEndpoints() {
+func (this *ReplicaSetController) ListGroupsReplicaSets() {
 	aerr := this.checkRouteControllerAbility()
 	if aerr != nil {
 		this.abilityErrorReturn(aerr)
@@ -109,8 +112,7 @@ func (this *EndpointController) ListGroupsEndpoints() {
 		return
 	}
 
-	pis := make([]pk.EndpointInterface, 0)
-
+	pis := make([]pk.ReplicaSetInterface, 0)
 	for _, v := range groups {
 		tmp, err := pk.Controller.ListGroup(v)
 		if err != nil {
@@ -119,25 +121,26 @@ func (this *EndpointController) ListGroupsEndpoints() {
 		}
 		pis = append(pis, tmp...)
 	}
-
+	//replicasets := make([]pk.ReplicaSet, 0)
 	jss := make([]pk.Status, 0)
 	for _, v := range pis {
 		js := v.GetStatus()
+
 		jss = append(jss, *js)
 	}
 
 	this.normalReturn(jss)
 }
 
-// ListGroupEndpoints
-// @Title Endpoint
-// @Description   Endpoint
+// ListGroupsReplicaSets
+// @Title ReplicaSet
+// @Description   ReplicaSet
 // @Param Token header string true 'Token'
 // @Param group path string true "组名"
 // @Success 201 {string} create success!
 // @Failure 500
 // @router /group/:group [Get]
-func (this *EndpointController) ListGroupEndpoints() {
+func (this *ReplicaSetController) ListGroupReplicaSets() {
 	aerr := this.checkRouteControllerAbility()
 	if aerr != nil {
 		this.abilityErrorReturn(aerr)
@@ -150,6 +153,7 @@ func (this *EndpointController) ListGroupEndpoints() {
 		this.errReturn(err, 500)
 		return
 	}
+	//replicasets := make([]pk.ReplicaSet, 0)
 	jss := make([]pk.Status, 0)
 	for _, v := range pis {
 		js := v.GetStatus()
@@ -159,9 +163,9 @@ func (this *EndpointController) ListGroupEndpoints() {
 	this.normalReturn(jss)
 }
 
-// CreateEndpoint
-// @Title Endpoint
-// @Description  创建端点
+// CreateReplicaSet
+// @Title ReplicaSet
+// @Description  创建副本控制器
 // @Param Token header string true 'Token'
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
@@ -169,7 +173,7 @@ func (this *EndpointController) ListGroupEndpoints() {
 // @Success 201 {string} create success!
 // @Failure 500
 // @router /group/:group/workspace/:workspace [Post]
-func (this *EndpointController) CreateEndpoint() {
+func (this *ReplicaSetController) CreateReplicaSet() {
 	token := this.Ctx.Request.Header.Get("token")
 	aerr := this.checkRouteControllerAbility()
 	if aerr != nil {
@@ -183,17 +187,9 @@ func (this *EndpointController) CreateEndpoint() {
 	workspace := this.Ctx.Input.Param(":workspace")
 
 	if this.Ctx.Input.RequestBody == nil {
+		this.audit(token, "", true)
 		err := fmt.Errorf("must commit resource json/yaml data")
-		this.audit(token, "", true)
 		this.errReturn(err, 500)
-		return
-	}
-
-	var co models.CreateOption
-	err := json.Unmarshal(this.Ctx.Input.RequestBody, &co)
-	if err != nil {
-		this.errReturn(err, 500)
-		this.audit(token, "", true)
 		return
 	}
 
@@ -206,30 +202,31 @@ func (this *EndpointController) CreateEndpoint() {
 	}
 
 	var opt resource.CreateOption
-	opt.Comment = co.Comment
 	opt.User = who
-	err = pk.Controller.Create(group, workspace, []byte(co.Data), opt)
+
+	err = pk.Controller.Create(group, workspace, this.Ctx.Input.RequestBody, opt)
 	if err != nil {
+		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
-
 	this.audit(token, "", false)
+
 	this.normalReturn("ok")
 }
 
-// UpdateEndpoint
-// @Title Endpoint
-// @Description  更新端点
+// UpdateReplicaSet
+// @Title ReplicaSet
+// @Description  更新副本控制器
 // @Param Token header string true 'Token'
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
-// @Param endpoint path string true "端点"
+// @Param replicaset path string true "副本控制器"
 // @Param body body string true "资源描述"
 // @Success 201 {string} create success!
 // @Failure 500
-// @router /:endpoint/group/:group/workspace/:workspace [Put]
-func (this *EndpointController) UpdateEndpoint() {
+// @router /:replicaset/group/:group/workspace/:workspace [Put]
+func (this *ReplicaSetController) UpdateReplicaSet() {
 	token := this.Ctx.Request.Header.Get("token")
 	aerr := this.checkRouteControllerAbility()
 	if aerr != nil {
@@ -241,16 +238,72 @@ func (this *EndpointController) UpdateEndpoint() {
 	//token := this.Ctx.Request.Header.Get("token")
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
-	endpoint := this.Ctx.Input.Param(":endpoint")
+	replicaset := this.Ctx.Input.Param(":replicaset")
 
 	if this.Ctx.Input.RequestBody == nil {
+		this.audit(token, "", true)
 		err := fmt.Errorf("must commit resource json/yaml data")
+		this.errReturn(err, 500)
+		return
+	}
+
+	/*
+		ui := user.NewUserClient(token)
+		ui.GetUserName()
+	*/
+
+	err := pk.Controller.Update(group, workspace, replicaset, this.Ctx.Input.RequestBody)
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+	this.audit(token, "", false)
+
+	this.normalReturn("ok")
+}
+
+// ScaleReplicaSet
+// @Title ReplicaSet
+// @Description  扩容副本控制器
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Param workspace path string true "工作区"
+// @Param replicaset path string true "副本控制器"
+// @Param replicas path string true "副本数"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /:replicaset/group/:group/workspace/:workspace/replicas/:replicas [Put]
+func (this *ReplicaSetController) ScaleReplicaSet() {
+	token := this.Ctx.Request.Header.Get("token")
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.audit(token, "", true)
+		this.abilityErrorReturn(aerr)
+		return
+	}
+
+	//token := this.Ctx.Request.Header.Get("token")
+	group := this.Ctx.Input.Param(":group")
+	workspace := this.Ctx.Input.Param(":workspace")
+	replicaset := this.Ctx.Input.Param(":replicaset")
+	replicasStr := this.Ctx.Input.Param(":replicas")
+
+	ri, err := pk.Controller.Get(group, workspace, replicaset)
+	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
 
-	err := pk.Controller.Update(group, workspace, endpoint, this.Ctx.Input.RequestBody)
+	replicas, err := strconv.ParseInt(replicasStr, 10, 32)
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+
+	err = ri.Scale(int(replicas))
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
@@ -259,19 +312,20 @@ func (this *EndpointController) UpdateEndpoint() {
 
 	this.audit(token, "", false)
 	this.normalReturn("ok")
+
 }
 
-// DeleteEndpoint
-// @Title Endpoint
-// @Description   Endpoint
+// DeleteReplicaSet
+// @Title ReplicaSet
+// @Description  DeleteeReplicaSet
 // @Param Token header string true 'Token'
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
-// @Param endpoint path string true "端点"
+// @Param replicaset path string true "任务名"
 // @Success 201 {string} create success!
 // @Failure 500
-// @router /:endpoint/group/:group/workspace/:workspace [Delete]
-func (this *EndpointController) DeleteEndpoint() {
+// @router /:replicaset/group/:group/workspace/:workspace [Delete]
+func (this *ReplicaSetController) DeleteReplicaSet() {
 	token := this.Ctx.Request.Header.Get("token")
 	aerr := this.checkRouteControllerAbility()
 	if aerr != nil {
@@ -282,30 +336,30 @@ func (this *EndpointController) DeleteEndpoint() {
 
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
-	endpoint := this.Ctx.Input.Param(":endpoint")
+	replicaset := this.Ctx.Input.Param(":replicaset")
 
-	err := pk.Controller.Delete(group, workspace, endpoint, resource.DeleteOption{})
+	err := pk.Controller.Delete(group, workspace, replicaset, resource.DeleteOption{})
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
-
 	this.audit(token, "", false)
+
 	this.normalReturn("ok")
 }
 
-// GetEndpointContainerEvents
-// @Title Endpoint
-// @Description   Endpoint container event
+// GetReplicaSetContainerEvents
+// @Title ReplicaSet
+// @Description   ReplicaSet container event
 // @Param Token header string true 'Token'
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
-// @Param endpoint path string true "端点"
+// @Param replicaset path string true "容器组"
 // @Success 201 {string} create success!
 // @Failure 500
-// @router /:endpoint/group/:group/workspace/:workspace/event [Get]
-func (this *EndpointController) GetEndpointEvent() {
+// @router /:replicaset/group/:group/workspace/:workspace/event [Get]
+func (this *ReplicaSetController) GetReplicaSetEvent() {
 	aerr := this.checkRouteControllerAbility()
 	if aerr != nil {
 		this.abilityErrorReturn(aerr)
@@ -314,9 +368,9 @@ func (this *EndpointController) GetEndpointEvent() {
 
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
-	endpoint := this.Ctx.Input.Param(":endpoint")
+	replicaset := this.Ctx.Input.Param(":replicaset")
 
-	pi, err := pk.Controller.Get(group, workspace, endpoint)
+	pi, err := pk.Controller.Get(group, workspace, replicaset)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
@@ -328,4 +382,40 @@ func (this *EndpointController) GetEndpointEvent() {
 	}
 
 	this.normalReturn(es)
+}
+
+// GetReplicaSetTemplate
+// @Title ReplicaSet
+// @Description   ReplicaSet
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Param workspace path string true "工作区"
+// @Param replicaset path string true "容器组"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /:replicaset/group/:group/workspace/:workspace/template [Get]
+func (this *ReplicaSetController) GetReplicaSetTemplate() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
+
+	group := this.Ctx.Input.Param(":group")
+	workspace := this.Ctx.Input.Param(":workspace")
+	replicaset := this.Ctx.Input.Param(":replicaset")
+
+	pi, err := pk.Controller.Get(group, workspace, replicaset)
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+
+	t, err := pi.GetTemplate()
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+
+	this.normalReturn(t)
 }

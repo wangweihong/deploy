@@ -43,7 +43,7 @@ func init() {
 				&controllers.SecretController{},
 			),
 		),
-		beego.NSNamespace("/configap",
+		beego.NSNamespace("/configmap",
 			beego.NSInclude(
 				&controllers.ConfigMapController{},
 			),
@@ -66,6 +66,11 @@ func init() {
 		beego.NSNamespace("/deployment",
 			beego.NSInclude(
 				&controllers.DeploymentController{},
+			),
+		),
+		beego.NSNamespace("/replicaset",
+			beego.NSInclude(
+				&controllers.ReplicaSetController{},
 			),
 		),
 		beego.NSNamespace("/daemonset",

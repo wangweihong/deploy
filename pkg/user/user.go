@@ -6,8 +6,13 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"os"
 	"strings"
 	"ufleet-deploy/util/request"
+)
+
+var (
+	UserModuleIP = ""
 )
 
 type Registry struct {
@@ -19,8 +24,9 @@ type Registry struct {
 }
 
 type UserInterface interface {
-	GetRegistrysFromGroup(string, string) ([]Registry, error)
-	GetUserName(string) (string, error)
+	GetRegistrysFromGroup(string) ([]Registry, error)
+	GetRegistry(string, string) (*Registry, error)
+	GetUserName() (string, error)
 }
 
 type userClient struct {
@@ -33,9 +39,23 @@ func NewUserClient(token string) UserInterface {
 	return &uc
 
 }
+func (uc *userClient) GetRegistry(group string, name string) (*Registry, error) {
+	rs, err := uc.GetRegistrysFromGroup(group)
+	if err != nil {
+		return nil, err
+	}
 
-func (uc *userClient) GetRegistrysFromGroup(UserIp string, groupName string) ([]Registry, error) {
-	url := UserIp + "/v1/registry/group" + "/" + groupName
+	for _, v := range rs {
+		if v.Name == name {
+			return &v, nil
+		}
+	}
+
+	return nil, fmt.Errorf("registry %v not found", name)
+}
+
+func (uc *userClient) GetRegistrysFromGroup(groupName string) ([]Registry, error) {
+	url := UserModuleIP + "/v1/registry/group" + "/" + groupName
 	data, err := request.Get(url, uc.token)
 	if err != nil {
 		return nil, err
@@ -77,9 +97,9 @@ type User struct {
 	Username string `json:"username"`
 }
 
-func (uc *userClient) GetUserName(UserIp string) (string, error) {
+func (uc *userClient) GetUserName() (string, error) {
 
-	url := UserIp + "/v1/user/verify/" + strings.TrimRight(uc.token, "/")
+	url := UserModuleIP + "/v1/user/verify/" + strings.TrimRight(uc.token, "/")
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return "", err
@@ -110,4 +130,11 @@ func (uc *userClient) GetUserName(UserIp string) (string, error) {
 	}
 
 	return u.Username, nil
+}
+
+func Init() {
+	UserModuleIP = os.Getenv("USERHOST")
+	if len(strings.TrimSpace(UserModuleIP)) == 0 {
+		panic("must set USERHOST")
+	}
 }

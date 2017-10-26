@@ -30,6 +30,7 @@ const (
 	etcdJobKey                   = etcdUfleetKey + "/" + ResourceJobs
 	etcdVolumeKey                = etcdUfleetKey + "/" + ResourceVolumes
 	etcdReplicationControllerKey = etcdUfleetKey + "/" + ResourceReplicationControllers
+	etcdReplicaSetKey            = etcdUfleetKey + "/" + ResourceReplicaSets
 
 	//	ResourceGroups          = "groups"
 	//	ResourceWorkspaces      = "workspaces"
@@ -48,6 +49,7 @@ const (
 	ResourceCronJobs               = "cronjobs"
 	ResourceVolumes                = "volumes"
 	ResourceReplicationControllers = "replicationcontrollers"
+	ResourceReplicaSets            = "replicasets"
 
 	ActionDelete = "delete"
 	ActionAdd    = "set"
@@ -71,6 +73,7 @@ var (
 		ResourceJobs,
 		ResourceCronJobs,
 		ResourceReplicationControllers,
+		ResourceReplicaSets,
 		//		ResourceGroups,
 		//		ResourceWorkspaces,
 		//	ResourceVolumes,
@@ -96,6 +99,7 @@ var (
 		ResourceJobs:                   etcdJobKey,
 		ResourceVolumes:                etcdVolumeKey,
 		ResourceReplicationControllers: etcdReplicationControllerKey,
+		ResourceReplicaSets:            etcdReplicaSetKey,
 	}
 )
 var (

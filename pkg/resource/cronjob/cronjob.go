@@ -4,35 +4,30 @@ import (
 	"encoding/json"
 	"fmt"
 	"sync"
+	"time"
 	"ufleet-deploy/pkg/backend"
 	"ufleet-deploy/pkg/cluster"
 	"ufleet-deploy/pkg/log"
+	"ufleet-deploy/pkg/resource"
 	jk "ufleet-deploy/pkg/resource/job"
+	pk "ufleet-deploy/pkg/resource/pod"
 	"ufleet-deploy/pkg/resource/util"
+	"ufleet-deploy/pkg/sign"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	corev1 "k8s.io/client-go/pkg/api/v1"
 	batchv1 "k8s.io/client-go/pkg/apis/batch/v1"
 	batchv2alpha1 "k8s.io/client-go/pkg/apis/batch/v2alpha1"
 )
 
 var (
-	rm *CronJobManager
-	/* = &CronJobManager{
-		Groups: make(map[string]CronJobGroup),
-		locker: sync.Mutex{},
-	}
-	*/
+	rm         *CronJobManager
 	Controller CronJobController
-
-	ErrResourceNotFound  = fmt.Errorf("resource not found")
-	ErrResourceExists    = fmt.Errorf("resource has exists")
-	ErrWorkspaceNotFound = fmt.Errorf("workspace not found")
-	ErrGroupNotFound     = fmt.Errorf("group not found")
 )
 
 type CronJobController interface {
-	Create(group, workspace string, data []byte, opt CreateOptions) error
-	Delete(group, workspace, cronjob string, opt DeleteOption) error
+	Create(group, workspace string, data []byte, opt resource.CreateOption) error
+	Delete(group, workspace, cronjob string, opt resource.DeleteOption) error
 	Update(groupName, workspaceName string, resourceName string, data []byte) error
 	Get(group, workspace, cronjob string) (CronJobInterface, error)
 	List(group, workspace string) ([]CronJobInterface, error)
@@ -42,8 +37,10 @@ type CronJobController interface {
 type CronJobInterface interface {
 	Info() *CronJob
 	GetRuntime() (*Runtime, error)
-	GetStatus() (*Status, error)
+	GetStatus() *Status
 	GetTemplate() (string, error)
+	Event() ([]corev1.Event, error)
+	SuspendOrResume() error
 }
 
 type CronJobManager struct {
@@ -69,25 +66,8 @@ type Runtime struct {
 //在CronJob构建到内存的时候,就开始绑定K8s资源,
 //可以根据事件及时更新CronJob的信息
 type CronJob struct {
-	Name       string `json:"name"`
-	Workspace  string `json:"workspace"`
-	Group      string `json:"group"`
-	AppStack   string `json:"app"`
-	User       string `json:"user"`
-	Cluster    string `json:"cluster"`
-	Template   string `json:"template"`
+	resource.ObjectMeta
 	memoryOnly bool
-}
-
-type GetOptions struct {
-}
-type DeleteOption struct{}
-
-type CreateOptions struct {
-	//	MemoryOnly bool    //只在内存中创建,不创建k8s资源/也不保存在etcd中.由k8s daemonset/cronjob等主动创建的资源.
-	//废弃,直接通过CronJobManager来调用
-	App  *string //所属app
-	User string  //创建的用户
 }
 
 //注意这里没锁
@@ -95,17 +75,17 @@ func (p *CronJobManager) get(groupName, workspaceName, resourceName string) (*Cr
 
 	group, ok := p.Groups[groupName]
 	if !ok {
-		return nil, ErrGroupNotFound
+		return nil, resource.ErrGroupNotFound
 	}
 
 	workspace, ok := group.Workspaces[workspaceName]
 	if !ok {
-		return nil, ErrWorkspaceNotFound
+		return nil, resource.ErrWorkspaceNotFound
 	}
 
 	cronjob, ok := workspace.CronJobs[resourceName]
 	if !ok {
-		return nil, ErrResourceNotFound
+		return nil, resource.ErrResourceNotFound
 	}
 
 	return &cronjob, nil
@@ -124,12 +104,12 @@ func (p *CronJobManager) List(groupName, workspaceName string) ([]CronJobInterfa
 
 	group, ok := p.Groups[groupName]
 	if !ok {
-		return nil, fmt.Errorf("%v:%v", ErrGroupNotFound, groupName)
+		return nil, fmt.Errorf("%v:%v", resource.ErrGroupNotFound, groupName)
 	}
 
 	workspace, ok := group.Workspaces[workspaceName]
 	if !ok {
-		return nil, fmt.Errorf("%v:group/%v,workspace/%v", ErrWorkspaceNotFound, groupName, workspaceName)
+		return nil, fmt.Errorf("%v:group/%v,workspace/%v", resource.ErrWorkspaceNotFound, groupName, workspaceName)
 	}
 
 	pis := make([]CronJobInterface, 0)
@@ -150,7 +130,7 @@ func (p *CronJobManager) ListGroup(groupName string) ([]CronJobInterface, error)
 
 	group, ok := p.Groups[groupName]
 	if !ok {
-		return nil, fmt.Errorf("%v:%v", ErrGroupNotFound, groupName)
+		return nil, fmt.Errorf("%v:%v", resource.ErrGroupNotFound, groupName)
 	}
 
 	pis := make([]CronJobInterface, 0)
@@ -166,7 +146,7 @@ func (p *CronJobManager) ListGroup(groupName string) ([]CronJobInterface, error)
 	return pis, nil
 }
 
-func (p *CronJobManager) Create(groupName, workspaceName string, data []byte, opt CreateOptions) error {
+func (p *CronJobManager) Create(groupName, workspaceName string, data []byte, opt resource.CreateOption) error {
 
 	p.locker.Lock()
 	defer p.locker.Unlock()
@@ -184,24 +164,28 @@ func (p *CronJobManager) Create(groupName, workspaceName string, data []byte, op
 	if len(exts) != 1 {
 		return log.DebugPrint("must offer one  resource json/yaml data")
 	}
-	var cj batchv2alpha1.CronJob
-	err = json.Unmarshal(exts[0].Raw, &cj)
+	var obj batchv2alpha1.CronJob
+	err = json.Unmarshal(exts[0].Raw, &obj)
 	if err != nil {
 		return log.DebugPrint(err)
 	}
 
-	if cj.Kind != "CronJob" {
+	if obj.Kind != "CronJob" {
 		return log.DebugPrint("must offer one  cronjob resource json/yaml data")
 	}
+	obj.ResourceVersion = ""
+	obj.Annotations = make(map[string]string)
+	obj.Annotations[sign.SignFromUfleetKey] = sign.SignFromUfleetValue
 
 	var cp CronJob
-	cp.Name = cj.Name
+	cp.Name = obj.Name
 	cp.Group = groupName
 	cp.Workspace = workspaceName
 	cp.Template = string(data)
 	cp.User = opt.User
+	cp.CreateTime = time.Now().Unix()
 	if opt.App != nil {
-		cp.AppStack = *opt.App
+		cp.App = *opt.App
 	}
 
 	be := backend.NewBackendHandler()
@@ -210,7 +194,7 @@ func (p *CronJobManager) Create(groupName, workspaceName string, data []byte, op
 		return log.DebugPrint(err)
 	}
 
-	err = ph.Create(workspaceName, &cj)
+	err = ph.Create(workspaceName, &obj)
 	if err != nil {
 		err2 := be.DeleteResource(backendKind, groupName, workspaceName, cp.Name)
 		if err2 != nil {
@@ -260,11 +244,11 @@ func (p *CronJobManager) Update(groupName, workspaceName string, resourceName st
 func (p *CronJobManager) delete(groupName, workspaceName, resourceName string) error {
 	group, ok := p.Groups[groupName]
 	if !ok {
-		return ErrGroupNotFound
+		return resource.ErrGroupNotFound
 	}
 	workspace, ok := group.Workspaces[workspaceName]
 	if !ok {
-		return ErrWorkspaceNotFound
+		return resource.ErrWorkspaceNotFound
 	}
 
 	delete(workspace.CronJobs, resourceName)
@@ -273,7 +257,7 @@ func (p *CronJobManager) delete(groupName, workspaceName, resourceName string) e
 	return nil
 }
 
-func (p *CronJobManager) Delete(group, workspace, resourceName string, opt DeleteOption) error {
+func (p *CronJobManager) Delete(group, workspace, resourceName string, opt resource.DeleteOption) error {
 	p.locker.Lock()
 	defer p.locker.Unlock()
 	ph, err := cluster.NewCronJobHandler(group, workspace)
@@ -281,12 +265,12 @@ func (p *CronJobManager) Delete(group, workspace, resourceName string, opt Delet
 		return log.DebugPrint(err)
 	}
 
-	cronjob, err := p.get(group, workspace, resourceName)
+	res, err := p.get(group, workspace, resourceName)
 	if err != nil {
 		return log.DebugPrint(err)
 	}
 
-	if cronjob.memoryOnly {
+	if res.memoryOnly {
 
 		//触发集群控制器来删除内存中的数据
 		err = ph.Delete(workspace, resourceName)
@@ -307,6 +291,19 @@ func (p *CronJobManager) Delete(group, workspace, resourceName string, opt Delet
 			if !apierrors.IsNotFound(err) {
 				return log.DebugPrint(err)
 			}
+		}
+		if !opt.DontCallApp && res.App != "" {
+			go func() {
+				var re resource.ResourceEvent
+				re.Group = group
+				re.Workspace = workspace
+				re.Kind = resourceKind
+				re.Action = resource.ResourceActionDelete
+				re.Resource = res.Name
+				re.App = res.App
+
+				resource.ResourceEventChan <- re
+			}()
 		}
 		return nil
 
@@ -346,46 +343,101 @@ func (p *CronJob) GetTemplate() (string, error) {
 		return "", log.DebugPrint(err)
 	}
 
+	prefix := "apiVersion: batch/v2alpha1\nkind: CronJob"
+	*t = fmt.Sprintf("%v\n%v", prefix, *t)
+
 	return *t, nil
 }
 
-type Status struct {
-	Name             string      `json:"name"`
-	User             string      `json:"user"`
-	Workspace        string      `json:"workspace"`
-	Group            string      `json:"group"`
-	Total            int         `json:"total"`
-	Active           int         `json:"active"`
-	LastScheduleTime int64       `json:"lastscheduletime"`
-	Period           string      `json:"period"`
-	JobStatus        []jk.Status `json:"jobstatuses"`
-	Reason           string      `json:"reason"`
-}
-
-/*
-func K8sCronJobToStatus(job *batchv2alpha1.CronJob) *Status {
-	var js Status
-	js.Name = job.Name
-	js.Period = job.Spec.Schedule
-	if job.Status.LastScheduleTime != nil {
-		js.LastScheduleTime = job.Status.LastScheduleTime
+func (p *CronJob) Event() ([]corev1.Event, error) {
+	ph, err := cluster.NewCronJobHandler(p.Group, p.Workspace)
+	if err != nil {
+		return nil, log.DebugPrint(err)
 	}
 
+	return ph.Event(p.Workspace, p.Name)
 }
-*/
 
-func (p *CronJob) GetStatus() (*Status, error) {
-	var s Status
+func (p *CronJob) SuspendOrResume() error {
+	ph, err := cluster.NewCronJobHandler(p.Group, p.Workspace)
+	if err != nil {
+		return log.DebugPrint(err)
+	}
+
 	runtime, err := p.GetRuntime()
 	if err != nil {
-		return nil, err
+		return log.DebugPrint(err)
+	}
+
+	var suspend bool
+	cronjob := runtime.CronJob
+
+	if cronjob.Spec.Suspend == nil {
+		log.DebugPrint("--------------empty")
+	} else {
+		log.DebugPrint(*cronjob.Spec.Suspend)
+
+	}
+
+	if cronjob.Spec.Suspend == nil {
+		suspend = false
+	} else {
+		if *cronjob.Spec.Suspend {
+			suspend = false
+		} else {
+			suspend = true
+		}
+	}
+	log.DebugPrint(suspend)
+	cronjob.ResourceVersion = ""
+	cronjob.Spec.Suspend = &suspend
+	err = ph.Update(p.Workspace, cronjob)
+	if err != nil {
+		return log.DebugPrint(err)
+	}
+	return nil
+
+}
+
+type Status struct {
+	resource.ObjectMeta
+
+	Total   int  `json:"total"`
+	Active  int  `json:"active"`
+	Suspend bool `json:"suspend"`
+	//-1表示没有指定
+	StartingDeadlineSeconds    int64              `json:"startingDeadlineSeconds"`
+	SuccessfulJobsHistoryLimit int                `json:"successfulJobsHistoryLimit"`
+	FailedJobsHistoryLimit     int                `json:"failedJobsHistoryLimit"`
+	ConcurrencyPolicy          string             `json:"concurrencyPolicy"`
+	LastScheduleTime           int64              `json:"lastscheduletime"`
+	Period                     string             `json:"period"`
+	Labels                     map[string]string  `json:"labels"`
+	Seletors                   map[string]string  `json:"selectors"`
+	JobStatus                  []jk.Status        `json:"jobstatuses"`
+	ContainerSpecs             []pk.ContainerSpec `json:"containerspec"`
+
+	Reason string `json:"reason"`
+}
+
+func (p *CronJob) GetStatus() *Status {
+	s := Status{ObjectMeta: p.ObjectMeta}
+
+	s.JobStatus = make([]jk.Status, 0)
+	s.Labels = make(map[string]string)
+	s.Seletors = make(map[string]string)
+	s.ContainerSpecs = make([]pk.ContainerSpec, 0)
+
+	runtime, err := p.GetRuntime()
+	if err != nil {
+		s.Reason = err.Error()
+		return &s
+	}
+
+	if s.CreateTime == 0 {
+		s.CreateTime = runtime.CronJob.CreationTimestamp.Unix()
 	}
 	info := p.Info()
-
-	s.Name = info.Name
-	s.User = info.User
-	s.Group = info.Group
-	s.Workspace = info.Workspace
 
 	s.Period = runtime.CronJob.Spec.Schedule
 	rs := runtime.CronJob.Status
@@ -393,27 +445,62 @@ func (p *CronJob) GetStatus() (*Status, error) {
 		s.LastScheduleTime = rs.LastScheduleTime.Unix()
 	}
 
+	if runtime.CronJob.Spec.Suspend != nil {
+		s.Suspend = *runtime.CronJob.Spec.Suspend
+	} else {
+		s.Suspend = false
+	}
+
+	s.Labels = runtime.CronJob.Spec.JobTemplate.Labels
+	if runtime.CronJob.Spec.JobTemplate.Spec.Selector != nil {
+		s.Seletors = runtime.CronJob.Spec.JobTemplate.Spec.Selector.MatchLabels
+
+	}
+
+	s.ConcurrencyPolicy = string(runtime.CronJob.Spec.ConcurrencyPolicy)
+	//-1表示没有设置
+	if runtime.CronJob.Spec.SuccessfulJobsHistoryLimit != nil {
+		s.SuccessfulJobsHistoryLimit = int(*runtime.CronJob.Spec.SuccessfulJobsHistoryLimit)
+	} else {
+		s.SuccessfulJobsHistoryLimit = -1
+	}
+
+	if runtime.CronJob.Spec.FailedJobsHistoryLimit != nil {
+		s.FailedJobsHistoryLimit = int(*runtime.CronJob.Spec.FailedJobsHistoryLimit)
+	} else {
+		s.FailedJobsHistoryLimit = -1
+	}
+
+	if runtime.CronJob.Spec.StartingDeadlineSeconds != nil {
+
+		s.StartingDeadlineSeconds = *runtime.CronJob.Spec.StartingDeadlineSeconds
+	} else {
+		s.StartingDeadlineSeconds = -1
+
+	}
+
+	for _, v := range runtime.CronJob.Spec.JobTemplate.Spec.Template.Spec.Containers {
+		s.ContainerSpecs = append(s.ContainerSpecs, *pk.K8sContainerSpecTran(&v))
+	}
+
 	s.Total = len(runtime.Jobs)
 	s.Active = len(rs.Active)
 
 	s.JobStatus = make([]jk.Status, 0)
 	for _, v := range runtime.Jobs {
-		//		js := jk.K8sJobToJobStatus(v)
-		//		s.JobStatus = append(s.JobStatus, *js)
-
 		ji, err := jk.Controller.Get(info.Group, info.Workspace, v.Name)
 		if err != nil {
 			s.Reason = err.Error()
-			return nil, err
+			return &s
 		}
 		js, err := ji.GetStatus()
 		if err != nil {
-			return nil, err
+			return &s
 		}
 		s.JobStatus = append(s.JobStatus, *js)
 
 	}
-	return &s, nil
+	return &s
 }
 
 func InitCronJobController(be backend.BackendHandler) (CronJobController, error) {
@@ -444,7 +531,6 @@ func InitCronJobController(be backend.BackendHandler) (CronJobController, error)
 		}
 		rm.Groups[k] = group
 	}
-	log.DebugPrint(rm)
 	return rm, nil
 
 }

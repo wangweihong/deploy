@@ -1,4 +1,4 @@
-package replicationcontroller
+package replicaset
 
 import (
 	"encoding/json"
@@ -16,24 +16,25 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 
 	corev1 "k8s.io/client-go/pkg/api/v1"
+	extensionsv1beta1 "k8s.io/client-go/pkg/apis/extensions/v1beta1"
 )
 
 var (
-	rm         *ReplicationControllerManager
-	Controller ReplicationControllerController
+	rm         *ReplicaSetManager
+	Controller ReplicaSetController
 )
 
-type ReplicationControllerController interface {
+type ReplicaSetController interface {
 	Create(group, workspace string, data []byte, opt resource.CreateOption) error
-	Delete(group, workspace, replicationcontroller string, opt resource.DeleteOption) error
-	Get(group, workspace, replicationcontroller string) (ReplicationControllerInterface, error)
+	Delete(group, workspace, replicaset string, opt resource.DeleteOption) error
+	Get(group, workspace, replicaset string) (ReplicaSetInterface, error)
 	Update(group, workspace, resource string, newdata []byte) error
-	List(group, workspace string) ([]ReplicationControllerInterface, error)
-	ListGroup(group string) ([]ReplicationControllerInterface, error)
+	List(group, workspace string) ([]ReplicaSetInterface, error)
+	ListGroup(group string) ([]ReplicaSetInterface, error)
 }
 
-type ReplicationControllerInterface interface {
-	Info() *ReplicationController
+type ReplicaSetInterface interface {
+	Info() *ReplicaSet
 	GetRuntime() (*Runtime, error)
 	GetStatus() *Status
 	Scale(num int) error
@@ -42,35 +43,35 @@ type ReplicationControllerInterface interface {
 	//	Runtime()
 }
 
-type ReplicationControllerManager struct {
-	Groups map[string]ReplicationControllerGroup `json:"groups"`
+type ReplicaSetManager struct {
+	Groups map[string]ReplicaSetGroup `json:"groups"`
 	locker sync.Mutex
 }
 
-type ReplicationControllerGroup struct {
-	Workspaces map[string]ReplicationControllerWorkspace `json:"Workspaces"`
+type ReplicaSetGroup struct {
+	Workspaces map[string]ReplicaSetWorkspace `json:"Workspaces"`
 }
 
-type ReplicationControllerWorkspace struct {
-	ReplicationControllers map[string]ReplicationController `json:"replicationcontrollers"`
+type ReplicaSetWorkspace struct {
+	ReplicaSets map[string]ReplicaSet `json:"replicasets"`
 }
 
 type Runtime struct {
-	ReplicationController *corev1.ReplicationController
-	Pods                  []*corev1.Pod
+	ReplicaSet *extensionsv1beta1.ReplicaSet
+	Pods       []*corev1.Pod
 }
 
 //TODO:是否可以添加一个特定的只存于内存的标记位
-//用于标记ReplicationController相关的K8s资源是否仍然存在
-//在ReplicationController构建到内存的时候,就开始绑定K8s资源,
-//可以根据事件及时更新ReplicationController的信息
-type ReplicationController struct {
+//用于标记ReplicaSet相关的K8s资源是否仍然存在
+//在ReplicaSet构建到内存的时候,就开始绑定K8s资源,
+//可以根据事件及时更新ReplicaSet的信息
+type ReplicaSet struct {
 	resource.ObjectMeta
 	memoryOnly bool //用于判定pod是否由k8s自动创建
 }
 
 //注意这里没锁
-func (p *ReplicationControllerManager) get(groupName, workspaceName, replicationcontrollerName string) (*ReplicationController, error) {
+func (p *ReplicaSetManager) get(groupName, workspaceName, replicasetName string) (*ReplicaSet, error) {
 
 	group, ok := p.Groups[groupName]
 	if !ok {
@@ -82,21 +83,21 @@ func (p *ReplicationControllerManager) get(groupName, workspaceName, replication
 		return nil, resource.ErrWorkspaceNotFound
 	}
 
-	replicationcontroller, ok := workspace.ReplicationControllers[replicationcontrollerName]
+	replicaset, ok := workspace.ReplicaSets[replicasetName]
 	if !ok {
 		return nil, resource.ErrResourceNotFound
 	}
 
-	return &replicationcontroller, nil
+	return &replicaset, nil
 }
 
-func (p *ReplicationControllerManager) Get(group, workspace, replicationcontrollerName string) (ReplicationControllerInterface, error) {
+func (p *ReplicaSetManager) Get(group, workspace, replicasetName string) (ReplicaSetInterface, error) {
 	p.locker.Lock()
 	defer p.locker.Unlock()
-	return p.get(group, workspace, replicationcontrollerName)
+	return p.get(group, workspace, replicasetName)
 }
 
-func (p *ReplicationControllerManager) ListGroup(groupName string) ([]ReplicationControllerInterface, error) {
+func (p *ReplicaSetManager) ListGroup(groupName string) ([]ReplicaSetInterface, error) {
 	p.locker.Lock()
 	defer p.locker.Unlock()
 
@@ -105,17 +106,17 @@ func (p *ReplicationControllerManager) ListGroup(groupName string) ([]Replicatio
 		return nil, fmt.Errorf("%v:%v", resource.ErrGroupNotFound, groupName)
 	}
 
-	pis := make([]ReplicationControllerInterface, 0)
+	pis := make([]ReplicaSetInterface, 0)
 	for _, v := range group.Workspaces {
-		for k := range v.ReplicationControllers {
-			t := v.ReplicationControllers[k]
+		for k := range v.ReplicaSets {
+			t := v.ReplicaSets[k]
 			pis = append(pis, &t)
 		}
 	}
 	return pis, nil
 }
 
-func (p *ReplicationControllerManager) List(groupName, workspaceName string) ([]ReplicationControllerInterface, error) {
+func (p *ReplicaSetManager) List(groupName, workspaceName string) ([]ReplicaSetInterface, error) {
 
 	p.locker.Lock()
 	defer p.locker.Unlock()
@@ -130,23 +131,23 @@ func (p *ReplicationControllerManager) List(groupName, workspaceName string) ([]
 		return nil, fmt.Errorf("%v:group/%v,workspace/%v", resource.ErrWorkspaceNotFound, groupName, workspaceName)
 	}
 
-	pis := make([]ReplicationControllerInterface, 0)
+	pis := make([]ReplicaSetInterface, 0)
 
 	//不能够直接使用k,v来赋值,会出现值都是同一个的问题
-	for k := range workspace.ReplicationControllers {
-		t := workspace.ReplicationControllers[k]
+	for k := range workspace.ReplicaSets {
+		t := workspace.ReplicaSets[k]
 		pis = append(pis, &t)
 	}
 
 	return pis, nil
 }
 
-func (p *ReplicationControllerManager) Create(groupName, workspaceName string, data []byte, opt resource.CreateOption) error {
+func (p *ReplicaSetManager) Create(groupName, workspaceName string, data []byte, opt resource.CreateOption) error {
 
 	p.locker.Lock()
 	defer p.locker.Unlock()
 
-	ph, err := cluster.NewReplicationControllerHandler(groupName, workspaceName)
+	ph, err := cluster.NewReplicaSetHandler(groupName, workspaceName)
 	if err != nil {
 		return log.DebugPrint(err)
 	}
@@ -160,20 +161,20 @@ func (p *ReplicationControllerManager) Create(groupName, workspaceName string, d
 		return log.DebugPrint("must  offer  one  resource json/yaml data")
 	}
 
-	var obj corev1.ReplicationController
+	var obj extensionsv1beta1.ReplicaSet
 	err = json.Unmarshal(exts[0].Raw, &obj)
 	if err != nil {
 		return log.DebugPrint(err)
 	}
 
-	if obj.Kind != "ReplicationController" {
+	if obj.Kind != "ReplicaSet" {
 		return log.DebugPrint("must and  offer one rc json/yaml data")
 	}
 	obj.ResourceVersion = ""
 	obj.Annotations = make(map[string]string)
 	obj.Annotations[sign.SignFromUfleetKey] = sign.SignFromUfleetValue
 
-	var cp ReplicationController
+	var cp ReplicaSet
 	cp.CreateTime = time.Now().Unix()
 	cp.Name = obj.Name
 	cp.Workspace = workspaceName
@@ -204,7 +205,7 @@ func (p *ReplicationControllerManager) Create(groupName, workspaceName string, d
 }
 
 //无锁
-func (p *ReplicationControllerManager) delete(groupName, workspaceName, replicationcontrollerName string) error {
+func (p *ReplicaSetManager) delete(groupName, workspaceName, replicasetName string) error {
 	group, ok := p.Groups[groupName]
 	if !ok {
 		return resource.ErrGroupNotFound
@@ -214,22 +215,22 @@ func (p *ReplicationControllerManager) delete(groupName, workspaceName, replicat
 		return resource.ErrWorkspaceNotFound
 	}
 
-	delete(workspace.ReplicationControllers, replicationcontrollerName)
+	delete(workspace.ReplicaSets, replicasetName)
 	group.Workspaces[workspaceName] = workspace
 	p.Groups[groupName] = group
 	return nil
 }
 
-func (p *ReplicationControllerManager) Delete(group, workspace, replicationcontrollerName string, opt resource.DeleteOption) error {
+func (p *ReplicaSetManager) Delete(group, workspace, replicasetName string, opt resource.DeleteOption) error {
 	p.locker.Lock()
 	defer p.locker.Unlock()
 
-	ph, err := cluster.NewReplicationControllerHandler(group, workspace)
+	ph, err := cluster.NewReplicaSetHandler(group, workspace)
 	if err != nil {
 		return log.DebugPrint(err)
 	}
 
-	res, err := p.get(group, workspace, replicationcontrollerName)
+	res, err := p.get(group, workspace, replicasetName)
 	if err != nil {
 		return log.DebugPrint(err)
 	}
@@ -237,7 +238,7 @@ func (p *ReplicationControllerManager) Delete(group, workspace, replicationcontr
 	if res.memoryOnly {
 
 		//触发集群控制器来删除内存中的数据
-		err = ph.Delete(workspace, replicationcontrollerName)
+		err = ph.Delete(workspace, replicasetName)
 		if err != nil {
 			return log.DebugPrint(err)
 		}
@@ -245,11 +246,11 @@ func (p *ReplicationControllerManager) Delete(group, workspace, replicationcontr
 		//TODO:ufleet创建的数据
 	} else {
 		be := backend.NewBackendHandler()
-		err := be.DeleteResource(backendKind, group, workspace, replicationcontrollerName)
+		err := be.DeleteResource(backendKind, group, workspace, replicasetName)
 		if err != nil {
 			return log.DebugPrint(err)
 		}
-		err = ph.Delete(workspace, replicationcontrollerName)
+		err = ph.Delete(workspace, replicasetName)
 		if err != nil {
 			if !apierrors.IsNotFound(err) {
 				return log.DebugPrint(err)
@@ -272,7 +273,7 @@ func (p *ReplicationControllerManager) Delete(group, workspace, replicationcontr
 	}
 }
 
-func (p *ReplicationControllerManager) Update(groupName, workspaceName string, resourceName string, data []byte) error {
+func (p *ReplicaSetManager) Update(groupName, workspaceName string, resourceName string, data []byte) error {
 	p.locker.Lock()
 	defer p.locker.Unlock()
 
@@ -282,7 +283,7 @@ func (p *ReplicationControllerManager) Update(groupName, workspaceName string, r
 	}
 
 	//说明是主动创建的..
-	var newr corev1.ReplicationController
+	var newr extensionsv1beta1.ReplicaSet
 	err = util.GetObjectFromYamlTemplate(data, &newr)
 	if err != nil {
 		return log.DebugPrint(err)
@@ -294,7 +295,7 @@ func (p *ReplicationControllerManager) Update(groupName, workspaceName string, r
 		return fmt.Errorf("invalid update data, name not match")
 	}
 
-	ph, err := cluster.NewReplicationControllerHandler(groupName, workspaceName)
+	ph, err := cluster.NewReplicaSetHandler(groupName, workspaceName)
 	if err != nil {
 		return log.DebugPrint(err)
 	}
@@ -305,16 +306,16 @@ func (p *ReplicationControllerManager) Update(groupName, workspaceName string, r
 
 	return nil
 }
-func (j *ReplicationController) Info() *ReplicationController {
+func (j *ReplicaSet) Info() *ReplicaSet {
 	return j
 }
 
-func (j *ReplicationController) GetRuntime() (*Runtime, error) {
-	ph, err := cluster.NewReplicationControllerHandler(j.Group, j.Workspace)
+func (j *ReplicaSet) GetRuntime() (*Runtime, error) {
+	ph, err := cluster.NewReplicaSetHandler(j.Group, j.Workspace)
 	if err != nil {
 		return nil, log.DebugPrint(err)
 	}
-	replicationcontroller, err := ph.Get(j.Workspace, j.Name)
+	replicaset, err := ph.Get(j.Workspace, j.Name)
 	if err != nil {
 		return nil, log.DebugPrint(err)
 	}
@@ -325,7 +326,7 @@ func (j *ReplicationController) GetRuntime() (*Runtime, error) {
 	}
 	var runtime Runtime
 	runtime.Pods = pods
-	runtime.ReplicationController = replicationcontroller
+	runtime.ReplicaSet = replicaset
 	return &runtime, nil
 }
 
@@ -343,52 +344,52 @@ type Status struct {
 	Ready       int               `json:"ready"`
 	Labels      map[string]string `json:"labels"`
 	Annotatiosn map[string]string `json:"annotations"`
-	Selectors   map[string]string `json:"selectors"`
+	Selectors   map[string]string `json:"selector"`
 	Reason      string            `json:"reason"`
 	//	Pods       []string `json:"pods"`
 	ContainerSpecs []pk.ContainerSpec `json:"containerspec"`
 	PodStatus      []pk.Status        `json:"podstatus"`
-	corev1.ReplicationControllerStatus
+	extensionsv1beta1.ReplicaSetStatus
 }
 
 //不包含PodStatus的信息
-func K8sReplicationControllerToReplicationControllerStatus(replicationcontroller *corev1.ReplicationController) *Status {
-	js := Status{ReplicationControllerStatus: replicationcontroller.Status}
+func K8sReplicaSetToReplicaSetStatus(replicaset *extensionsv1beta1.ReplicaSet) *Status {
+	js := Status{ReplicaSetStatus: replicaset.Status}
 	js.ContainerSpecs = make([]pk.ContainerSpec, 0)
-	js.Name = replicationcontroller.Name
+	js.Name = replicaset.Name
 	js.Images = make([]string, 0)
 	js.PodStatus = make([]pk.Status, 0)
-	js.CreateTime = replicationcontroller.CreationTimestamp.Unix()
-	if replicationcontroller.Spec.Replicas != nil {
-		js.Replicas = *replicationcontroller.Spec.Replicas
+	js.CreateTime = replicaset.CreationTimestamp.Unix()
+	if replicaset.Spec.Replicas != nil {
+		js.Replicas = *replicaset.Spec.Replicas
 	}
 
 	js.Labels = make(map[string]string)
-	if replicationcontroller.Labels != nil {
-		js.Labels = replicationcontroller.Labels
+	if replicaset.Labels != nil {
+		js.Labels = replicaset.Labels
 	}
 
 	js.Annotatiosn = make(map[string]string)
-	if replicationcontroller.Annotations != nil {
-		js.Labels = replicationcontroller.Annotations
+	if replicaset.Annotations != nil {
+		js.Labels = replicaset.Annotations
 	}
 
 	js.Selectors = make(map[string]string)
-	if replicationcontroller.Spec.Selector != nil {
-		js.Selectors = replicationcontroller.Spec.Selector
+	if replicaset.Spec.Selector != nil {
+		js.Selectors = replicaset.Spec.Selector.MatchLabels
 	}
 
-	if replicationcontroller.Spec.Replicas != nil {
-		js.Desire = int(*replicationcontroller.Spec.Replicas)
+	if replicaset.Spec.Replicas != nil {
+		js.Desire = int(*replicaset.Spec.Replicas)
 	} else {
 		js.Desire = 1
 
 	}
-	js.Current = int(replicationcontroller.Status.AvailableReplicas)
-	js.Ready = int(replicationcontroller.Status.ReadyReplicas)
-	js.Available = int(replicationcontroller.Status.AvailableReplicas)
+	js.Current = int(replicaset.Status.AvailableReplicas)
+	js.Ready = int(replicaset.Status.ReadyReplicas)
+	js.Available = int(replicaset.Status.AvailableReplicas)
 
-	for _, v := range replicationcontroller.Spec.Template.Spec.Containers {
+	for _, v := range replicaset.Spec.Template.Spec.Containers {
 		js.Containers = append(js.Containers, v.Name)
 		js.Images = append(js.Images, v.Image)
 		js.ContainerSpecs = append(js.ContainerSpecs, *pk.K8sContainerSpecTran(&v))
@@ -397,7 +398,7 @@ func K8sReplicationControllerToReplicationControllerStatus(replicationcontroller
 
 }
 
-func (j *ReplicationController) GetStatus() *Status {
+func (j *ReplicaSet) GetStatus() *Status {
 	runtime, err := j.GetRuntime()
 	if err != nil {
 		js := Status{ObjectMeta: j.ObjectMeta}
@@ -410,8 +411,8 @@ func (j *ReplicationController) GetStatus() *Status {
 		js.Reason = err.Error()
 		return &js
 	}
-	replicationcontroller := runtime.ReplicationController
-	js := Status{ObjectMeta: j.ObjectMeta, ReplicationControllerStatus: replicationcontroller.Status}
+	replicaset := runtime.ReplicaSet
+	js := Status{ObjectMeta: j.ObjectMeta, ReplicaSetStatus: replicaset.Status}
 	js.ContainerSpecs = make([]pk.ContainerSpec, 0)
 	js.Images = make([]string, 0)
 	js.PodStatus = make([]pk.Status, 0)
@@ -420,39 +421,39 @@ func (j *ReplicationController) GetStatus() *Status {
 	js.Selectors = make(map[string]string)
 
 	if js.CreateTime == 0 {
-		js.CreateTime = runtime.ReplicationController.CreationTimestamp.Unix()
+		js.CreateTime = runtime.ReplicaSet.CreationTimestamp.Unix()
 	}
 
-	if replicationcontroller.Spec.Replicas != nil {
-		js.Replicas = *replicationcontroller.Spec.Replicas
+	if replicaset.Spec.Replicas != nil {
+		js.Replicas = *replicaset.Spec.Replicas
 	}
-	if replicationcontroller.Labels != nil {
-		js.Labels = replicationcontroller.Labels
-	}
-
-	if replicationcontroller.Annotations != nil {
-		js.Labels = replicationcontroller.Annotations
+	if replicaset.Labels != nil {
+		js.Labels = replicaset.Labels
 	}
 
-	if replicationcontroller.Spec.Selector != nil {
-		js.Selectors = replicationcontroller.Spec.Selector
+	if replicaset.Annotations != nil {
+		js.Labels = replicaset.Annotations
 	}
 
-	if replicationcontroller.Spec.Replicas != nil {
-		js.Desire = int(*replicationcontroller.Spec.Replicas)
+	if replicaset.Spec.Selector != nil {
+		js.Selectors = replicaset.Spec.Selector.MatchLabels
+	}
+
+	if replicaset.Spec.Replicas != nil {
+		js.Desire = int(*replicaset.Spec.Replicas)
 	} else {
 		js.Desire = 1
 	}
-	js.Current = int(replicationcontroller.Status.AvailableReplicas)
-	js.Ready = int(replicationcontroller.Status.ReadyReplicas)
-	js.Available = int(replicationcontroller.Status.AvailableReplicas)
+	js.Current = int(replicaset.Status.AvailableReplicas)
+	js.Ready = int(replicaset.Status.ReadyReplicas)
+	js.Available = int(replicaset.Status.AvailableReplicas)
 
-	for _, v := range replicationcontroller.Spec.Template.Spec.Containers {
+	for _, v := range replicaset.Spec.Template.Spec.Containers {
 		js.Containers = append(js.Containers, v.Name)
 		js.Images = append(js.Images, v.Image)
 		js.ContainerSpecs = append(js.ContainerSpecs, *pk.K8sContainerSpecTran(&v))
 	}
-	//	js := K8sReplicationControllerToReplicationControllerStatus(runtime.ReplicationController)
+	//	js := K8sReplicaSetToReplicaSetStatus(runtime.ReplicaSet)
 	js.PodNum = len(runtime.Pods)
 	if js.PodNum != 0 {
 		pod := runtime.Pods[0]
@@ -470,9 +471,9 @@ func (j *ReplicationController) GetStatus() *Status {
 
 	return &js
 }
-func (j *ReplicationController) Scale(num int) error {
+func (j *ReplicaSet) Scale(num int) error {
 
-	jh, err := cluster.NewReplicationControllerHandler(j.Group, j.Workspace)
+	jh, err := cluster.NewReplicaSetHandler(j.Group, j.Workspace)
 	if err != nil {
 		return err
 	}
@@ -485,8 +486,8 @@ func (j *ReplicationController) Scale(num int) error {
 	return nil
 }
 
-func (j *ReplicationController) Event() ([]corev1.Event, error) {
-	ph, err := cluster.NewReplicationControllerHandler(j.Group, j.Workspace)
+func (j *ReplicaSet) Event() ([]corev1.Event, error) {
+	ph, err := cluster.NewReplicaSetHandler(j.Group, j.Workspace)
 	if err != nil {
 		return nil, log.DebugPrint(err)
 	}
@@ -494,25 +495,25 @@ func (j *ReplicationController) Event() ([]corev1.Event, error) {
 	return ph.Event(j.Workspace, j.Name)
 }
 
-func (j *ReplicationController) GetTemplate() (string, error) {
+func (j *ReplicaSet) GetTemplate() (string, error) {
 	runtime, err := j.GetRuntime()
 	if err != nil {
 		return "", log.DebugPrint(err)
 	}
 
-	t, err := util.GetYamlTemplateFromObject(runtime.ReplicationController)
+	t, err := util.GetYamlTemplateFromObject(runtime.ReplicaSet)
 	if err != nil {
 		return "", log.DebugPrint(err)
 	}
 
-	prefix := "apiVersion: v1\nkind: ReplicationController"
+	prefix := "apiVersion: v1\nkind: ReplicaSet"
 	*t = fmt.Sprintf("%v\n%v", prefix, *t)
 	return *t, nil
 }
 
-func InitReplicationControllerController(be backend.BackendHandler) (ReplicationControllerController, error) {
-	rm = &ReplicationControllerManager{}
-	rm.Groups = make(map[string]ReplicationControllerGroup)
+func InitReplicaSetController(be backend.BackendHandler) (ReplicaSetController, error) {
+	rm = &ReplicaSetManager{}
+	rm.Groups = make(map[string]ReplicaSetGroup)
 	rm.locker = sync.Mutex{}
 
 	rs, err := be.GetResourceAllGroup(backendKind)
@@ -521,18 +522,18 @@ func InitReplicationControllerController(be backend.BackendHandler) (Replication
 	}
 
 	for k, v := range rs {
-		var group ReplicationControllerGroup
-		group.Workspaces = make(map[string]ReplicationControllerWorkspace)
+		var group ReplicaSetGroup
+		group.Workspaces = make(map[string]ReplicaSetWorkspace)
 		for i, j := range v.Workspaces {
-			var workspace ReplicationControllerWorkspace
-			workspace.ReplicationControllers = make(map[string]ReplicationController)
+			var workspace ReplicaSetWorkspace
+			workspace.ReplicaSets = make(map[string]ReplicaSet)
 			for m, n := range j.Resources {
-				var replicationcontroller ReplicationController
-				err := json.Unmarshal([]byte(n), &replicationcontroller)
+				var replicaset ReplicaSet
+				err := json.Unmarshal([]byte(n), &replicaset)
 				if err != nil {
-					return nil, fmt.Errorf("init replicationcontroller manager fail for unmarshal \"%v\" for %v", string(n), err)
+					return nil, fmt.Errorf("init replicaset manager fail for unmarshal \"%v\" for %v", string(n), err)
 				}
-				workspace.ReplicationControllers[m] = replicationcontroller
+				workspace.ReplicaSets[m] = replicaset
 			}
 			group.Workspaces[i] = workspace
 		}

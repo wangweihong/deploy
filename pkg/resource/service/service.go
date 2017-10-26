@@ -8,30 +8,23 @@ import (
 	"ufleet-deploy/pkg/backend"
 	"ufleet-deploy/pkg/cluster"
 	"ufleet-deploy/pkg/log"
+	"ufleet-deploy/pkg/resource"
+	pk "ufleet-deploy/pkg/resource/pod"
 	"ufleet-deploy/pkg/resource/util"
+	"ufleet-deploy/pkg/sign"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	corev1 "k8s.io/client-go/pkg/api/v1"
 )
 
 var (
-	rm *ServiceManager
-	/* = &ServiceManager{
-		Groups: make(map[string]ServiceGroup),
-		locker: sync.Mutex{},
-	}
-	*/
+	rm         *ServiceManager
 	Controller ServiceController
-
-	ErrResourceNotFound  = fmt.Errorf("resource not found")
-	ErrResourceExists    = fmt.Errorf("resource has exists")
-	ErrWorkspaceNotFound = fmt.Errorf("workspace not found")
-	ErrGroupNotFound     = fmt.Errorf("group not found")
 )
 
 type ServiceController interface {
-	Create(group, workspace string, data []byte, opt CreateOptions) error
-	Delete(group, workspace, service string, opt DeleteOption) error
+	Create(group, workspace string, data []byte, opt resource.CreateOption) error
+	Delete(group, workspace, service string, opt resource.DeleteOption) error
 	Update(group, workspace, resource string, newdata []byte) error
 	Get(group, workspace, service string) (ServiceInterface, error)
 	List(group, workspace string) ([]ServiceInterface, error)
@@ -42,6 +35,8 @@ type ServiceInterface interface {
 	Info() *Service
 	GetRuntime() (*Runtime, error)
 	GetTemplate() (string, error)
+	GetStatus() *Status
+	Event() ([]corev1.Event, error)
 }
 
 type ServiceManager struct {
@@ -58,7 +53,8 @@ type ServiceWorkspace struct {
 }
 
 type Runtime struct {
-	*corev1.Service
+	Service *corev1.Service
+	Pods    []*corev1.Pod
 }
 
 //TODO:是否可以添加一个特定的只存于内存的标记位
@@ -66,26 +62,8 @@ type Runtime struct {
 //在Service构建到内存的时候,就开始绑定K8s资源,
 //可以根据事件及时更新Service的信息
 type Service struct {
-	Name       string `json:"name"`
-	Workspace  string `json:"workspace"`
-	Group      string `json:"group"`
-	AppStack   string `json:"app"`
-	CreateTime int64  `json:"createtime"`
-	User       string `json:"user"`
-	Cluster    string `json:"cluster"`
-	Template   string `json:"template"`
+	resource.ObjectMeta
 	memoryOnly bool
-}
-
-type GetOptions struct {
-}
-type DeleteOption struct{}
-
-type CreateOptions struct {
-	//	MemoryOnly bool    //只在内存中创建,不创建k8s资源/也不保存在etcd中.由k8s daemonset/deployment等主动创建的资源.
-	//废弃,直接通过ServiceManager来调用
-	App  *string //所属app
-	User string  //创建的用户
 }
 
 //注意这里没锁
@@ -93,17 +71,17 @@ func (p *ServiceManager) get(groupName, workspaceName, resourceName string) (*Se
 
 	group, ok := p.Groups[groupName]
 	if !ok {
-		return nil, ErrGroupNotFound
+		return nil, resource.ErrGroupNotFound
 	}
 
 	workspace, ok := group.Workspaces[workspaceName]
 	if !ok {
-		return nil, ErrWorkspaceNotFound
+		return nil, resource.ErrWorkspaceNotFound
 	}
 
 	service, ok := workspace.Services[resourceName]
 	if !ok {
-		return nil, ErrResourceNotFound
+		return nil, resource.ErrResourceNotFound
 	}
 
 	return &service, nil
@@ -119,15 +97,16 @@ func (p *ServiceManager) List(groupName, workspaceName string) ([]ServiceInterfa
 
 	p.locker.Lock()
 	defer p.locker.Unlock()
+	log.DebugPrint(p.Groups)
 
 	group, ok := p.Groups[groupName]
 	if !ok {
-		return nil, fmt.Errorf("%v:%v", ErrGroupNotFound, groupName)
+		return nil, fmt.Errorf("%v:%v", resource.ErrGroupNotFound, groupName)
 	}
 
 	workspace, ok := group.Workspaces[workspaceName]
 	if !ok {
-		return nil, fmt.Errorf("%v:group/%v,workspace/%v", ErrWorkspaceNotFound, groupName, workspaceName)
+		return nil, fmt.Errorf("%v:group/%v,workspace/%v", resource.ErrWorkspaceNotFound, groupName, workspaceName)
 	}
 
 	pis := make([]ServiceInterface, 0)
@@ -148,7 +127,7 @@ func (p *ServiceManager) ListGroup(groupName string) ([]ServiceInterface, error)
 
 	group, ok := p.Groups[groupName]
 	if !ok {
-		return nil, fmt.Errorf("%v:%v", ErrGroupNotFound, groupName)
+		return nil, fmt.Errorf("%v:%v", resource.ErrGroupNotFound, groupName)
 	}
 
 	pis := make([]ServiceInterface, 0)
@@ -164,7 +143,7 @@ func (p *ServiceManager) ListGroup(groupName string) ([]ServiceInterface, error)
 	return pis, nil
 }
 
-func (p *ServiceManager) Create(groupName, workspaceName string, data []byte, opt CreateOptions) error {
+func (p *ServiceManager) Create(groupName, workspaceName string, data []byte, opt resource.CreateOption) error {
 
 	p.locker.Lock()
 	defer p.locker.Unlock()
@@ -182,24 +161,28 @@ func (p *ServiceManager) Create(groupName, workspaceName string, data []byte, op
 		return log.DebugPrint("must  offer  one  resource json/yaml data")
 	}
 
-	var svc corev1.Service
-	err = json.Unmarshal(exts[0].Raw, &svc)
+	var obj corev1.Service
+	err = json.Unmarshal(exts[0].Raw, &obj)
 	if err != nil {
 		return log.DebugPrint(err)
 	}
 
-	if svc.Kind != "Service" {
+	if obj.Kind != "Service" {
 		return log.DebugPrint("must and  offer one resource json/yaml data")
 	}
 
+	obj.ResourceVersion = ""
+	obj.Annotations = make(map[string]string)
+	obj.Annotations[sign.SignFromUfleetKey] = sign.SignFromUfleetValue
+
 	var cp Service
 	cp.CreateTime = time.Now().Unix()
-	cp.Name = svc.Name
+	cp.Name = obj.Name
 	cp.Workspace = workspaceName
 	cp.Group = groupName
 	cp.Template = string(data)
 	if opt.App != nil {
-		cp.AppStack = *opt.App
+		cp.App = *opt.App
 	}
 	cp.User = opt.User
 	//因为pod创建时,触发informer,所以优先创建etcd
@@ -209,7 +192,7 @@ func (p *ServiceManager) Create(groupName, workspaceName string, data []byte, op
 		return log.DebugPrint(err)
 	}
 
-	err = ph.Create(workspaceName, &svc)
+	err = ph.Create(workspaceName, &obj)
 	if err != nil {
 		err2 := be.DeleteResource(backendKind, groupName, workspaceName, cp.Name)
 		if err2 != nil {
@@ -226,11 +209,11 @@ func (p *ServiceManager) Create(groupName, workspaceName string, data []byte, op
 func (p *ServiceManager) delete(groupName, workspaceName, resourceName string) error {
 	group, ok := p.Groups[groupName]
 	if !ok {
-		return ErrGroupNotFound
+		return resource.ErrGroupNotFound
 	}
 	workspace, ok := group.Workspaces[workspaceName]
 	if !ok {
-		return ErrWorkspaceNotFound
+		return resource.ErrWorkspaceNotFound
 	}
 
 	delete(workspace.Services, resourceName)
@@ -239,7 +222,7 @@ func (p *ServiceManager) delete(groupName, workspaceName, resourceName string) e
 	return nil
 }
 
-func (p *ServiceManager) Delete(group, workspace, resourceName string, opt DeleteOption) error {
+func (p *ServiceManager) Delete(group, workspace, resourceName string, opt resource.DeleteOption) error {
 	p.locker.Lock()
 	defer p.locker.Unlock()
 
@@ -248,12 +231,12 @@ func (p *ServiceManager) Delete(group, workspace, resourceName string, opt Delet
 		return log.DebugPrint(err)
 	}
 
-	service, err := p.get(group, workspace, resourceName)
+	res, err := p.get(group, workspace, resourceName)
 	if err != nil {
 		return log.DebugPrint(err)
 	}
 
-	if service.memoryOnly {
+	if res.memoryOnly {
 
 		//触发集群控制器来删除内存中的数据
 		err = ph.Delete(workspace, resourceName)
@@ -268,11 +251,26 @@ func (p *ServiceManager) Delete(group, workspace, resourceName string, opt Delet
 		if err != nil {
 			return log.DebugPrint(err)
 		}
+
 		err = ph.Delete(workspace, resourceName)
 		if err != nil {
 			if !apierrors.IsNotFound(err) {
 				return log.DebugPrint(err)
 			}
+		}
+
+		if !opt.DontCallApp && res.App != "" {
+			go func() {
+				var re resource.ResourceEvent
+				re.Group = group
+				re.Workspace = workspace
+				re.Kind = resourceKind
+				re.Action = resource.ResourceActionDelete
+				re.Resource = res.Name
+				re.App = res.App
+
+				resource.ResourceEventChan <- re
+			}()
 		}
 		return nil
 	}
@@ -325,7 +323,12 @@ func (s *Service) GetRuntime() (*Runtime, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Runtime{Service: svc}, nil
+
+	pods, err := ph.GetPods(s.Workspace, s.Name)
+	if err != nil {
+		return nil, err
+	}
+	return &Runtime{Service: svc, Pods: pods}, nil
 }
 
 func (s *Service) GetTemplate() (string, error) {
@@ -337,8 +340,65 @@ func (s *Service) GetTemplate() (string, error) {
 	if err != nil {
 		return "", log.DebugPrint(err)
 	}
+	prefix := "apiVersion: v1\nkind: Service"
+	*t = fmt.Sprintf("%v\n%v", prefix, *t)
 	return *t, nil
 
+}
+
+type Status struct {
+	resource.ObjectMeta
+	ClusterIP   string                       `json:"clusterip"`
+	ExternalIPs []string                     `json:"externalips"`
+	Reason      string                       `json:"reason"`
+	Selector    map[string]string            `json:"selector"`
+	Labels      map[string]string            `json:"labels"`
+	Ports       []corev1.ServicePort         `json:"ports"`
+	Type        string                       `json:"type"`
+	PodStatus   []pk.Status                  `json:"podstatus"`
+	Ingress     []corev1.LoadBalancerIngress `json:"ingress"`
+}
+
+func (s *Service) GetStatus() *Status {
+	js := Status{ObjectMeta: s.ObjectMeta}
+	js.PodStatus = make([]pk.Status, 0)
+	js.ExternalIPs = make([]string, 0)
+	js.Labels = make(map[string]string)
+	js.Selector = make(map[string]string)
+	js.Ports = make([]corev1.ServicePort, 0)
+	js.Ingress = make([]corev1.LoadBalancerIngress, 0)
+
+	runtime, err := s.GetRuntime()
+	if err != nil {
+		js.Reason = err.Error()
+		return &js
+	}
+
+	if js.CreateTime == 0 {
+		js.CreateTime = runtime.Service.CreationTimestamp.Unix()
+	}
+	svc := runtime.Service
+
+	js.ExternalIPs = append(js.ExternalIPs, svc.Spec.ExternalIPs...)
+	js.ClusterIP = svc.Spec.ClusterIP
+	js.Labels = svc.Labels
+	js.Selector = svc.Spec.Selector
+	js.Ports = append(js.Ports, svc.Spec.Ports...)
+	js.Type = string(svc.Spec.Type)
+	js.Ingress = append(js.Ingress, svc.Status.LoadBalancer.Ingress...)
+
+	for _, v := range runtime.Pods {
+		ps := pk.V1PodToPodStatus(*v)
+
+		js.PodStatus = append(js.PodStatus, *ps)
+	}
+
+	return &js
+}
+
+func (s *Service) Event() ([]corev1.Event, error) {
+	e := make([]corev1.Event, 0)
+	return e, nil
 }
 
 func InitServiceController(be backend.BackendHandler) (ServiceController, error) {
@@ -369,6 +429,7 @@ func InitServiceController(be backend.BackendHandler) (ServiceController, error)
 		}
 		rm.Groups[k] = group
 	}
+	log.DebugPrint(rm)
 	return rm, nil
 
 }
