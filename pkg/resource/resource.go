@@ -92,7 +92,7 @@ type ObjectController interface {
 	DeleteWorkspace(groupName string, workspaceName string) error
 	AddGroup(group string) error
 	AddWorkspace(group, workspace string) error
-	AddObjectFromBytes(data []byte) error
+	AddObjectFromBytes(data []byte, force bool) error
 
 	CreateObject(group, workspace string, data []byte, opt CreateOption) error
 	DeleteObject(group, workspace, configmap string, opt DeleteOption) error

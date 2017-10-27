@@ -89,14 +89,14 @@ func (p *ServiceAccountManager) NewObject(meta resource.ObjectMeta) error {
 	cp := ServiceAccount{ObjectMeta: meta}
 	cp.MemoryOnly = true
 
-	err := p.fillObjectToManager(&cp)
+	err := p.fillObjectToManager(&cp, false)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (p *ServiceAccountManager) fillObjectToManager(meta resource.Object) error {
+func (p *ServiceAccountManager) fillObjectToManager(meta resource.Object, force bool) error {
 
 	cm, ok := meta.(*ServiceAccount)
 	if !ok {
@@ -113,9 +113,11 @@ func (p *ServiceAccountManager) fillObjectToManager(meta resource.Object) error 
 		return resource.ErrWorkspaceNotFound
 	}
 
-	_, ok = workspace.ServiceAccounts[cm.Name]
-	if ok {
-		return resource.ErrResourceExists
+	if !force {
+		_, ok = workspace.ServiceAccounts[cm.Name]
+		if ok {
+			return resource.ErrResourceExists
+		}
 	}
 
 	workspace.ServiceAccounts[cm.Name] = *cm
@@ -148,7 +150,7 @@ func (p *ServiceAccountManager) AddGroup(groupName string) error {
 	return nil
 }
 
-func (p *ServiceAccountManager) AddObjectFromBytes(data []byte) error {
+func (p *ServiceAccountManager) AddObjectFromBytes(data []byte, force bool) error {
 	p.Lock()
 	defer p.Unlock()
 	var res ServiceAccount
@@ -156,7 +158,7 @@ func (p *ServiceAccountManager) AddObjectFromBytes(data []byte) error {
 	if err != nil {
 		return err
 	}
-	err = p.fillObjectToManager(&res)
+	err = p.fillObjectToManager(&res, force)
 	return err
 
 }

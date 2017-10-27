@@ -89,14 +89,14 @@ func (p *IngressManager) NewObject(meta resource.ObjectMeta) error {
 	cp := Ingress{ObjectMeta: meta}
 	cp.MemoryOnly = true
 
-	err := p.fillObjectToManager(&cp)
+	err := p.fillObjectToManager(&cp, false)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (p *IngressManager) fillObjectToManager(meta resource.Object) error {
+func (p *IngressManager) fillObjectToManager(meta resource.Object, force bool) error {
 
 	cm, ok := meta.(*Ingress)
 	if !ok {
@@ -113,9 +113,11 @@ func (p *IngressManager) fillObjectToManager(meta resource.Object) error {
 		return resource.ErrWorkspaceNotFound
 	}
 
-	_, ok = workspace.Ingresss[cm.Name]
-	if ok {
-		return resource.ErrResourceExists
+	if !force {
+		_, ok = workspace.Ingresss[cm.Name]
+		if ok {
+			return resource.ErrResourceExists
+		}
 	}
 
 	workspace.Ingresss[cm.Name] = *cm
@@ -148,7 +150,7 @@ func (p *IngressManager) AddGroup(groupName string) error {
 	return nil
 }
 
-func (p *IngressManager) AddObjectFromBytes(data []byte) error {
+func (p *IngressManager) AddObjectFromBytes(data []byte, force bool) error {
 	p.Lock()
 	defer p.Unlock()
 	var res Ingress
@@ -156,7 +158,7 @@ func (p *IngressManager) AddObjectFromBytes(data []byte) error {
 	if err != nil {
 		return err
 	}
-	err = p.fillObjectToManager(&res)
+	err = p.fillObjectToManager(&res, force)
 	return err
 
 }

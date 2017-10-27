@@ -81,14 +81,14 @@ func (p *DaemonSetManager) NewObject(meta resource.ObjectMeta) error {
 	cp := DaemonSet{ObjectMeta: meta}
 	cp.MemoryOnly = true
 
-	err := p.fillObjectToManager(&cp)
+	err := p.fillObjectToManager(&cp, false)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (p *DaemonSetManager) fillObjectToManager(meta resource.Object) error {
+func (p *DaemonSetManager) fillObjectToManager(meta resource.Object, force bool) error {
 
 	cm, ok := meta.(*DaemonSet)
 	if !ok {
@@ -105,11 +105,13 @@ func (p *DaemonSetManager) fillObjectToManager(meta resource.Object) error {
 		return resource.ErrWorkspaceNotFound
 	}
 
-	_, ok = workspace.DaemonSets[cm.Name]
-	if ok {
-		return resource.ErrResourceExists
-	}
+	if !force {
+		_, ok = workspace.DaemonSets[cm.Name]
+		if ok {
+			return resource.ErrResourceExists
+		}
 
+	}
 	workspace.DaemonSets[cm.Name] = *cm
 	group.Workspaces[cm.Workspace] = workspace
 	p.Groups[cm.Group] = group
@@ -140,7 +142,7 @@ func (p *DaemonSetManager) AddGroup(groupName string) error {
 	return nil
 }
 
-func (p *DaemonSetManager) AddObjectFromBytes(data []byte) error {
+func (p *DaemonSetManager) AddObjectFromBytes(data []byte, force bool) error {
 	p.Lock()
 	defer p.Unlock()
 	var res DaemonSet
@@ -148,7 +150,7 @@ func (p *DaemonSetManager) AddObjectFromBytes(data []byte) error {
 	if err != nil {
 		return err
 	}
-	err = p.fillObjectToManager(&res)
+	err = p.fillObjectToManager(&res, force)
 	return err
 
 }

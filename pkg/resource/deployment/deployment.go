@@ -110,14 +110,14 @@ func (p *DeploymentManager) NewObject(meta resource.ObjectMeta) error {
 	cp := Deployment{ObjectMeta: meta}
 	cp.MemoryOnly = true
 
-	err := p.fillObjectToManager(&cp)
+	err := p.fillObjectToManager(&cp, false)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (p *DeploymentManager) fillObjectToManager(meta resource.Object) error {
+func (p *DeploymentManager) fillObjectToManager(meta resource.Object, force bool) error {
 
 	cm, ok := meta.(*Deployment)
 	if !ok {
@@ -134,9 +134,11 @@ func (p *DeploymentManager) fillObjectToManager(meta resource.Object) error {
 		return resource.ErrWorkspaceNotFound
 	}
 
-	_, ok = workspace.Deployments[cm.Name]
-	if ok {
-		return resource.ErrResourceExists
+	if !force {
+		_, ok = workspace.Deployments[cm.Name]
+		if ok {
+			return resource.ErrResourceExists
+		}
 	}
 
 	workspace.Deployments[cm.Name] = *cm
@@ -169,7 +171,7 @@ func (p *DeploymentManager) AddGroup(groupName string) error {
 	return nil
 }
 
-func (p *DeploymentManager) AddObjectFromBytes(data []byte) error {
+func (p *DeploymentManager) AddObjectFromBytes(data []byte, force bool) error {
 	p.Lock()
 	defer p.Unlock()
 	var res Deployment
@@ -177,7 +179,7 @@ func (p *DeploymentManager) AddObjectFromBytes(data []byte) error {
 	if err != nil {
 		return err
 	}
-	err = p.fillObjectToManager(&res)
+	err = p.fillObjectToManager(&res, force)
 	return err
 
 }

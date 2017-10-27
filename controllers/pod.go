@@ -31,7 +31,7 @@ func GetPodState(pi pk.PodInterface) PodState {
 	ps.User = pod.User
 	ps.CreateTime = pod.CreateTime
 	ps.Workspace = pod.Workspace
-	ps.App = pod.AppStack
+	ps.App = pod.App
 
 	status, err := pi.GetStatus()
 	if err != nil {

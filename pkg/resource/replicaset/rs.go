@@ -94,14 +94,14 @@ func (p *ReplicaSetManager) NewObject(meta resource.ObjectMeta) error {
 	cp := ReplicaSet{ObjectMeta: meta}
 	cp.MemoryOnly = true
 
-	err := p.fillObjectToManager(&cp)
+	err := p.fillObjectToManager(&cp, false)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (p *ReplicaSetManager) fillObjectToManager(meta resource.Object) error {
+func (p *ReplicaSetManager) fillObjectToManager(meta resource.Object, force bool) error {
 
 	cm, ok := meta.(*ReplicaSet)
 	if !ok {
@@ -118,9 +118,11 @@ func (p *ReplicaSetManager) fillObjectToManager(meta resource.Object) error {
 		return resource.ErrWorkspaceNotFound
 	}
 
-	_, ok = workspace.ReplicaSets[cm.Name]
-	if ok {
-		return resource.ErrResourceExists
+	if !force {
+		_, ok = workspace.ReplicaSets[cm.Name]
+		if ok {
+			return resource.ErrResourceExists
+		}
 	}
 
 	workspace.ReplicaSets[cm.Name] = *cm
@@ -153,7 +155,7 @@ func (p *ReplicaSetManager) AddGroup(groupName string) error {
 	return nil
 }
 
-func (p *ReplicaSetManager) AddObjectFromBytes(data []byte) error {
+func (p *ReplicaSetManager) AddObjectFromBytes(data []byte, force bool) error {
 	p.Lock()
 	defer p.Unlock()
 	var res ReplicaSet
@@ -161,7 +163,7 @@ func (p *ReplicaSetManager) AddObjectFromBytes(data []byte) error {
 	if err != nil {
 		return err
 	}
-	err = p.fillObjectToManager(&res)
+	err = p.fillObjectToManager(&res, force)
 	return err
 
 }

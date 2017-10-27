@@ -89,14 +89,14 @@ func (p *StatefulSetManager) NewObject(meta resource.ObjectMeta) error {
 	cp := StatefulSet{ObjectMeta: meta}
 	cp.MemoryOnly = true
 
-	err := p.fillObjectToManager(&cp)
+	err := p.fillObjectToManager(&cp, false)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (p *StatefulSetManager) fillObjectToManager(meta resource.Object) error {
+func (p *StatefulSetManager) fillObjectToManager(meta resource.Object, force bool) error {
 
 	cm, ok := meta.(*StatefulSet)
 	if !ok {
@@ -112,12 +112,14 @@ func (p *StatefulSetManager) fillObjectToManager(meta resource.Object) error {
 	if !ok {
 		return resource.ErrWorkspaceNotFound
 	}
+	if !force {
 
-	_, ok = workspace.StatefulSets[cm.Name]
-	if ok {
-		return resource.ErrResourceExists
+		_, ok = workspace.StatefulSets[cm.Name]
+		if ok {
+			return resource.ErrResourceExists
+		}
+
 	}
-
 	workspace.StatefulSets[cm.Name] = *cm
 	group.Workspaces[cm.Workspace] = workspace
 	p.Groups[cm.Group] = group
@@ -148,7 +150,7 @@ func (p *StatefulSetManager) AddGroup(groupName string) error {
 	return nil
 }
 
-func (p *StatefulSetManager) AddObjectFromBytes(data []byte) error {
+func (p *StatefulSetManager) AddObjectFromBytes(data []byte, force bool) error {
 	p.Lock()
 	defer p.Unlock()
 	var res StatefulSet
@@ -156,7 +158,7 @@ func (p *StatefulSetManager) AddObjectFromBytes(data []byte) error {
 	if err != nil {
 		return err
 	}
-	err = p.fillObjectToManager(&res)
+	err = p.fillObjectToManager(&res, force)
 	return err
 
 }

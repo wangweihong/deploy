@@ -93,14 +93,14 @@ func (p *ReplicationControllerManager) NewObject(meta resource.ObjectMeta) error
 	cp := ReplicationController{ObjectMeta: meta}
 	cp.MemoryOnly = true
 
-	err := p.fillObjectToManager(&cp)
+	err := p.fillObjectToManager(&cp, false)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (p *ReplicationControllerManager) fillObjectToManager(meta resource.Object) error {
+func (p *ReplicationControllerManager) fillObjectToManager(meta resource.Object, force bool) error {
 
 	cm, ok := meta.(*ReplicationController)
 	if !ok {
@@ -117,9 +117,11 @@ func (p *ReplicationControllerManager) fillObjectToManager(meta resource.Object)
 		return resource.ErrWorkspaceNotFound
 	}
 
-	_, ok = workspace.ReplicationControllers[cm.Name]
-	if ok {
-		return resource.ErrResourceExists
+	if !force {
+		_, ok = workspace.ReplicationControllers[cm.Name]
+		if ok {
+			return resource.ErrResourceExists
+		}
 	}
 
 	workspace.ReplicationControllers[cm.Name] = *cm
@@ -152,7 +154,7 @@ func (p *ReplicationControllerManager) AddGroup(groupName string) error {
 	return nil
 }
 
-func (p *ReplicationControllerManager) AddObjectFromBytes(data []byte) error {
+func (p *ReplicationControllerManager) AddObjectFromBytes(data []byte, force bool) error {
 	p.Lock()
 	defer p.Unlock()
 	var res ReplicationController
@@ -160,7 +162,7 @@ func (p *ReplicationControllerManager) AddObjectFromBytes(data []byte) error {
 	if err != nil {
 		return err
 	}
-	err = p.fillObjectToManager(&res)
+	err = p.fillObjectToManager(&res, force)
 	return err
 
 }

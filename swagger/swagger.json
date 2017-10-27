@@ -327,6 +327,13 @@
                         "type": "string"
                     },
                     {
+                        "in": "path",
+                        "name": "configmap",
+                        "description": "配置名",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
                         "in": "body",
                         "name": "body",
                         "description": "资源描述",

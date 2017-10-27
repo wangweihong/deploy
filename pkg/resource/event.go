@@ -43,11 +43,11 @@ func HandleEventWatchFromK8sCluster(echan chan cluster.Event, kind string, oc Ob
 				_, err := oc.GetObjectWithoutLock(e.Group, e.Workspace, e.Name)
 				if err != nil {
 					if err != ErrResourceNotFound {
-						log.DebugPrint("%v: event handler create fail:%v", kind, err)
+						log.ErrorPrint("%v: event handler create fail:%v", kind, err)
 						return
 					}
 				} else {
-					log.DebugPrint("%v: event handler create fail for %v exists", kind, e.Name)
+					log.ErrorPrint("%v: event handler create fail for %v exists", kind, e.Name)
 					return
 				}
 
@@ -60,7 +60,7 @@ func HandleEventWatchFromK8sCluster(echan chan cluster.Event, kind string, oc Ob
 
 				err = oc.NewObject(p)
 				if err != nil {
-					log.DebugPrint("%v: event handler create fail for %v", kind, err)
+					log.ErrorPrint("'%v':'%v' event handler create fail for %v", e, kind, err)
 					return
 				}
 
@@ -125,9 +125,9 @@ func EtcdEventHandler(e backend.ResourceEvent, cm ObjectController) {
 			return
 		case eResource:
 			//这是一个资源事件
-			err := cm.AddObjectFromBytes([]byte(e.Value))
+			err := cm.AddObjectFromBytes([]byte(e.Value), true)
 			if err != nil {
-				log.DebugPrint(err)
+				log.ErrorPrint(err)
 			}
 			return
 			//这是一个工作区事件

@@ -59,14 +59,16 @@ type Runtime struct {
 //可以根据事件及时更新Pod的信息
 type Pod struct {
 	resource.ObjectMeta
-	Name       string `json:"name"`
-	Workspace  string `json:"workspace"`
-	Group      string `json:"group"`
-	AppStack   string `json:"app"`
-	User       string `json:"user"`
-	Cluster    string `json:"cluster"`
-	Template   string `json:"template"`
-	CreateTime int64  `json:"createtime"`
+	/*
+		Name       string `json:"name"`
+		Workspace  string `json:"workspace"`
+		Group      string `json:"group"`
+		AppStack   string `json:"app"`
+		User       string `json:"user"`
+		Cluster    string `json:"cluster"`
+		Template   string `json:"template"`
+		CreateTime int64  `json:"createtime"`
+	*/
 	memoryOnly bool
 }
 
@@ -102,14 +104,14 @@ func (p *PodManager) NewObject(meta resource.ObjectMeta) error {
 	cp := Pod{ObjectMeta: meta}
 	cp.MemoryOnly = true
 
-	err := p.fillObjectToManager(&cp)
+	err := p.fillObjectToManager(&cp, false)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (p *PodManager) fillObjectToManager(meta resource.Object) error {
+func (p *PodManager) fillObjectToManager(meta resource.Object, force bool) error {
 
 	cm, ok := meta.(*Pod)
 	if !ok {
@@ -126,9 +128,11 @@ func (p *PodManager) fillObjectToManager(meta resource.Object) error {
 		return resource.ErrWorkspaceNotFound
 	}
 
-	_, ok = workspace.Pods[cm.Name]
-	if ok {
-		return resource.ErrResourceExists
+	if !force {
+		_, ok = workspace.Pods[cm.Name]
+		if ok {
+			return resource.ErrResourceExists
+		}
 	}
 
 	workspace.Pods[cm.Name] = *cm
@@ -161,7 +165,7 @@ func (p *PodManager) AddGroup(groupName string) error {
 	return nil
 }
 
-func (p *PodManager) AddObjectFromBytes(data []byte) error {
+func (p *PodManager) AddObjectFromBytes(data []byte, force bool) error {
 	p.Lock()
 	defer p.Unlock()
 	var res Pod
@@ -169,7 +173,7 @@ func (p *PodManager) AddObjectFromBytes(data []byte) error {
 	if err != nil {
 		return err
 	}
-	err = p.fillObjectToManager(&res)
+	err = p.fillObjectToManager(&res, force)
 	return err
 
 }
@@ -331,7 +335,7 @@ func (p *PodManager) CreateObject(groupName, workspaceName string, data []byte, 
 	cp.Group = groupName
 	cp.Template = string(data)
 	if opt.App != nil {
-		cp.AppStack = *opt.App
+		cp.App = *opt.App
 	}
 	cp.User = opt.User
 	//因为obj创建时,触发informer,所以优先创建etcd
@@ -467,7 +471,7 @@ func (p *PodManager) DeleteObject(group, workspace, podName string, opt resource
 				return log.DebugPrint(err)
 			}
 		}
-		if !opt.DontCallApp && pod.AppStack != "" {
+		if !opt.DontCallApp && pod.App != "" {
 			go func() {
 				var re resource.ResourceEvent
 				re.Group = group
@@ -475,7 +479,7 @@ func (p *PodManager) DeleteObject(group, workspace, podName string, opt resource
 				re.Kind = resourceKind
 				re.Action = resource.ResourceActionDelete
 				re.Resource = podName
-				re.App = pod.AppStack
+				re.App = pod.App
 
 				resource.ResourceEventChan <- re
 			}()

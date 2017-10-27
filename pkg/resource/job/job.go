@@ -94,14 +94,14 @@ func (p *JobManager) NewObject(meta resource.ObjectMeta) error {
 	cp := Job{ObjectMeta: meta}
 	cp.MemoryOnly = true
 
-	err := p.fillObjectToManager(&cp)
+	err := p.fillObjectToManager(&cp, false)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (p *JobManager) fillObjectToManager(meta resource.Object) error {
+func (p *JobManager) fillObjectToManager(meta resource.Object, force bool) error {
 
 	cm, ok := meta.(*Job)
 	if !ok {
@@ -118,9 +118,11 @@ func (p *JobManager) fillObjectToManager(meta resource.Object) error {
 		return resource.ErrWorkspaceNotFound
 	}
 
-	_, ok = workspace.Jobs[cm.Name]
-	if ok {
-		return resource.ErrResourceExists
+	if !force {
+		_, ok = workspace.Jobs[cm.Name]
+		if ok {
+			return resource.ErrResourceExists
+		}
 	}
 
 	workspace.Jobs[cm.Name] = *cm
@@ -153,7 +155,7 @@ func (p *JobManager) AddGroup(groupName string) error {
 	return nil
 }
 
-func (p *JobManager) AddObjectFromBytes(data []byte) error {
+func (p *JobManager) AddObjectFromBytes(data []byte, force bool) error {
 	p.Lock()
 	defer p.Unlock()
 	var res Job
@@ -161,7 +163,7 @@ func (p *JobManager) AddObjectFromBytes(data []byte) error {
 	if err != nil {
 		return err
 	}
-	err = p.fillObjectToManager(&res)
+	err = p.fillObjectToManager(&res, force)
 	return err
 
 }

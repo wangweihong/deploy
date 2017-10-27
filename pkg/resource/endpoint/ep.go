@@ -88,14 +88,14 @@ func (p *EndpointManager) NewObject(meta resource.ObjectMeta) error {
 	cp := Endpoint{ObjectMeta: meta}
 	cp.MemoryOnly = true
 
-	err := p.fillObjectToManager(&cp)
+	err := p.fillObjectToManager(&cp, false)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (p *EndpointManager) fillObjectToManager(meta resource.Object) error {
+func (p *EndpointManager) fillObjectToManager(meta resource.Object, force bool) error {
 
 	cm, ok := meta.(*Endpoint)
 	if !ok {
@@ -112,9 +112,11 @@ func (p *EndpointManager) fillObjectToManager(meta resource.Object) error {
 		return resource.ErrWorkspaceNotFound
 	}
 
-	_, ok = workspace.Endpoints[cm.Name]
-	if ok {
-		return resource.ErrResourceExists
+	if !force {
+		_, ok = workspace.Endpoints[cm.Name]
+		if ok {
+			return resource.ErrResourceExists
+		}
 	}
 
 	workspace.Endpoints[cm.Name] = *cm
@@ -147,7 +149,7 @@ func (p *EndpointManager) AddGroup(groupName string) error {
 	return nil
 }
 
-func (p *EndpointManager) AddObjectFromBytes(data []byte) error {
+func (p *EndpointManager) AddObjectFromBytes(data []byte, force bool) error {
 	p.Lock()
 	defer p.Unlock()
 	var res Endpoint
@@ -155,7 +157,7 @@ func (p *EndpointManager) AddObjectFromBytes(data []byte) error {
 	if err != nil {
 		return err
 	}
-	err = p.fillObjectToManager(&res)
+	err = p.fillObjectToManager(&res, force)
 	return err
 
 }

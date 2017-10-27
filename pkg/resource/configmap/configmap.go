@@ -91,14 +91,15 @@ func (p *ConfigMapManager) NewObject(meta resource.ObjectMeta) error {
 	cp := ConfigMap{ObjectMeta: meta}
 	cp.MemoryOnly = true
 
-	err := p.fillObjectToManager(&cp)
+	err := p.fillObjectToManager(&cp, false)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (p *ConfigMapManager) fillObjectToManager(meta resource.Object) error {
+//force:强制填充.用于更新时
+func (p *ConfigMapManager) fillObjectToManager(meta resource.Object, force bool) error {
 
 	cm, ok := meta.(*ConfigMap)
 	if !ok {
@@ -115,9 +116,11 @@ func (p *ConfigMapManager) fillObjectToManager(meta resource.Object) error {
 		return resource.ErrWorkspaceNotFound
 	}
 
-	_, ok = workspace.ConfigMaps[cm.Name]
-	if ok {
-		return resource.ErrResourceExists
+	if !force {
+		_, ok = workspace.ConfigMaps[cm.Name]
+		if ok {
+			return resource.ErrResourceExists
+		}
 	}
 
 	workspace.ConfigMaps[cm.Name] = *cm
@@ -150,7 +153,7 @@ func (p *ConfigMapManager) AddGroup(groupName string) error {
 	return nil
 }
 
-func (p *ConfigMapManager) AddObjectFromBytes(data []byte) error {
+func (p *ConfigMapManager) AddObjectFromBytes(data []byte, force bool) error {
 	p.Lock()
 	defer p.Unlock()
 	var res ConfigMap
@@ -158,7 +161,7 @@ func (p *ConfigMapManager) AddObjectFromBytes(data []byte) error {
 	if err != nil {
 		return err
 	}
-	err = p.fillObjectToManager(&res)
+	err = p.fillObjectToManager(&res, force)
 	return err
 
 }
