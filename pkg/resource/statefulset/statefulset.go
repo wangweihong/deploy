@@ -298,6 +298,7 @@ func (p *StatefulSetManager) CreateObject(groupName, workspaceName string, data 
 	}
 
 	var obj appv1beta1.StatefulSet
+	obj.Annotations = make(map[string]string)
 	err = json.Unmarshal(exts[0].Raw, &obj)
 	if err != nil {
 		return log.DebugPrint(err)
@@ -307,7 +308,6 @@ func (p *StatefulSetManager) CreateObject(groupName, workspaceName string, data 
 		return log.DebugPrint("must and  offer one resource json/yaml data")
 	}
 	obj.ResourceVersion = ""
-	obj.Annotations = make(map[string]string)
 	obj.Annotations[sign.SignFromUfleetKey] = sign.SignFromUfleetValue
 
 	var cp StatefulSet

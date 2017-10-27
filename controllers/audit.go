@@ -174,6 +174,10 @@ var (
 			object:  operateObjectServiceAccount,
 			operate: operateTypeDelete,
 		},
+		"UpdateServiceAccountCustom": audit{
+			object:  operateObjectServiceAccount,
+			operate: operateTypeUpdate,
+		},
 
 		//Endpoint
 		"CreateEndpoint": audit{

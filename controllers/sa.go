@@ -133,7 +133,7 @@ func (this *ServiceAccountController) ListGroupServiceAccounts() {
 
 // CreateServiceAccount
 // @Title ServiceAccount
-// @Description  创建容器组
+// @Description  创建服务帐号
 // @Param Token header string true 'Token'
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
@@ -191,7 +191,7 @@ func (this *ServiceAccountController) CreateServiceAccount() {
 	this.normalReturn("ok")
 }
 
-type ServiceAccountCreateOption struct {
+type ServiceAccountCustomOption struct {
 	Comment string   `json:"comment"`
 	Name    string   `json:"name"`
 	Secrets []string `json:"secrets"`
@@ -199,7 +199,7 @@ type ServiceAccountCreateOption struct {
 
 // CreateServiceAccountCustom
 // @Title ServiceAccount
-// @Description  创建容器组
+// @Description  创建服务帐号
 // @Param Token header string true 'Token'
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
@@ -225,7 +225,7 @@ func (this *ServiceAccountController) CreateServiceAccountCustom() {
 		return
 	}
 
-	var co ServiceAccountCreateOption
+	var co ServiceAccountCustomOption
 	err := json.Unmarshal(this.Ctx.Input.RequestBody, &co)
 	if err != nil {
 		this.audit(token, "", true)
@@ -275,11 +275,11 @@ func (this *ServiceAccountController) CreateServiceAccountCustom() {
 
 // UpdateServiceAccount
 // @Title ServiceAccount
-// @Description  更新容器组
+// @Description  更新服务帐号
 // @Param Token header string true 'Token'
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
-// @Param serviceaccount path string true "容器组"
+// @Param serviceaccount path string true "服务帐号"
 // @Param body body string true "资源描述"
 // @Success 201 {string} create success!
 // @Failure 500
@@ -316,13 +316,81 @@ func (this *ServiceAccountController) UpdateServiceAccount() {
 	this.normalReturn("ok")
 }
 
+// UpdateServiceAccountCustom
+// @Title ServiceAccount
+// @Description  创建服务帐号
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Param workspace path string true "工作区"
+// @Param body body string true "资源描述"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /:serviceaccount/group/:group/workspace/:workspace/custom [Put]
+func (this *ServiceAccountController) UpdateServiceAccountCustom() {
+	token := this.Ctx.Request.Header.Get("token")
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.audit(token, "", true)
+		this.abilityErrorReturn(aerr)
+		return
+	}
+
+	group := this.Ctx.Input.Param(":group")
+	workspace := this.Ctx.Input.Param(":workspace")
+	sa := this.Ctx.Input.Param(":serviceaccount")
+
+	if this.Ctx.Input.RequestBody == nil {
+		err := fmt.Errorf("must commit resource json/yaml data")
+		this.errReturn(err, 500)
+		return
+	}
+
+	var co ServiceAccountCustomOption
+	err := json.Unmarshal(this.Ctx.Input.RequestBody, &co)
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+
+	cm := corev1.ServiceAccount{}
+	cm.Kind = "ServiceAccount"
+	cm.APIVersion = "v1"
+	cm.Name = sa
+	cm.Secrets = make([]corev1.ObjectReference, 0)
+	for _, v := range co.Secrets {
+		var or corev1.ObjectReference
+		or.Name = v
+		cm.Secrets = append(cm.Secrets, or)
+	}
+
+	bytedata, err := json.Marshal(cm)
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+
+	var opt resource.UpdateOption
+	opt.Comment = co.Comment
+	err = pk.Controller.UpdateObject(group, workspace, sa, bytedata, opt)
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+
+	this.audit(token, "", false)
+	this.normalReturn("ok")
+}
+
 // DeleteServiceAccount
 // @Title ServiceAccount
 // @Description   ServiceAccount
 // @Param Token header string true 'Token'
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
-// @Param serviceaccount path string true "容器组"
+// @Param serviceaccount path string true "服务帐号"
 // @Success 201 {string} create success!
 // @Failure 500
 // @router /:serviceaccount/group/:group/workspace/:workspace [Delete]
@@ -356,7 +424,7 @@ func (this *ServiceAccountController) DeleteServiceAccount() {
 // @Param Token header string true 'Token'
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
-// @Param serviceaccount path string true "容器组"
+// @Param serviceaccount path string true "服务帐号"
 // @Success 201 {string} create success!
 // @Failure 500
 // @router /:serviceaccount/group/:group/workspace/:workspace/template [Get]
@@ -392,7 +460,7 @@ func (this *ServiceAccountController) GetServiceAccountTemplate() {
 // @Param Token header string true 'Token'
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
-// @Param serviceaccount path string true "容器组"
+// @Param serviceaccount path string true "服务帐号"
 // @Success 201 {string} create success!
 // @Failure 500
 // @router /:serviceaccount/group/:group/workspace/:workspace/event [Get]

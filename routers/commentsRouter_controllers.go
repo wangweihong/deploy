@@ -897,6 +897,13 @@ func init() {
 
 	beego.GlobalControllerRouter["ufleet-deploy/controllers:ServiceAccountController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:ServiceAccountController"],
 		beego.ControllerComments{
+			Method: "UpdateServiceAccountCustom",
+			Router: `/:serviceaccount/group/:group/workspace/:workspace/custom`,
+			AllowHTTPMethods: []string{"Put"},
+			Params: nil})
+
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:ServiceAccountController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:ServiceAccountController"],
+		beego.ControllerComments{
 			Method: "DeleteServiceAccount",
 			Router: `/:serviceaccount/group/:group/workspace/:workspace`,
 			AllowHTTPMethods: []string{"Delete"},

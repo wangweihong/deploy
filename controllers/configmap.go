@@ -185,7 +185,7 @@ func (this *ConfigMapController) CreateConfigMap() {
 	this.normalReturn("ok")
 }
 
-type CustomOption struct {
+type ConfigMapCustomOption struct {
 	Comment string `json:"comment"`
 	//Data map[string]string `json:"data"`
 	Data string `json:"data"`
@@ -220,7 +220,7 @@ func (this *ConfigMapController) CreateConfigMapCustom() {
 		this.errReturn(err, 500)
 		return
 	}
-	var co CustomOption
+	var co ConfigMapCustomOption
 	err := json.Unmarshal(this.Ctx.Input.RequestBody, &co)
 	if err != nil {
 		this.audit(token, "", true)
@@ -302,7 +302,7 @@ func (this *ConfigMapController) UpdateConfigMapCustom() {
 		this.errReturn(err, 500)
 		return
 	}
-	var co CustomOption
+	var co ConfigMapCustomOption
 	err := json.Unmarshal(this.Ctx.Input.RequestBody, &co)
 	if err != nil {
 		this.audit(token, "", true)
@@ -466,7 +466,7 @@ func (this *ConfigMapController) GetConfigMapTemplate() {
 // @Param Token header string true 'Token'
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
-// @Param configmap path string true "容器组"
+// @Param configmap path string true "配置"
 // @Success 201 {string} create success!
 // @Failure 500
 // @router /:configmap/group/:group/workspace/:workspace/event [Get]

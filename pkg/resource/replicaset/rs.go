@@ -301,6 +301,7 @@ func (p *ReplicaSetManager) CreateObject(groupName, workspaceName string, data [
 	}
 
 	var obj extensionsv1beta1.ReplicaSet
+	obj.Annotations = make(map[string]string)
 	err = json.Unmarshal(exts[0].Raw, &obj)
 	if err != nil {
 		return log.DebugPrint(err)
@@ -310,7 +311,6 @@ func (p *ReplicaSetManager) CreateObject(groupName, workspaceName string, data [
 		return log.DebugPrint("must and  offer one rc json/yaml data")
 	}
 	obj.ResourceVersion = ""
-	obj.Annotations = make(map[string]string)
 	obj.Annotations[sign.SignFromUfleetKey] = sign.SignFromUfleetValue
 
 	var cp ReplicaSet

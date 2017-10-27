@@ -131,7 +131,7 @@ func (this *SecretController) ListGroupSecrets() {
 
 // CreateSecret
 // @Title Secret
-// @Description  创建容器组
+// @Description  创建私秘凭据
 // @Param Token header string true 'Token'
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
@@ -189,7 +189,7 @@ func (this *SecretController) CreateSecret() {
 	this.normalReturn("ok")
 }
 
-type SecretCreateOption struct {
+type SecretCustomOption struct {
 	Name           string `json:"name"`
 	Comment        string `json:"comment,omitempty"`
 	Type           string `json:"type"`
@@ -207,7 +207,7 @@ type DockerRegistryAccount struct {
 
 // CreateSecretCustom
 // @Title Secret
-// @Description  创建容器组
+// @Description  创建私秘凭据
 // @Param Token header string true 'Token'
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
@@ -241,7 +241,7 @@ func (this *SecretController) CreateSecretCustom() {
 		return
 	}
 
-	var co SecretCreateOption
+	var co SecretCustomOption
 	err = json.Unmarshal(this.Ctx.Input.RequestBody, &co)
 	if err != nil {
 		this.audit(token, "", true)
@@ -388,7 +388,7 @@ func (this *SecretController) UpdateSecret() {
 // @Param Token header string true 'Token'
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
-// @Param secret path string true "容器组"
+// @Param secret path string true "私秘凭据"
 // @Success 201 {string} create success!
 // @Failure 500
 // @router /:secret/group/:group/workspace/:workspace [Delete]
@@ -422,7 +422,7 @@ func (this *SecretController) DeleteSecret() {
 // @Param Token header string true 'Token'
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
-// @Param secret path string true "容器组"
+// @Param secret path string true "私秘凭据"
 // @Success 201 {string} create success!
 // @Failure 500
 // @router /:secret/group/:group/workspace/:workspace/template [Get]
@@ -459,7 +459,7 @@ func (this *SecretController) GetSecretTemplate() {
 // @Param Token header string true 'Token'
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
-// @Param secret path string true "容器组"
+// @Param secret path string true "私秘凭据"
 // @Success 201 {string} create success!
 // @Failure 500
 // @router /:secret/group/:group/workspace/:workspace/event [Get]

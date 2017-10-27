@@ -312,6 +312,7 @@ func (p *PodManager) CreateObject(groupName, workspaceName string, data []byte, 
 	}
 
 	var obj corev1.Pod
+	obj.Annotations = make(map[string]string)
 	err = json.Unmarshal(exts[0].Raw, &obj)
 	if err != nil {
 		return log.DebugPrint(err)
@@ -321,7 +322,6 @@ func (p *PodManager) CreateObject(groupName, workspaceName string, data []byte, 
 		return log.DebugPrint("must and  offer one resource json/yaml data")
 	}
 	obj.ResourceVersion = ""
-	obj.Annotations = make(map[string]string)
 	obj.Annotations[sign.SignFromUfleetKey] = sign.SignFromUfleetValue
 
 	var cp Pod

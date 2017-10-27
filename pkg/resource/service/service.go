@@ -301,6 +301,7 @@ func (p *ServiceManager) CreateObject(groupName, workspaceName string, data []by
 	}
 
 	var obj corev1.Service
+	obj.Annotations = make(map[string]string)
 	err = json.Unmarshal(exts[0].Raw, &obj)
 	if err != nil {
 		return log.DebugPrint(err)
@@ -311,7 +312,6 @@ func (p *ServiceManager) CreateObject(groupName, workspaceName string, data []by
 	}
 
 	obj.ResourceVersion = ""
-	obj.Annotations = make(map[string]string)
 	obj.Annotations[sign.SignFromUfleetKey] = sign.SignFromUfleetValue
 
 	var cp Service

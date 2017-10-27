@@ -299,6 +299,7 @@ func (p *JobManager) CreateObject(groupName, workspaceName string, data []byte, 
 		return log.DebugPrint("must offer one  resource json/yaml data")
 	}
 	var obj batchv1.Job
+	obj.Annotations = make(map[string]string)
 	err = json.Unmarshal(exts[0].Raw, &obj)
 	if err != nil {
 		return log.DebugPrint(err)
@@ -308,7 +309,6 @@ func (p *JobManager) CreateObject(groupName, workspaceName string, data []byte, 
 		return log.DebugPrint("must offer one  resource json/yaml data")
 	}
 	obj.ResourceVersion = ""
-	obj.Annotations = make(map[string]string)
 	obj.Annotations[sign.SignFromUfleetKey] = sign.SignFromUfleetValue
 
 	var cp Job
