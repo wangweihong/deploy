@@ -55,7 +55,6 @@ type Runtime struct {
 //可以根据事件及时更新Service的信息
 type Service struct {
 	resource.ObjectMeta
-	memoryOnly bool
 }
 
 func GetServiceInterface(obj resource.Object) (ServiceInterface, error) {
@@ -381,12 +380,14 @@ func (p *ServiceManager) DeleteObject(group, workspace, resourceName string, opt
 		return log.DebugPrint(err)
 	}
 
-	if res.memoryOnly {
+	if res.MemoryOnly {
 
 		//触发集群控制器来删除内存中的数据
 		err = ph.Delete(workspace, resourceName)
 		if err != nil {
-			return log.DebugPrint(err)
+			if !apierrors.IsNotFound(err) {
+				return log.DebugPrint(err)
+			}
 		}
 		//TODO:ufleet创建的数据
 		return nil

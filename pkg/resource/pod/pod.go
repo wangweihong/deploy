@@ -59,17 +59,6 @@ type Runtime struct {
 //可以根据事件及时更新Pod的信息
 type Pod struct {
 	resource.ObjectMeta
-	/*
-		Name       string `json:"name"`
-		Workspace  string `json:"workspace"`
-		Group      string `json:"group"`
-		AppStack   string `json:"app"`
-		User       string `json:"user"`
-		Cluster    string `json:"cluster"`
-		Template   string `json:"template"`
-		CreateTime int64  `json:"createtime"`
-	*/
-	memoryOnly bool
 }
 
 func GetPodInterface(obj resource.Object) (PodInterface, error) {
@@ -449,12 +438,14 @@ func (p *PodManager) DeleteObject(group, workspace, podName string, opt resource
 		return log.DebugPrint(err)
 	}
 
-	if pod.memoryOnly {
+	if pod.MemoryOnly {
 
 		//触发集群控制器来删除内存中的数据
 		err = ph.Delete(workspace, podName)
 		if err != nil {
-			return log.DebugPrint(err)
+			if !apierrors.IsNotFound(err) {
+				return log.DebugPrint(err)
+			}
 		}
 		//TODO:ufleet创建的数据
 		return nil

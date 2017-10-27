@@ -53,8 +53,7 @@ type Runtime struct {
 //可以根据事件及时更新ServiceAccount的信息
 type ServiceAccount struct {
 	resource.ObjectMeta
-	Cluster    string `json:"cluster"`
-	memoryOnly bool
+	Cluster string `json:"cluster"`
 }
 
 func GetServiceAccountInterface(obj resource.Object) (ServiceAccountInterface, error) {
@@ -375,12 +374,14 @@ func (p *ServiceAccountManager) DeleteObject(group, workspace, resourceName stri
 		return log.DebugPrint(err)
 	}
 
-	if res.memoryOnly {
+	if res.MemoryOnly {
 
 		//触发集群控制器来删除内存中的数据
 		err = ph.Delete(workspace, resourceName)
 		if err != nil {
-			return log.DebugPrint(err)
+			if !apierrors.IsNotFound(err) {
+				return log.DebugPrint(err)
+			}
 		}
 		//TODO:ufleet创建的数据
 		return nil

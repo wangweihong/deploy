@@ -59,7 +59,6 @@ type Runtime struct {
 //可以根据事件及时更新Job的信息
 type Job struct {
 	resource.ObjectMeta
-	memoryOnly bool //用于判定pod是否由k8s自动创建
 }
 
 func GetJobInterface(obj resource.Object) (JobInterface, error) {
@@ -376,12 +375,14 @@ func (p *JobManager) DeleteObject(group, workspace, resourceName string, opt res
 		return log.DebugPrint(err)
 	}
 
-	if res.memoryOnly {
+	if res.MemoryOnly {
 
 		//触发集群控制器来删除内存中的数据
 		err = ph.Delete(workspace, resourceName)
 		if err != nil {
-			return log.DebugPrint(err)
+			if !apierrors.IsNotFound(err) {
+				return log.DebugPrint(err)
+			}
 		}
 		return nil
 		//TODO:ufleet创建的数据

@@ -64,7 +64,6 @@ type Runtime struct {
 //可以根据事件及时更新Deployment的信息
 type Deployment struct {
 	resource.ObjectMeta
-	memoryOnly bool
 	AutoScaler HPA `json:"autoscaler"`
 }
 
@@ -393,12 +392,14 @@ func (p *DeploymentManager) DeleteObject(group, workspace, resourceName string, 
 		return log.DebugPrint(err)
 	}
 
-	if res.memoryOnly {
+	if res.MemoryOnly {
 
 		//触发集群控制器来删除内存中的数据
 		err = ph.Delete(workspace, resourceName)
 		if err != nil {
-			return log.DebugPrint(err)
+			if !apierrors.IsNotFound(err) {
+				return log.DebugPrint(err)
+			}
 		}
 		//TODO:ufleet创建的数据
 		return nil
@@ -734,7 +735,7 @@ func (j *Deployment) StartAutoScale(min int, max int, cpuPercent int, memPercent
 	j.AutoScaler.MaxReplicas = max
 	j.AutoScaler.MinReplicas = min
 
-	if j.memoryOnly != true {
+	if j.MemoryOnly != true {
 
 		be := backend.NewBackendHandler()
 		err := be.UpdateResource(backendKind, j.Group, j.Workspace, j.Name, j)

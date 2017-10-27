@@ -53,8 +53,7 @@ type Runtime struct {
 //可以根据事件及时更新Secret的信息
 type Secret struct {
 	resource.ObjectMeta
-	Cluster    string `json:"cluster"`
-	memoryOnly bool
+	Cluster string `json:"cluster"`
 }
 
 func GetSecretInterface(obj resource.Object) (SecretInterface, error) {
@@ -374,10 +373,12 @@ func (p *SecretManager) DeleteObject(group, workspace, resourceName string, opt 
 	}
 	ph, err := cluster.NewSecretHandler(group, workspace)
 	if err != nil {
-		return log.DebugPrint(err)
+		if !apierrors.IsNotFound(err) {
+			return log.DebugPrint(err)
+		}
 	}
 
-	if res.memoryOnly {
+	if res.MemoryOnly {
 
 		//触发集群控制器来删除内存中的数据
 		err = ph.Delete(workspace, resourceName)
