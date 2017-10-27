@@ -518,7 +518,7 @@ type Status struct {
 	PodNum     int      `json:"podnum"`
 	ClusterIP  string   `json:"clusterip"`
 	//Replicas    int32             `json:"replicas"`
-	Strategy    extensionsv1beta1.DeploymentStrategy `json:"Strategy"`
+	Strategy    extensionsv1beta1.DeploymentStrategy `json:"strategy"`
 	Desire      int                                  `json:"desire"`
 	Current     int                                  `json:"current"`
 	Available   int                                  `json:"available"`
@@ -535,57 +535,6 @@ type Status struct {
 	PodStatus      []pk.Status        `json:"podstatus"`
 	ContainerSpecs []pk.ContainerSpec `json:"containerspecs"`
 	extensionsv1beta1.DeploymentStatus
-}
-
-//不包含PodStatus的信息
-func K8sDeploymentToDeploymentStatus(deployment *extensionsv1beta1.Deployment) *Status {
-	js := Status{DeploymentStatus: deployment.Status}
-	js.Name = deployment.Name
-	js.Images = make([]string, 0)
-	js.PodStatus = make([]pk.Status, 0)
-	js.ContainerSpecs = make([]pk.ContainerSpec, 0)
-	js.CreateTime = deployment.CreationTimestamp.Unix()
-	if deployment.Spec.Replicas != nil {
-		js.Replicas = *deployment.Spec.Replicas
-	}
-
-	js.Strategy = deployment.Spec.Strategy
-	js.Labels = make(map[string]string)
-	if deployment.Labels != nil {
-		js.Labels = deployment.Labels
-	}
-
-	js.Annotations = make(map[string]string)
-	if deployment.Annotations != nil {
-		js.Labels = deployment.Annotations
-	}
-
-	js.Selectors = make(map[string]string)
-	if deployment.Spec.Selector != nil {
-		js.Selectors = deployment.Spec.Selector.MatchLabels
-	}
-
-	if deployment.Spec.Replicas != nil {
-		js.Desire = int(*deployment.Spec.Replicas)
-	} else {
-		js.Desire = 1
-
-	}
-
-	js.Paused = deployment.Spec.Paused
-
-	js.Current = int(deployment.Status.AvailableReplicas)
-	js.Ready = int(deployment.Status.ReadyReplicas)
-	js.Available = int(deployment.Status.AvailableReplicas)
-	js.UpToDate = int(deployment.Status.UpdatedReplicas)
-
-	for _, v := range deployment.Spec.Template.Spec.Containers {
-		js.Containers = append(js.Containers, v.Name)
-		js.Images = append(js.Images, v.Image)
-		js.ContainerSpecs = append(js.ContainerSpecs, *pk.K8sContainerSpecTran(&v))
-	}
-	return &js
-
 }
 
 func (j *Deployment) GetStatus() *Status {
@@ -626,6 +575,7 @@ func (j *Deployment) GetStatus() *Status {
 	js.Labels = make(map[string]string)
 	js.Annotations = make(map[string]string)
 	js.Selectors = make(map[string]string)
+	js.Paused = deployment.Spec.Paused
 
 	if js.CreateTime == 0 {
 		js.CreateTime = deployment.CreationTimestamp.Unix()
