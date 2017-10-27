@@ -497,6 +497,7 @@ type Status struct {
 	Selector    map[string]string            `json:"selector"`
 	Labels      map[string]string            `json:"labels"`
 	Ports       []corev1.ServicePort         `json:"ports"`
+	Containers  []string                     `json:"containers"`
 	Type        string                       `json:"type"`
 	PodStatus   []pk.Status                  `json:"podstatus"`
 	Ingress     []corev1.LoadBalancerIngress `json:"ingress"`
@@ -504,6 +505,7 @@ type Status struct {
 
 func (s *Service) GetStatus() *Status {
 	js := Status{ObjectMeta: s.ObjectMeta}
+	js.Containers = make([]string, 0)
 	js.PodStatus = make([]pk.Status, 0)
 	js.ExternalIPs = make([]string, 0)
 	js.Labels = make(map[string]string)
@@ -534,6 +536,12 @@ func (s *Service) GetStatus() *Status {
 		ps := pk.V1PodToPodStatus(*v)
 
 		js.PodStatus = append(js.PodStatus, *ps)
+	}
+	if len(runtime.Pods) != 0 {
+		p := runtime.Pods[0]
+		for _, v := range p.Spec.Containers {
+			js.Containers = append(js.Containers, v.Name)
+		}
 	}
 
 	return &js
