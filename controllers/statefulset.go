@@ -31,13 +31,14 @@ func (this *StatefulSetController) ListStatefulSets() {
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
 
-	pis, err := pk.Controller.List(group, workspace)
+	pis, err := pk.Controller.ListObject(group, workspace)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
 	}
 	jss := make([]pk.Status, 0)
-	for _, v := range pis {
+	for _, j := range pis {
+		v, _ := pk.GetStatefulSetInterface(j)
 		js := v.GetStatus()
 		jss = append(jss, *js)
 	}
@@ -66,15 +67,15 @@ func (this *StatefulSetController) GetGroupWorkspaceStatefulSet() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	statefulset := this.Ctx.Input.Param(":statefulset")
 
-	pi, err := pk.Controller.Get(group, workspace, statefulset)
+	v, err := pk.Controller.GetObject(group, workspace, statefulset)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
 	}
-	v := pi
+	pi, _ := pk.GetStatefulSetInterface(v)
 
 	var js *pk.Status
-	js = v.GetStatus()
+	js = pi.GetStatus()
 
 	this.normalReturn(js)
 }
@@ -108,7 +109,7 @@ func (this *StatefulSetController) ListGroupsStatefulSets() {
 		return
 	}
 
-	pis := make([]pk.StatefulSetInterface, 0)
+	pis := make([]resource.Object, 0)
 
 	for _, v := range groups {
 		tmp, err := pk.Controller.ListGroup(v)
@@ -120,7 +121,8 @@ func (this *StatefulSetController) ListGroupsStatefulSets() {
 	}
 
 	jss := make([]pk.Status, 0)
-	for _, v := range pis {
+	for _, j := range pis {
+		v, _ := pk.GetStatefulSetInterface(j)
 		js := v.GetStatus()
 		jss = append(jss, *js)
 	}
@@ -150,7 +152,8 @@ func (this *StatefulSetController) ListGroupStatefulSets() {
 		return
 	}
 	jss := make([]pk.Status, 0)
-	for _, v := range pis {
+	for _, j := range pis {
+		v, _ := pk.GetStatefulSetInterface(j)
 		js := v.GetStatus()
 		jss = append(jss, *js)
 	}
@@ -177,7 +180,6 @@ func (this *StatefulSetController) CreateStatefulSet() {
 		return
 	}
 
-	//token := this.Ctx.Request.Header.Get("token")
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
 
@@ -198,7 +200,7 @@ func (this *StatefulSetController) CreateStatefulSet() {
 
 	var opt resource.CreateOption
 	opt.User = who
-	err = pk.Controller.Create(group, workspace, this.Ctx.Input.RequestBody, opt)
+	err = pk.Controller.CreateObject(group, workspace, this.Ctx.Input.RequestBody, opt)
 	if err != nil {
 		this.errReturn(err, 500)
 		this.audit(token, "", true)
@@ -238,12 +240,7 @@ func (this *StatefulSetController) UpdateStatefulSet() {
 		return
 	}
 
-	/*
-		ui := user.NewUserClient(token)
-		ui.GetUserName()
-	*/
-
-	err := pk.Controller.Update(group, workspace, statefulset, this.Ctx.Input.RequestBody)
+	err := pk.Controller.UpdateObject(group, workspace, statefulset, this.Ctx.Input.RequestBody)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
@@ -273,7 +270,7 @@ func (this *StatefulSetController) DeleteStatefulSet() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	statefulset := this.Ctx.Input.Param(":statefulset")
 
-	err := pk.Controller.Delete(group, workspace, statefulset, resource.DeleteOption{})
+	err := pk.Controller.DeleteObject(group, workspace, statefulset, resource.DeleteOption{})
 	if err != nil {
 		this.errReturn(err, 500)
 		return
@@ -303,11 +300,12 @@ func (this *StatefulSetController) GetStatefulSetEvent() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	statefulset := this.Ctx.Input.Param(":statefulset")
 
-	pi, err := pk.Controller.Get(group, workspace, statefulset)
+	v, err := pk.Controller.GetObject(group, workspace, statefulset)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
 	}
+	pi, _ := pk.GetStatefulSetInterface(v)
 	es, err := pi.Event()
 	if err != nil {
 		this.errReturn(err, 500)

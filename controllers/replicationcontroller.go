@@ -32,7 +32,7 @@ func (this *ReplicationControllerController) ListGroupWorkspaceReplicationContro
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
 
-	pis, err := pk.Controller.List(group, workspace)
+	pis, err := pk.Controller.ListObject(group, workspace)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
@@ -40,7 +40,8 @@ func (this *ReplicationControllerController) ListGroupWorkspaceReplicationContro
 	//replicationcontrollers := make([]pk.ReplicationController, 0)
 	jss := make([]pk.Status, 0)
 
-	for _, v := range pis {
+	for _, j := range pis {
+		v, _ := pk.GetReplicationControllerInterface(j)
 		js := v.GetStatus()
 
 		jss = append(jss, *js)
@@ -70,15 +71,15 @@ func (this *ReplicationControllerController) GetReplicationController() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	rc := this.Ctx.Input.Param(":rc")
 
-	pi, err := pk.Controller.Get(group, workspace, rc)
+	v, err := pk.Controller.GetObject(group, workspace, rc)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
 	}
 	//replicationcontrollers := make([]pk.ReplicationController, 0)
-	v := pi
+	pi, _ := pk.GetReplicationControllerInterface(v)
 
-	js := v.GetStatus()
+	js := pi.GetStatus()
 
 	this.normalReturn(js)
 }
@@ -112,7 +113,7 @@ func (this *ReplicationControllerController) ListGroupsReplicationControllers() 
 		return
 	}
 
-	pis := make([]pk.ReplicationControllerInterface, 0)
+	pis := make([]resource.Object, 0)
 	for _, v := range groups {
 		tmp, err := pk.Controller.ListGroup(v)
 		if err != nil {
@@ -123,7 +124,8 @@ func (this *ReplicationControllerController) ListGroupsReplicationControllers() 
 	}
 	//replicationcontrollers := make([]pk.ReplicationController, 0)
 	jss := make([]pk.Status, 0)
-	for _, v := range pis {
+	for _, j := range pis {
+		v, _ := pk.GetReplicationControllerInterface(j)
 		js := v.GetStatus()
 
 		jss = append(jss, *js)
@@ -155,7 +157,8 @@ func (this *ReplicationControllerController) ListGroupReplicationControllers() {
 	}
 	//replicationcontrollers := make([]pk.ReplicationController, 0)
 	jss := make([]pk.Status, 0)
-	for _, v := range pis {
+	for _, j := range pis {
+		v, _ := pk.GetReplicationControllerInterface(j)
 		js := v.GetStatus()
 		jss = append(jss, *js)
 	}
@@ -204,7 +207,7 @@ func (this *ReplicationControllerController) CreateReplicationController() {
 	var opt resource.CreateOption
 	opt.User = who
 
-	err = pk.Controller.Create(group, workspace, this.Ctx.Input.RequestBody, opt)
+	err = pk.Controller.CreateObject(group, workspace, this.Ctx.Input.RequestBody, opt)
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
@@ -247,12 +250,7 @@ func (this *ReplicationControllerController) UpdateReplicationController() {
 		return
 	}
 
-	/*
-		ui := user.NewUserClient(token)
-		ui.GetUserName()
-	*/
-
-	err := pk.Controller.Update(group, workspace, replicationcontroller, this.Ctx.Input.RequestBody)
+	err := pk.Controller.UpdateObject(group, workspace, replicationcontroller, this.Ctx.Input.RequestBody)
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
@@ -289,13 +287,14 @@ func (this *ReplicationControllerController) ScaleReplicationController() {
 	replicationcontroller := this.Ctx.Input.Param(":replicationcontroller")
 	replicasStr := this.Ctx.Input.Param(":replicas")
 
-	ri, err := pk.Controller.Get(group, workspace, replicationcontroller)
+	v, err := pk.Controller.GetObject(group, workspace, replicationcontroller)
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
 
+	ri, _ := pk.GetReplicationControllerInterface(v)
 	replicas, err := strconv.ParseInt(replicasStr, 10, 32)
 	if err != nil {
 		this.audit(token, "", true)
@@ -338,7 +337,7 @@ func (this *ReplicationControllerController) DeleteReplicationController() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	replicationcontroller := this.Ctx.Input.Param(":replicationcontroller")
 
-	err := pk.Controller.Delete(group, workspace, replicationcontroller, resource.DeleteOption{})
+	err := pk.Controller.DeleteObject(group, workspace, replicationcontroller, resource.DeleteOption{})
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
@@ -370,11 +369,13 @@ func (this *ReplicationControllerController) GetReplicationControllerEvent() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	replicationcontroller := this.Ctx.Input.Param(":replicationcontroller")
 
-	pi, err := pk.Controller.Get(group, workspace, replicationcontroller)
+	v, err := pk.Controller.GetObject(group, workspace, replicationcontroller)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
 	}
+	pi, _ := pk.GetReplicationControllerInterface(v)
+
 	es, err := pi.Event()
 	if err != nil {
 		this.errReturn(err, 500)
@@ -405,12 +406,13 @@ func (this *ReplicationControllerController) GetReplicationControllerTemplate() 
 	workspace := this.Ctx.Input.Param(":workspace")
 	replicationcontroller := this.Ctx.Input.Param(":replicationcontroller")
 
-	pi, err := pk.Controller.Get(group, workspace, replicationcontroller)
+	v, err := pk.Controller.GetObject(group, workspace, replicationcontroller)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
 	}
 
+	pi, _ := pk.GetReplicationControllerInterface(v)
 	t, err := pi.GetTemplate()
 	if err != nil {
 		this.errReturn(err, 500)

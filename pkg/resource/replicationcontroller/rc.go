@@ -3,6 +3,7 @@ package replicationcontroller
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 	"ufleet-deploy/pkg/backend"
@@ -20,17 +21,8 @@ import (
 
 var (
 	rm         *ReplicationControllerManager
-	Controller ReplicationControllerController
+	Controller resource.ObjectController
 )
-
-type ReplicationControllerController interface {
-	Create(group, workspace string, data []byte, opt resource.CreateOption) error
-	Delete(group, workspace, replicationcontroller string, opt resource.DeleteOption) error
-	Get(group, workspace, replicationcontroller string) (ReplicationControllerInterface, error)
-	Update(group, workspace, resource string, newdata []byte) error
-	List(group, workspace string) ([]ReplicationControllerInterface, error)
-	ListGroup(group string) ([]ReplicationControllerInterface, error)
-}
 
 type ReplicationControllerInterface interface {
 	Info() *ReplicationController
@@ -69,6 +61,153 @@ type ReplicationController struct {
 	memoryOnly bool //用于判定pod是否由k8s自动创建
 }
 
+func GetReplicationControllerInterface(obj resource.Object) (ReplicationControllerInterface, error) {
+	if obj == nil {
+		return nil, fmt.Errorf("resource object is nil")
+	}
+
+	ri, ok := obj.(*ReplicationController)
+	if !ok {
+		return nil, fmt.Errorf("resource object is not configmap type")
+	}
+
+	return ri, nil
+}
+
+func (p *ReplicationControllerManager) Lock() {
+	p.locker.Lock()
+}
+func (p *ReplicationControllerManager) Unlock() {
+	p.locker.Unlock()
+}
+
+//仅仅用于基于内存的对象的创建
+func (p *ReplicationControllerManager) NewObject(meta resource.ObjectMeta) error {
+
+	if strings.TrimSpace(meta.Group) == "" ||
+		strings.TrimSpace(meta.Workspace) == "" ||
+		strings.TrimSpace(meta.Name) == "" {
+		return fmt.Errorf("Invalid object data")
+	}
+
+	cp := ReplicationController{ObjectMeta: meta}
+	cp.MemoryOnly = true
+
+	err := p.fillObjectToManager(&cp)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (p *ReplicationControllerManager) fillObjectToManager(meta resource.Object) error {
+
+	cm, ok := meta.(*ReplicationController)
+	if !ok {
+		return fmt.Errorf("object is not correct type")
+	}
+
+	group, ok := rm.Groups[cm.Group]
+	if !ok {
+		return resource.ErrGroupNotFound
+	}
+
+	workspace, ok := group.Workspaces[cm.Workspace]
+	if !ok {
+		return resource.ErrWorkspaceNotFound
+	}
+
+	_, ok = workspace.ReplicationControllers[cm.Name]
+	if ok {
+		return resource.ErrResourceExists
+	}
+
+	workspace.ReplicationControllers[cm.Name] = *cm
+	group.Workspaces[cm.Workspace] = workspace
+	p.Groups[cm.Group] = group
+	return nil
+
+}
+
+func (p *ReplicationControllerManager) DeleteGroup(groupName string) error {
+	_, ok := p.Groups[groupName]
+	if !ok {
+		return resource.ErrGroupNotFound
+	}
+
+	delete(p.Groups, groupName)
+	return nil
+}
+
+func (p *ReplicationControllerManager) AddGroup(groupName string) error {
+	p.Lock()
+	defer p.Unlock()
+	_, ok := p.Groups[groupName]
+	if ok {
+		return resource.ErrGroupExists
+	}
+	var group ReplicationControllerGroup
+	group.Workspaces = make(map[string]ReplicationControllerWorkspace)
+	p.Groups[groupName] = group
+	return nil
+}
+
+func (p *ReplicationControllerManager) AddObjectFromBytes(data []byte) error {
+	p.Lock()
+	defer p.Unlock()
+	var res ReplicationController
+	err := json.Unmarshal(data, &res)
+	if err != nil {
+		return err
+	}
+	err = p.fillObjectToManager(&res)
+	return err
+
+}
+
+func (p *ReplicationControllerManager) AddWorkspace(groupName string, workspaceName string) error {
+	p.Lock()
+	defer p.Unlock()
+	g, ok := p.Groups[groupName]
+	if !ok {
+		return resource.ErrGroupNotFound
+	}
+
+	_, ok = g.Workspaces[workspaceName]
+	if ok {
+		return resource.ErrWorkspaceExists
+	}
+
+	var ws ReplicationControllerWorkspace
+	ws.ReplicationControllers = make(map[string]ReplicationController)
+	g.Workspaces[workspaceName] = ws
+	p.Groups[groupName] = g
+	return nil
+
+}
+
+func (p *ReplicationControllerManager) DeleteWorkspace(groupName string, workspaceName string) error {
+	p.locker.Lock()
+	defer p.locker.Unlock()
+	group, ok := p.Groups[groupName]
+	if !ok {
+		return resource.ErrGroupNotFound
+	}
+
+	_, ok = group.Workspaces[workspaceName]
+	if !ok {
+		return resource.ErrWorkspaceNotFound
+	}
+	delete(group.Workspaces, workspaceName)
+	p.Groups[groupName] = group
+	return nil
+}
+
+func (p *ReplicationControllerManager) GetObjectWithoutLock(groupName, workspaceName, resourceName string) (resource.Object, error) {
+
+	return p.get(groupName, workspaceName, resourceName)
+}
+
 //注意这里没锁
 func (p *ReplicationControllerManager) get(groupName, workspaceName, replicationcontrollerName string) (*ReplicationController, error) {
 
@@ -90,13 +229,13 @@ func (p *ReplicationControllerManager) get(groupName, workspaceName, replication
 	return &replicationcontroller, nil
 }
 
-func (p *ReplicationControllerManager) Get(group, workspace, replicationcontrollerName string) (ReplicationControllerInterface, error) {
+func (p *ReplicationControllerManager) GetObject(group, workspace, replicationcontrollerName string) (resource.Object, error) {
 	p.locker.Lock()
 	defer p.locker.Unlock()
 	return p.get(group, workspace, replicationcontrollerName)
 }
 
-func (p *ReplicationControllerManager) ListGroup(groupName string) ([]ReplicationControllerInterface, error) {
+func (p *ReplicationControllerManager) ListGroup(groupName string) ([]resource.Object, error) {
 	p.locker.Lock()
 	defer p.locker.Unlock()
 
@@ -105,7 +244,7 @@ func (p *ReplicationControllerManager) ListGroup(groupName string) ([]Replicatio
 		return nil, fmt.Errorf("%v:%v", resource.ErrGroupNotFound, groupName)
 	}
 
-	pis := make([]ReplicationControllerInterface, 0)
+	pis := make([]resource.Object, 0)
 	for _, v := range group.Workspaces {
 		for k := range v.ReplicationControllers {
 			t := v.ReplicationControllers[k]
@@ -115,7 +254,7 @@ func (p *ReplicationControllerManager) ListGroup(groupName string) ([]Replicatio
 	return pis, nil
 }
 
-func (p *ReplicationControllerManager) List(groupName, workspaceName string) ([]ReplicationControllerInterface, error) {
+func (p *ReplicationControllerManager) ListObject(groupName, workspaceName string) ([]resource.Object, error) {
 
 	p.locker.Lock()
 	defer p.locker.Unlock()
@@ -130,7 +269,7 @@ func (p *ReplicationControllerManager) List(groupName, workspaceName string) ([]
 		return nil, fmt.Errorf("%v:group/%v,workspace/%v", resource.ErrWorkspaceNotFound, groupName, workspaceName)
 	}
 
-	pis := make([]ReplicationControllerInterface, 0)
+	pis := make([]resource.Object, 0)
 
 	//不能够直接使用k,v来赋值,会出现值都是同一个的问题
 	for k := range workspace.ReplicationControllers {
@@ -141,7 +280,7 @@ func (p *ReplicationControllerManager) List(groupName, workspaceName string) ([]
 	return pis, nil
 }
 
-func (p *ReplicationControllerManager) Create(groupName, workspaceName string, data []byte, opt resource.CreateOption) error {
+func (p *ReplicationControllerManager) CreateObject(groupName, workspaceName string, data []byte, opt resource.CreateOption) error {
 
 	p.locker.Lock()
 	defer p.locker.Unlock()
@@ -220,9 +359,13 @@ func (p *ReplicationControllerManager) delete(groupName, workspaceName, replicat
 	return nil
 }
 
-func (p *ReplicationControllerManager) Delete(group, workspace, replicationcontrollerName string, opt resource.DeleteOption) error {
+func (p *ReplicationControllerManager) DeleteObject(group, workspace, replicationcontrollerName string, opt resource.DeleteOption) error {
 	p.locker.Lock()
 	defer p.locker.Unlock()
+
+	if opt.MemoryOnly {
+		return p.delete(group, workspace, replicationcontrollerName)
+	}
 
 	ph, err := cluster.NewReplicationControllerHandler(group, workspace)
 	if err != nil {
@@ -272,7 +415,7 @@ func (p *ReplicationControllerManager) Delete(group, workspace, replicationcontr
 	}
 }
 
-func (p *ReplicationControllerManager) Update(groupName, workspaceName string, resourceName string, data []byte) error {
+func (p *ReplicationControllerManager) UpdateObject(groupName, workspaceName string, resourceName string, data []byte) error {
 	p.locker.Lock()
 	defer p.locker.Unlock()
 
@@ -509,8 +652,11 @@ func (j *ReplicationController) GetTemplate() (string, error) {
 	*t = fmt.Sprintf("%v\n%v", prefix, *t)
 	return *t, nil
 }
+func (s *ReplicationController) Metadata() resource.ObjectMeta {
+	return s.ObjectMeta
+}
 
-func InitReplicationControllerController(be backend.BackendHandler) (ReplicationControllerController, error) {
+func InitReplicationControllerController(be backend.BackendHandler) (resource.ObjectController, error) {
 	rm = &ReplicationControllerManager{}
 	rm.Groups = make(map[string]ReplicationControllerGroup)
 	rm.locker = sync.Mutex{}

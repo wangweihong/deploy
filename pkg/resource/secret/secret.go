@@ -3,6 +3,7 @@ package secret
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 	"ufleet-deploy/pkg/backend"
@@ -18,17 +19,8 @@ import (
 
 var (
 	rm         *SecretManager
-	Controller SecretController
+	Controller resource.ObjectController
 )
-
-type SecretController interface {
-	Create(group, workspace string, data []byte, opt resource.CreateOption) error
-	Delete(group, workspace, secret string, opt resource.DeleteOption) error
-	Get(group, workspace, secret string) (SecretInterface, error)
-	Update(group, workspace, resource string, newdata []byte) error
-	List(group, workspace string) ([]SecretInterface, error)
-	ListGroup(group string) ([]SecretInterface, error)
-}
 
 type SecretInterface interface {
 	Info() *Secret
@@ -65,6 +57,153 @@ type Secret struct {
 	memoryOnly bool
 }
 
+func GetSecretInterface(obj resource.Object) (SecretInterface, error) {
+	if obj == nil {
+		return nil, fmt.Errorf("resource object is nil")
+	}
+
+	ri, ok := obj.(*Secret)
+	if !ok {
+		return nil, fmt.Errorf("resource object is not configmap type")
+	}
+
+	return ri, nil
+}
+
+func (p *SecretManager) Lock() {
+	p.locker.Lock()
+}
+func (p *SecretManager) Unlock() {
+	p.locker.Unlock()
+}
+
+//仅仅用于基于内存的对象的创建
+func (p *SecretManager) NewObject(meta resource.ObjectMeta) error {
+
+	if strings.TrimSpace(meta.Group) == "" ||
+		strings.TrimSpace(meta.Workspace) == "" ||
+		strings.TrimSpace(meta.Name) == "" {
+		return fmt.Errorf("Invalid object data")
+	}
+
+	cp := Secret{ObjectMeta: meta}
+	cp.MemoryOnly = true
+
+	err := p.fillObjectToManager(&cp)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (p *SecretManager) fillObjectToManager(meta resource.Object) error {
+
+	cm, ok := meta.(*Secret)
+	if !ok {
+		return fmt.Errorf("object is not correct type")
+	}
+
+	group, ok := rm.Groups[cm.Group]
+	if !ok {
+		return resource.ErrGroupNotFound
+	}
+
+	workspace, ok := group.Workspaces[cm.Workspace]
+	if !ok {
+		return resource.ErrWorkspaceNotFound
+	}
+
+	_, ok = workspace.Secrets[cm.Name]
+	if ok {
+		return resource.ErrResourceExists
+	}
+
+	workspace.Secrets[cm.Name] = *cm
+	group.Workspaces[cm.Workspace] = workspace
+	p.Groups[cm.Group] = group
+	return nil
+
+}
+
+func (p *SecretManager) DeleteGroup(groupName string) error {
+	_, ok := p.Groups[groupName]
+	if !ok {
+		return resource.ErrGroupNotFound
+	}
+
+	delete(p.Groups, groupName)
+	return nil
+}
+
+func (p *SecretManager) AddGroup(groupName string) error {
+	p.Lock()
+	defer p.Unlock()
+	_, ok := p.Groups[groupName]
+	if ok {
+		return resource.ErrGroupExists
+	}
+	var group SecretGroup
+	group.Workspaces = make(map[string]SecretWorkspace)
+	p.Groups[groupName] = group
+	return nil
+}
+
+func (p *SecretManager) AddObjectFromBytes(data []byte) error {
+	p.Lock()
+	defer p.Unlock()
+	var res Secret
+	err := json.Unmarshal(data, &res)
+	if err != nil {
+		return err
+	}
+	err = p.fillObjectToManager(&res)
+	return err
+
+}
+
+func (p *SecretManager) AddWorkspace(groupName string, workspaceName string) error {
+	p.Lock()
+	defer p.Unlock()
+	g, ok := p.Groups[groupName]
+	if !ok {
+		return resource.ErrGroupNotFound
+	}
+
+	_, ok = g.Workspaces[workspaceName]
+	if ok {
+		return resource.ErrWorkspaceExists
+	}
+
+	var ws SecretWorkspace
+	ws.Secrets = make(map[string]Secret)
+	g.Workspaces[workspaceName] = ws
+	p.Groups[groupName] = g
+	return nil
+
+}
+
+func (p *SecretManager) DeleteWorkspace(groupName string, workspaceName string) error {
+	p.locker.Lock()
+	defer p.locker.Unlock()
+	group, ok := p.Groups[groupName]
+	if !ok {
+		return resource.ErrGroupNotFound
+	}
+
+	_, ok = group.Workspaces[workspaceName]
+	if !ok {
+		return resource.ErrWorkspaceNotFound
+	}
+	delete(group.Workspaces, workspaceName)
+	p.Groups[groupName] = group
+	return nil
+}
+
+func (p *SecretManager) GetObjectWithoutLock(groupName, workspaceName, resourceName string) (resource.Object, error) {
+
+	return p.get(groupName, workspaceName, resourceName)
+}
+
 //注意这里没锁
 func (p *SecretManager) get(groupName, workspaceName, resourceName string) (*Secret, error) {
 
@@ -86,13 +225,13 @@ func (p *SecretManager) get(groupName, workspaceName, resourceName string) (*Sec
 	return &secret, nil
 }
 
-func (p *SecretManager) Get(group, workspace, resourceName string) (SecretInterface, error) {
+func (p *SecretManager) GetObject(group, workspace, resourceName string) (resource.Object, error) {
 	p.locker.Lock()
 	defer p.locker.Unlock()
 	return p.get(group, workspace, resourceName)
 }
 
-func (p *SecretManager) List(groupName, workspaceName string) ([]SecretInterface, error) {
+func (p *SecretManager) ListObject(groupName, workspaceName string) ([]resource.Object, error) {
 
 	p.locker.Lock()
 	defer p.locker.Unlock()
@@ -107,7 +246,7 @@ func (p *SecretManager) List(groupName, workspaceName string) ([]SecretInterface
 		return nil, fmt.Errorf("%v:group/%v,workspace/%v", resource.ErrWorkspaceNotFound, groupName, workspaceName)
 	}
 
-	pis := make([]SecretInterface, 0)
+	pis := make([]resource.Object, 0)
 
 	//不能够直接使用k,v来赋值,会出现值都是同一个的问题
 	for k := range workspace.Secrets {
@@ -118,7 +257,7 @@ func (p *SecretManager) List(groupName, workspaceName string) ([]SecretInterface
 	return pis, nil
 }
 
-func (p *SecretManager) ListGroup(groupName string) ([]SecretInterface, error) {
+func (p *SecretManager) ListGroup(groupName string) ([]resource.Object, error) {
 
 	p.locker.Lock()
 	defer p.locker.Unlock()
@@ -128,7 +267,7 @@ func (p *SecretManager) ListGroup(groupName string) ([]SecretInterface, error) {
 		return nil, fmt.Errorf("%v:%v", resource.ErrGroupNotFound, groupName)
 	}
 
-	pis := make([]SecretInterface, 0)
+	pis := make([]resource.Object, 0)
 
 	//不能够直接使用k,v来赋值,会出现值都是同一个的问题
 	for _, v := range group.Workspaces {
@@ -141,7 +280,7 @@ func (p *SecretManager) ListGroup(groupName string) ([]SecretInterface, error) {
 	return pis, nil
 }
 
-func (p *SecretManager) Create(groupName, workspaceName string, data []byte, opt resource.CreateOption) error {
+func (p *SecretManager) CreateObject(groupName, workspaceName string, data []byte, opt resource.CreateOption) error {
 
 	p.locker.Lock()
 	defer p.locker.Unlock()
@@ -219,9 +358,12 @@ func (p *SecretManager) delete(groupName, workspaceName, resourceName string) er
 	return nil
 }
 
-func (p *SecretManager) Delete(group, workspace, resourceName string, opt resource.DeleteOption) error {
+func (p *SecretManager) DeleteObject(group, workspace, resourceName string, opt resource.DeleteOption) error {
 	p.locker.Lock()
 	defer p.locker.Unlock()
+	if opt.MemoryOnly {
+		return p.delete(group, workspace, resourceName)
+	}
 
 	res, err := p.get(group, workspace, resourceName)
 	if err != nil {
@@ -270,7 +412,7 @@ func (p *SecretManager) Delete(group, workspace, resourceName string, opt resour
 	}
 }
 
-func (p *SecretManager) Update(groupName, workspaceName string, resourceName string, data []byte) error {
+func (p *SecretManager) UpdateObject(groupName, workspaceName string, resourceName string, data []byte) error {
 	p.locker.Lock()
 	defer p.locker.Unlock()
 
@@ -369,8 +511,11 @@ func (s *Secret) Event() ([]corev1.Event, error) {
 	e := make([]corev1.Event, 0)
 	return e, nil
 }
+func (s *Secret) Metadata() resource.ObjectMeta {
+	return s.ObjectMeta
+}
 
-func InitSecretController(be backend.BackendHandler) (SecretController, error) {
+func InitSecretController(be backend.BackendHandler) (resource.ObjectController, error) {
 	rm = &SecretManager{}
 	rm.Groups = make(map[string]SecretGroup)
 	rm.locker = sync.Mutex{}

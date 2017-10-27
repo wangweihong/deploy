@@ -3,6 +3,7 @@ package service
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 	"ufleet-deploy/pkg/backend"
@@ -19,17 +20,8 @@ import (
 
 var (
 	rm         *ServiceManager
-	Controller ServiceController
+	Controller resource.ObjectController
 )
-
-type ServiceController interface {
-	Create(group, workspace string, data []byte, opt resource.CreateOption) error
-	Delete(group, workspace, service string, opt resource.DeleteOption) error
-	Update(group, workspace, resource string, newdata []byte) error
-	Get(group, workspace, service string) (ServiceInterface, error)
-	List(group, workspace string) ([]ServiceInterface, error)
-	ListGroup(group string) ([]ServiceInterface, error)
-}
 
 type ServiceInterface interface {
 	Info() *Service
@@ -66,6 +58,153 @@ type Service struct {
 	memoryOnly bool
 }
 
+func GetServiceInterface(obj resource.Object) (ServiceInterface, error) {
+	if obj == nil {
+		return nil, fmt.Errorf("resource object is nil")
+	}
+
+	ri, ok := obj.(*Service)
+	if !ok {
+		return nil, fmt.Errorf("resource object is not configmap type")
+	}
+
+	return ri, nil
+}
+
+func (p *ServiceManager) Lock() {
+	p.locker.Lock()
+}
+func (p *ServiceManager) Unlock() {
+	p.locker.Unlock()
+}
+
+//仅仅用于基于内存的对象的创建
+func (p *ServiceManager) NewObject(meta resource.ObjectMeta) error {
+
+	if strings.TrimSpace(meta.Group) == "" ||
+		strings.TrimSpace(meta.Workspace) == "" ||
+		strings.TrimSpace(meta.Name) == "" {
+		return fmt.Errorf("Invalid object data")
+	}
+
+	cp := Service{ObjectMeta: meta}
+	cp.MemoryOnly = true
+
+	err := p.fillObjectToManager(&cp)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (p *ServiceManager) fillObjectToManager(meta resource.Object) error {
+
+	cm, ok := meta.(*Service)
+	if !ok {
+		return fmt.Errorf("object is not correct type")
+	}
+
+	group, ok := rm.Groups[cm.Group]
+	if !ok {
+		return resource.ErrGroupNotFound
+	}
+
+	workspace, ok := group.Workspaces[cm.Workspace]
+	if !ok {
+		return resource.ErrWorkspaceNotFound
+	}
+
+	_, ok = workspace.Services[cm.Name]
+	if ok {
+		return resource.ErrResourceExists
+	}
+
+	workspace.Services[cm.Name] = *cm
+	group.Workspaces[cm.Workspace] = workspace
+	p.Groups[cm.Group] = group
+	return nil
+
+}
+
+func (p *ServiceManager) DeleteGroup(groupName string) error {
+	_, ok := p.Groups[groupName]
+	if !ok {
+		return resource.ErrGroupNotFound
+	}
+
+	delete(p.Groups, groupName)
+	return nil
+}
+
+func (p *ServiceManager) AddGroup(groupName string) error {
+	p.Lock()
+	defer p.Unlock()
+	_, ok := p.Groups[groupName]
+	if ok {
+		return resource.ErrGroupExists
+	}
+	var group ServiceGroup
+	group.Workspaces = make(map[string]ServiceWorkspace)
+	p.Groups[groupName] = group
+	return nil
+}
+
+func (p *ServiceManager) AddObjectFromBytes(data []byte) error {
+	p.Lock()
+	defer p.Unlock()
+	var res Service
+	err := json.Unmarshal(data, &res)
+	if err != nil {
+		return err
+	}
+	err = p.fillObjectToManager(&res)
+	return err
+
+}
+
+func (p *ServiceManager) AddWorkspace(groupName string, workspaceName string) error {
+	p.Lock()
+	defer p.Unlock()
+	g, ok := p.Groups[groupName]
+	if !ok {
+		return resource.ErrGroupNotFound
+	}
+
+	_, ok = g.Workspaces[workspaceName]
+	if ok {
+		return resource.ErrWorkspaceExists
+	}
+
+	var ws ServiceWorkspace
+	ws.Services = make(map[string]Service)
+	g.Workspaces[workspaceName] = ws
+	p.Groups[groupName] = g
+	return nil
+
+}
+
+func (p *ServiceManager) DeleteWorkspace(groupName string, workspaceName string) error {
+	p.locker.Lock()
+	defer p.locker.Unlock()
+	group, ok := p.Groups[groupName]
+	if !ok {
+		return resource.ErrGroupNotFound
+	}
+
+	_, ok = group.Workspaces[workspaceName]
+	if !ok {
+		return resource.ErrWorkspaceNotFound
+	}
+	delete(group.Workspaces, workspaceName)
+	p.Groups[groupName] = group
+	return nil
+}
+
+func (p *ServiceManager) GetObjectWithoutLock(groupName, workspaceName, resourceName string) (resource.Object, error) {
+
+	return p.get(groupName, workspaceName, resourceName)
+}
+
 //注意这里没锁
 func (p *ServiceManager) get(groupName, workspaceName, resourceName string) (*Service, error) {
 
@@ -87,13 +226,13 @@ func (p *ServiceManager) get(groupName, workspaceName, resourceName string) (*Se
 	return &service, nil
 }
 
-func (p *ServiceManager) Get(group, workspace, resourceName string) (ServiceInterface, error) {
+func (p *ServiceManager) GetObject(group, workspace, resourceName string) (resource.Object, error) {
 	p.locker.Lock()
 	defer p.locker.Unlock()
 	return p.get(group, workspace, resourceName)
 }
 
-func (p *ServiceManager) List(groupName, workspaceName string) ([]ServiceInterface, error) {
+func (p *ServiceManager) ListObject(groupName, workspaceName string) ([]resource.Object, error) {
 
 	p.locker.Lock()
 	defer p.locker.Unlock()
@@ -109,7 +248,7 @@ func (p *ServiceManager) List(groupName, workspaceName string) ([]ServiceInterfa
 		return nil, fmt.Errorf("%v:group/%v,workspace/%v", resource.ErrWorkspaceNotFound, groupName, workspaceName)
 	}
 
-	pis := make([]ServiceInterface, 0)
+	pis := make([]resource.Object, 0)
 
 	//不能够直接使用k,v来赋值,会出现值都是同一个的问题
 	for k := range workspace.Services {
@@ -120,7 +259,7 @@ func (p *ServiceManager) List(groupName, workspaceName string) ([]ServiceInterfa
 	return pis, nil
 }
 
-func (p *ServiceManager) ListGroup(groupName string) ([]ServiceInterface, error) {
+func (p *ServiceManager) ListGroup(groupName string) ([]resource.Object, error) {
 
 	p.locker.Lock()
 	defer p.locker.Unlock()
@@ -130,7 +269,7 @@ func (p *ServiceManager) ListGroup(groupName string) ([]ServiceInterface, error)
 		return nil, fmt.Errorf("%v:%v", resource.ErrGroupNotFound, groupName)
 	}
 
-	pis := make([]ServiceInterface, 0)
+	pis := make([]resource.Object, 0)
 
 	//不能够直接使用k,v来赋值,会出现值都是同一个的问题
 	for _, v := range group.Workspaces {
@@ -143,7 +282,7 @@ func (p *ServiceManager) ListGroup(groupName string) ([]ServiceInterface, error)
 	return pis, nil
 }
 
-func (p *ServiceManager) Create(groupName, workspaceName string, data []byte, opt resource.CreateOption) error {
+func (p *ServiceManager) CreateObject(groupName, workspaceName string, data []byte, opt resource.CreateOption) error {
 
 	p.locker.Lock()
 	defer p.locker.Unlock()
@@ -222,9 +361,13 @@ func (p *ServiceManager) delete(groupName, workspaceName, resourceName string) e
 	return nil
 }
 
-func (p *ServiceManager) Delete(group, workspace, resourceName string, opt resource.DeleteOption) error {
+func (p *ServiceManager) DeleteObject(group, workspace, resourceName string, opt resource.DeleteOption) error {
 	p.locker.Lock()
 	defer p.locker.Unlock()
+
+	if opt.MemoryOnly {
+		return p.delete(group, workspace, resourceName)
+	}
 
 	ph, err := cluster.NewServiceHandler(group, workspace)
 	if err != nil {
@@ -276,7 +419,7 @@ func (p *ServiceManager) Delete(group, workspace, resourceName string, opt resou
 	}
 }
 
-func (p *ServiceManager) Update(groupName, workspaceName string, resourceName string, data []byte) error {
+func (p *ServiceManager) UpdateObject(groupName, workspaceName string, resourceName string, data []byte) error {
 	p.locker.Lock()
 	defer p.locker.Unlock()
 
@@ -400,8 +543,11 @@ func (s *Service) Event() ([]corev1.Event, error) {
 	e := make([]corev1.Event, 0)
 	return e, nil
 }
+func (s *Service) Metadata() resource.ObjectMeta {
+	return s.ObjectMeta
+}
 
-func InitServiceController(be backend.BackendHandler) (ServiceController, error) {
+func InitServiceController(be backend.BackendHandler) (resource.ObjectController, error) {
 	rm = &ServiceManager{}
 	rm.Groups = make(map[string]ServiceGroup)
 	rm.locker = sync.Mutex{}

@@ -32,7 +32,7 @@ func (this *ReplicaSetController) ListGroupWorkspaceReplicaSets() {
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
 
-	pis, err := pk.Controller.List(group, workspace)
+	pis, err := pk.Controller.ListObject(group, workspace)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
@@ -40,7 +40,8 @@ func (this *ReplicaSetController) ListGroupWorkspaceReplicaSets() {
 	//replicasets := make([]pk.ReplicaSet, 0)
 	jss := make([]pk.Status, 0)
 
-	for _, v := range pis {
+	for _, j := range pis {
+		v, _ := pk.GetReplicaSetInterface(j)
 		js := v.GetStatus()
 
 		jss = append(jss, *js)
@@ -70,15 +71,15 @@ func (this *ReplicaSetController) GetReplicaSet() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	rc := this.Ctx.Input.Param(":rc")
 
-	pi, err := pk.Controller.Get(group, workspace, rc)
+	v, err := pk.Controller.GetObject(group, workspace, rc)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
 	}
 	//replicasets := make([]pk.ReplicaSet, 0)
-	v := pi
+	pi, _ := pk.GetReplicaSetInterface(v)
 
-	js := v.GetStatus()
+	js := pi.GetStatus()
 
 	this.normalReturn(js)
 }
@@ -112,7 +113,7 @@ func (this *ReplicaSetController) ListGroupsReplicaSets() {
 		return
 	}
 
-	pis := make([]pk.ReplicaSetInterface, 0)
+	pis := make([]resource.Object, 0)
 	for _, v := range groups {
 		tmp, err := pk.Controller.ListGroup(v)
 		if err != nil {
@@ -123,7 +124,8 @@ func (this *ReplicaSetController) ListGroupsReplicaSets() {
 	}
 	//replicasets := make([]pk.ReplicaSet, 0)
 	jss := make([]pk.Status, 0)
-	for _, v := range pis {
+	for _, j := range pis {
+		v, _ := pk.GetReplicaSetInterface(j)
 		js := v.GetStatus()
 
 		jss = append(jss, *js)
@@ -155,7 +157,8 @@ func (this *ReplicaSetController) ListGroupReplicaSets() {
 	}
 	//replicasets := make([]pk.ReplicaSet, 0)
 	jss := make([]pk.Status, 0)
-	for _, v := range pis {
+	for _, j := range pis {
+		v, _ := pk.GetReplicaSetInterface(j)
 		js := v.GetStatus()
 		jss = append(jss, *js)
 	}
@@ -204,7 +207,7 @@ func (this *ReplicaSetController) CreateReplicaSet() {
 	var opt resource.CreateOption
 	opt.User = who
 
-	err = pk.Controller.Create(group, workspace, this.Ctx.Input.RequestBody, opt)
+	err = pk.Controller.CreateObject(group, workspace, this.Ctx.Input.RequestBody, opt)
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
@@ -247,12 +250,7 @@ func (this *ReplicaSetController) UpdateReplicaSet() {
 		return
 	}
 
-	/*
-		ui := user.NewUserClient(token)
-		ui.GetUserName()
-	*/
-
-	err := pk.Controller.Update(group, workspace, replicaset, this.Ctx.Input.RequestBody)
+	err := pk.Controller.UpdateObject(group, workspace, replicaset, this.Ctx.Input.RequestBody)
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
@@ -289,19 +287,20 @@ func (this *ReplicaSetController) ScaleReplicaSet() {
 	replicaset := this.Ctx.Input.Param(":replicaset")
 	replicasStr := this.Ctx.Input.Param(":replicas")
 
-	ri, err := pk.Controller.Get(group, workspace, replicaset)
-	if err != nil {
-		this.audit(token, "", true)
-		this.errReturn(err, 500)
-		return
-	}
-
 	replicas, err := strconv.ParseInt(replicasStr, 10, 32)
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
+	v, err := pk.Controller.GetObject(group, workspace, replicaset)
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+
+	ri, _ := pk.GetReplicaSetInterface(v)
 
 	err = ri.Scale(int(replicas))
 	if err != nil {
@@ -338,7 +337,7 @@ func (this *ReplicaSetController) DeleteReplicaSet() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	replicaset := this.Ctx.Input.Param(":replicaset")
 
-	err := pk.Controller.Delete(group, workspace, replicaset, resource.DeleteOption{})
+	err := pk.Controller.DeleteObject(group, workspace, replicaset, resource.DeleteOption{})
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
@@ -370,11 +369,12 @@ func (this *ReplicaSetController) GetReplicaSetEvent() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	replicaset := this.Ctx.Input.Param(":replicaset")
 
-	pi, err := pk.Controller.Get(group, workspace, replicaset)
+	v, err := pk.Controller.GetObject(group, workspace, replicaset)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
 	}
+	pi, _ := pk.GetReplicaSetInterface(v)
 	es, err := pi.Event()
 	if err != nil {
 		this.errReturn(err, 500)
@@ -405,11 +405,12 @@ func (this *ReplicaSetController) GetReplicaSetTemplate() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	replicaset := this.Ctx.Input.Param(":replicaset")
 
-	pi, err := pk.Controller.Get(group, workspace, replicaset)
+	v, err := pk.Controller.GetObject(group, workspace, replicaset)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
 	}
+	pi, _ := pk.GetReplicaSetInterface(v)
 
 	t, err := pi.GetTemplate()
 	if err != nil {

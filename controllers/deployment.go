@@ -710,7 +710,6 @@ func (this *DeploymentController) StartHPA() {
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
 // @Param deployment path string true "部署"
-// @Param revision path string true "版本"
 // @Success 201 {string} create success!
 // @Failure 500
 // @router /:deployment/group/:group/workspace/:workspace/resumeorpause [Put]

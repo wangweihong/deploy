@@ -3,6 +3,7 @@ package replicaset
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 	"ufleet-deploy/pkg/backend"
@@ -21,17 +22,8 @@ import (
 
 var (
 	rm         *ReplicaSetManager
-	Controller ReplicaSetController
+	Controller resource.ObjectController
 )
-
-type ReplicaSetController interface {
-	Create(group, workspace string, data []byte, opt resource.CreateOption) error
-	Delete(group, workspace, replicaset string, opt resource.DeleteOption) error
-	Get(group, workspace, replicaset string) (ReplicaSetInterface, error)
-	Update(group, workspace, resource string, newdata []byte) error
-	List(group, workspace string) ([]ReplicaSetInterface, error)
-	ListGroup(group string) ([]ReplicaSetInterface, error)
-}
 
 type ReplicaSetInterface interface {
 	Info() *ReplicaSet
@@ -70,6 +62,153 @@ type ReplicaSet struct {
 	memoryOnly bool //用于判定pod是否由k8s自动创建
 }
 
+func GetReplicaSetInterface(obj resource.Object) (ReplicaSetInterface, error) {
+	if obj == nil {
+		return nil, fmt.Errorf("resource object is nil")
+	}
+
+	ri, ok := obj.(*ReplicaSet)
+	if !ok {
+		return nil, fmt.Errorf("resource object is not configmap type")
+	}
+
+	return ri, nil
+}
+
+func (p *ReplicaSetManager) Lock() {
+	p.locker.Lock()
+}
+func (p *ReplicaSetManager) Unlock() {
+	p.locker.Unlock()
+}
+
+//仅仅用于基于内存的对象的创建
+func (p *ReplicaSetManager) NewObject(meta resource.ObjectMeta) error {
+
+	if strings.TrimSpace(meta.Group) == "" ||
+		strings.TrimSpace(meta.Workspace) == "" ||
+		strings.TrimSpace(meta.Name) == "" {
+		return fmt.Errorf("Invalid object data")
+	}
+
+	cp := ReplicaSet{ObjectMeta: meta}
+	cp.MemoryOnly = true
+
+	err := p.fillObjectToManager(&cp)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (p *ReplicaSetManager) fillObjectToManager(meta resource.Object) error {
+
+	cm, ok := meta.(*ReplicaSet)
+	if !ok {
+		return fmt.Errorf("object is not correct type")
+	}
+
+	group, ok := rm.Groups[cm.Group]
+	if !ok {
+		return resource.ErrGroupNotFound
+	}
+
+	workspace, ok := group.Workspaces[cm.Workspace]
+	if !ok {
+		return resource.ErrWorkspaceNotFound
+	}
+
+	_, ok = workspace.ReplicaSets[cm.Name]
+	if ok {
+		return resource.ErrResourceExists
+	}
+
+	workspace.ReplicaSets[cm.Name] = *cm
+	group.Workspaces[cm.Workspace] = workspace
+	p.Groups[cm.Group] = group
+	return nil
+
+}
+
+func (p *ReplicaSetManager) DeleteGroup(groupName string) error {
+	_, ok := p.Groups[groupName]
+	if !ok {
+		return resource.ErrGroupNotFound
+	}
+
+	delete(p.Groups, groupName)
+	return nil
+}
+
+func (p *ReplicaSetManager) AddGroup(groupName string) error {
+	p.Lock()
+	defer p.Unlock()
+	_, ok := p.Groups[groupName]
+	if ok {
+		return resource.ErrGroupExists
+	}
+	var group ReplicaSetGroup
+	group.Workspaces = make(map[string]ReplicaSetWorkspace)
+	p.Groups[groupName] = group
+	return nil
+}
+
+func (p *ReplicaSetManager) AddObjectFromBytes(data []byte) error {
+	p.Lock()
+	defer p.Unlock()
+	var res ReplicaSet
+	err := json.Unmarshal(data, &res)
+	if err != nil {
+		return err
+	}
+	err = p.fillObjectToManager(&res)
+	return err
+
+}
+
+func (p *ReplicaSetManager) AddWorkspace(groupName string, workspaceName string) error {
+	p.Lock()
+	defer p.Unlock()
+	g, ok := p.Groups[groupName]
+	if !ok {
+		return resource.ErrGroupNotFound
+	}
+
+	_, ok = g.Workspaces[workspaceName]
+	if ok {
+		return resource.ErrWorkspaceExists
+	}
+
+	var ws ReplicaSetWorkspace
+	ws.ReplicaSets = make(map[string]ReplicaSet)
+	g.Workspaces[workspaceName] = ws
+	p.Groups[groupName] = g
+	return nil
+
+}
+
+func (p *ReplicaSetManager) DeleteWorkspace(groupName string, workspaceName string) error {
+	p.locker.Lock()
+	defer p.locker.Unlock()
+	group, ok := p.Groups[groupName]
+	if !ok {
+		return resource.ErrGroupNotFound
+	}
+
+	_, ok = group.Workspaces[workspaceName]
+	if !ok {
+		return resource.ErrWorkspaceNotFound
+	}
+	delete(group.Workspaces, workspaceName)
+	p.Groups[groupName] = group
+	return nil
+}
+
+func (p *ReplicaSetManager) GetObjectWithoutLock(groupName, workspaceName, resourceName string) (resource.Object, error) {
+
+	return p.get(groupName, workspaceName, resourceName)
+}
+
 //注意这里没锁
 func (p *ReplicaSetManager) get(groupName, workspaceName, replicasetName string) (*ReplicaSet, error) {
 
@@ -91,13 +230,13 @@ func (p *ReplicaSetManager) get(groupName, workspaceName, replicasetName string)
 	return &replicaset, nil
 }
 
-func (p *ReplicaSetManager) Get(group, workspace, replicasetName string) (ReplicaSetInterface, error) {
+func (p *ReplicaSetManager) GetObject(group, workspace, replicasetName string) (resource.Object, error) {
 	p.locker.Lock()
 	defer p.locker.Unlock()
 	return p.get(group, workspace, replicasetName)
 }
 
-func (p *ReplicaSetManager) ListGroup(groupName string) ([]ReplicaSetInterface, error) {
+func (p *ReplicaSetManager) ListGroup(groupName string) ([]resource.Object, error) {
 	p.locker.Lock()
 	defer p.locker.Unlock()
 
@@ -106,7 +245,7 @@ func (p *ReplicaSetManager) ListGroup(groupName string) ([]ReplicaSetInterface, 
 		return nil, fmt.Errorf("%v:%v", resource.ErrGroupNotFound, groupName)
 	}
 
-	pis := make([]ReplicaSetInterface, 0)
+	pis := make([]resource.Object, 0)
 	for _, v := range group.Workspaces {
 		for k := range v.ReplicaSets {
 			t := v.ReplicaSets[k]
@@ -116,7 +255,7 @@ func (p *ReplicaSetManager) ListGroup(groupName string) ([]ReplicaSetInterface, 
 	return pis, nil
 }
 
-func (p *ReplicaSetManager) List(groupName, workspaceName string) ([]ReplicaSetInterface, error) {
+func (p *ReplicaSetManager) ListObject(groupName, workspaceName string) ([]resource.Object, error) {
 
 	p.locker.Lock()
 	defer p.locker.Unlock()
@@ -131,7 +270,7 @@ func (p *ReplicaSetManager) List(groupName, workspaceName string) ([]ReplicaSetI
 		return nil, fmt.Errorf("%v:group/%v,workspace/%v", resource.ErrWorkspaceNotFound, groupName, workspaceName)
 	}
 
-	pis := make([]ReplicaSetInterface, 0)
+	pis := make([]resource.Object, 0)
 
 	//不能够直接使用k,v来赋值,会出现值都是同一个的问题
 	for k := range workspace.ReplicaSets {
@@ -142,7 +281,7 @@ func (p *ReplicaSetManager) List(groupName, workspaceName string) ([]ReplicaSetI
 	return pis, nil
 }
 
-func (p *ReplicaSetManager) Create(groupName, workspaceName string, data []byte, opt resource.CreateOption) error {
+func (p *ReplicaSetManager) CreateObject(groupName, workspaceName string, data []byte, opt resource.CreateOption) error {
 
 	p.locker.Lock()
 	defer p.locker.Unlock()
@@ -221,9 +360,12 @@ func (p *ReplicaSetManager) delete(groupName, workspaceName, replicasetName stri
 	return nil
 }
 
-func (p *ReplicaSetManager) Delete(group, workspace, replicasetName string, opt resource.DeleteOption) error {
+func (p *ReplicaSetManager) DeleteObject(group, workspace, replicasetName string, opt resource.DeleteOption) error {
 	p.locker.Lock()
 	defer p.locker.Unlock()
+	if opt.MemoryOnly {
+		return p.delete(group, workspace, replicasetName)
+	}
 
 	ph, err := cluster.NewReplicaSetHandler(group, workspace)
 	if err != nil {
@@ -273,7 +415,7 @@ func (p *ReplicaSetManager) Delete(group, workspace, replicasetName string, opt 
 	}
 }
 
-func (p *ReplicaSetManager) Update(groupName, workspaceName string, resourceName string, data []byte) error {
+func (p *ReplicaSetManager) UpdateObject(groupName, workspaceName string, resourceName string, data []byte) error {
 	p.locker.Lock()
 	defer p.locker.Unlock()
 
@@ -511,7 +653,10 @@ func (j *ReplicaSet) GetTemplate() (string, error) {
 	return *t, nil
 }
 
-func InitReplicaSetController(be backend.BackendHandler) (ReplicaSetController, error) {
+func (s *ReplicaSet) Metadata() resource.ObjectMeta {
+	return s.ObjectMeta
+}
+func InitReplicaSetController(be backend.BackendHandler) (resource.ObjectController, error) {
 	rm = &ReplicaSetManager{}
 	rm.Groups = make(map[string]ReplicaSetGroup)
 	rm.locker = sync.Mutex{}

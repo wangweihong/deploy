@@ -36,13 +36,14 @@ func (this *SecretController) ListSecrets() {
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
 
-	pis, err := pk.Controller.List(group, workspace)
+	pis, err := pk.Controller.ListObject(group, workspace)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
 	}
 	jss := make([]pk.Status, 0)
-	for _, v := range pis {
+	for _, j := range pis {
+		v, _ := pk.GetSecretInterface(j)
 		js := v.GetStatus()
 		jss = append(jss, *js)
 	}
@@ -78,7 +79,7 @@ func (this *SecretController) ListGroupsSecrets() {
 		return
 	}
 
-	pis := make([]pk.SecretInterface, 0)
+	pis := make([]resource.Object, 0)
 
 	for _, v := range groups {
 		tmp, err := pk.Controller.ListGroup(v)
@@ -89,7 +90,8 @@ func (this *SecretController) ListGroupsSecrets() {
 		pis = append(pis, tmp...)
 	}
 	jss := make([]pk.Status, 0)
-	for _, v := range pis {
+	for _, j := range pis {
+		v, _ := pk.GetSecretInterface(j)
 		js := v.GetStatus()
 		jss = append(jss, *js)
 	}
@@ -119,7 +121,8 @@ func (this *SecretController) ListGroupSecrets() {
 	}
 
 	jss := make([]pk.Status, 0)
-	for _, v := range pis {
+	for _, j := range pis {
+		v, _ := pk.GetSecretInterface(j)
 		js := v.GetStatus()
 		jss = append(jss, *js)
 	}
@@ -175,7 +178,7 @@ func (this *SecretController) CreateSecret() {
 	var opt resource.CreateOption
 	opt.Comment = co.Comment
 	opt.User = who
-	err = pk.Controller.Create(group, workspace, []byte(co.Data), opt)
+	err = pk.Controller.CreateObject(group, workspace, []byte(co.Data), opt)
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
@@ -325,7 +328,7 @@ func (this *SecretController) CreateSecretCustom() {
 	var opt resource.CreateOption
 	opt.Comment = co.Comment
 	opt.User = who
-	err = pk.Controller.Create(group, workspace, bytedata, opt)
+	err = pk.Controller.CreateObject(group, workspace, bytedata, opt)
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
@@ -368,12 +371,7 @@ func (this *SecretController) UpdateSecret() {
 		return
 	}
 
-	/*
-		ui := user.NewUserClient(token)
-		ui.GetUserName()
-	*/
-
-	err := pk.Controller.Update(group, workspace, secret, this.Ctx.Input.RequestBody)
+	err := pk.Controller.UpdateObject(group, workspace, secret, this.Ctx.Input.RequestBody)
 	if err != nil {
 		this.errReturn(err, 500)
 		this.audit(token, "", true)
@@ -407,7 +405,7 @@ func (this *SecretController) DeleteSecret() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	secret := this.Ctx.Input.Param(":secret")
 
-	err := pk.Controller.Delete(group, workspace, secret, resource.DeleteOption{})
+	err := pk.Controller.DeleteObject(group, workspace, secret, resource.DeleteOption{})
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
@@ -439,11 +437,12 @@ func (this *SecretController) GetSecretTemplate() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	secret := this.Ctx.Input.Param(":secret")
 
-	pi, err := pk.Controller.Get(group, workspace, secret)
+	v, err := pk.Controller.GetObject(group, workspace, secret)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
 	}
+	pi, _ := pk.GetSecretInterface(v)
 
 	t, err := pi.GetTemplate()
 	if err != nil {
@@ -475,11 +474,12 @@ func (this *SecretController) GetSecretEvent() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	endpoint := this.Ctx.Input.Param(":endpoint")
 
-	pi, err := pk.Controller.Get(group, workspace, endpoint)
+	v, err := pk.Controller.GetObject(group, workspace, endpoint)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
 	}
+	pi, _ := pk.GetSecretInterface(v)
 	es, err := pi.Event()
 	if err != nil {
 		this.errReturn(err, 500)

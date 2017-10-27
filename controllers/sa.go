@@ -34,13 +34,14 @@ func (this *ServiceAccountController) ListServiceAccounts() {
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
 
-	pis, err := pk.Controller.List(group, workspace)
+	pis, err := pk.Controller.ListObject(group, workspace)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
 	}
 	jss := make([]pk.Status, 0)
-	for _, v := range pis {
+	for _, j := range pis {
+		v, _ := pk.GetServiceAccountInterface(j)
 		js := v.GetStatus()
 		jss = append(jss, *js)
 	}
@@ -77,7 +78,7 @@ func (this *ServiceAccountController) ListGroupsServiceAccounts() {
 		return
 	}
 
-	pis := make([]pk.ServiceAccountInterface, 0)
+	pis := make([]resource.Object, 0)
 
 	for _, v := range groups {
 		tmp, err := pk.Controller.ListGroup(v)
@@ -89,7 +90,8 @@ func (this *ServiceAccountController) ListGroupsServiceAccounts() {
 	}
 
 	jss := make([]pk.Status, 0)
-	for _, v := range pis {
+	for _, j := range pis {
+		v, _ := pk.GetServiceAccountInterface(j)
 		js := v.GetStatus()
 		jss = append(jss, *js)
 	}
@@ -120,7 +122,8 @@ func (this *ServiceAccountController) ListGroupServiceAccounts() {
 	}
 
 	jss := make([]pk.Status, 0)
-	for _, v := range pis {
+	for _, j := range pis {
+		v, _ := pk.GetServiceAccountInterface(j)
 		js := v.GetStatus()
 		jss = append(jss, *js)
 	}
@@ -177,7 +180,7 @@ func (this *ServiceAccountController) CreateServiceAccount() {
 	var opt resource.CreateOption
 	opt.Comment = co.Comment
 	opt.User = who
-	err = pk.Controller.Create(group, workspace, []byte(co.Data), opt)
+	err = pk.Controller.CreateObject(group, workspace, []byte(co.Data), opt)
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
@@ -259,7 +262,7 @@ func (this *ServiceAccountController) CreateServiceAccountCustom() {
 	var opt resource.CreateOption
 	opt.Comment = co.Comment
 	opt.User = who
-	err = pk.Controller.Create(group, workspace, bytedata, opt)
+	err = pk.Controller.CreateObject(group, workspace, bytedata, opt)
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
@@ -302,12 +305,7 @@ func (this *ServiceAccountController) UpdateServiceAccount() {
 		return
 	}
 
-	/*
-		ui := user.NewUserClient(token)
-		ui.GetUserName()
-	*/
-
-	err := pk.Controller.Update(group, workspace, serviceaccount, this.Ctx.Input.RequestBody)
+	err := pk.Controller.UpdateObject(group, workspace, serviceaccount, this.Ctx.Input.RequestBody)
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
@@ -341,7 +339,7 @@ func (this *ServiceAccountController) DeleteServiceAccount() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	serviceaccount := this.Ctx.Input.Param(":serviceaccount")
 
-	err := pk.Controller.Delete(group, workspace, serviceaccount, resource.DeleteOption{})
+	err := pk.Controller.DeleteObject(group, workspace, serviceaccount, resource.DeleteOption{})
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
@@ -373,12 +371,12 @@ func (this *ServiceAccountController) GetServiceAccountTemplate() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	serviceaccount := this.Ctx.Input.Param(":serviceaccount")
 
-	pi, err := pk.Controller.Get(group, workspace, serviceaccount)
+	v, err := pk.Controller.GetObject(group, workspace, serviceaccount)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
 	}
-
+	pi, _ := pk.GetServiceAccountInterface(v)
 	t, err := pi.GetTemplate()
 	if err != nil {
 		this.errReturn(err, 500)
@@ -409,11 +407,12 @@ func (this *ServiceAccountController) GetServiceAccountEvent() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	endpoint := this.Ctx.Input.Param(":endpoint")
 
-	pi, err := pk.Controller.Get(group, workspace, endpoint)
+	v, err := pk.Controller.GetObject(group, workspace, endpoint)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
 	}
+	pi, _ := pk.GetServiceAccountInterface(v)
 	es, err := pi.Event()
 	if err != nil {
 		this.errReturn(err, 500)

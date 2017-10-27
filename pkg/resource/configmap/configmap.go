@@ -539,6 +539,7 @@ func (s *ConfigMap) Event() ([]corev1.Event, error) {
 	e := make([]corev1.Event, 0)
 	return e, nil
 }
+
 func (s *ConfigMap) Metadata() resource.ObjectMeta {
 	return s.ObjectMeta
 }

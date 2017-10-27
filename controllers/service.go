@@ -39,14 +39,15 @@ func (this *ServiceController) ListGroupWorkspaceServices() {
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
 
-	pis, err := pk.Controller.List(group, workspace)
+	pis, err := pk.Controller.ListObject(group, workspace)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
 	}
 
 	jss := make([]pk.Status, 0)
-	for _, v := range pis {
+	for _, j := range pis {
+		v, _ := pk.GetServiceInterface(j)
 		js := v.GetStatus()
 		jss = append(jss, *js)
 	}
@@ -75,15 +76,15 @@ func (this *ServiceController) GetGroupWorkspaceService() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	service := this.Ctx.Input.Param(":service")
 
-	pi, err := pk.Controller.Get(group, workspace, service)
+	v, err := pk.Controller.GetObject(group, workspace, service)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
 	}
-	v := pi
+	pi, _ := pk.GetServiceInterface(v)
 
 	var js *pk.Status
-	js = v.GetStatus()
+	js = pi.GetStatus()
 
 	this.normalReturn(js)
 }
@@ -117,7 +118,7 @@ func (this *ServiceController) ListGroupsServices() {
 		return
 	}
 
-	pis := make([]pk.ServiceInterface, 0)
+	pis := make([]resource.Object, 0)
 
 	for _, v := range groups {
 		tmp, err := pk.Controller.ListGroup(v)
@@ -129,7 +130,8 @@ func (this *ServiceController) ListGroupsServices() {
 	}
 
 	jss := make([]pk.Status, 0)
-	for _, v := range pis {
+	for _, j := range pis {
+		v, _ := pk.GetServiceInterface(j)
 		js := v.GetStatus()
 		jss = append(jss, *js)
 	}
@@ -159,7 +161,8 @@ func (this *ServiceController) ListGroupServices() {
 		return
 	}
 	jss := make([]pk.Status, 0)
-	for _, v := range pis {
+	for _, j := range pis {
+		v, _ := pk.GetServiceInterface(j)
 		js := v.GetStatus()
 		jss = append(jss, *js)
 	}
@@ -206,7 +209,7 @@ func (this *ServiceController) CreateService() {
 
 	var opt resource.CreateOption
 	opt.User = who
-	err = pk.Controller.Create(group, workspace, this.Ctx.Input.RequestBody, opt)
+	err = pk.Controller.CreateObject(group, workspace, this.Ctx.Input.RequestBody, opt)
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
@@ -249,7 +252,7 @@ func (this *ServiceController) UpdateService() {
 		return
 	}
 
-	err := pk.Controller.Update(group, workspace, service, this.Ctx.Input.RequestBody)
+	err := pk.Controller.UpdateObject(group, workspace, service, this.Ctx.Input.RequestBody)
 	if err != nil {
 		this.errReturn(err, 500)
 		this.audit(token, "", true)
@@ -283,7 +286,7 @@ func (this *ServiceController) DeleteService() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	service := this.Ctx.Input.Param(":service")
 
-	err := pk.Controller.Delete(group, workspace, service, resource.DeleteOption{})
+	err := pk.Controller.DeleteObject(group, workspace, service, resource.DeleteOption{})
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
@@ -315,11 +318,12 @@ func (this *ServiceController) GetServiceTemplate() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	service := this.Ctx.Input.Param(":service")
 
-	pi, err := pk.Controller.Get(group, workspace, service)
+	v, err := pk.Controller.GetObject(group, workspace, service)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
 	}
+	pi, _ := pk.GetServiceInterface(v)
 
 	t, err := pi.GetTemplate()
 	if err != nil {
@@ -351,11 +355,12 @@ func (this *ServiceController) GetServiceEvent() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	service := this.Ctx.Input.Param(":service")
 
-	pi, err := pk.Controller.Get(group, workspace, service)
+	v, err := pk.Controller.GetObject(group, workspace, service)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
 	}
+	pi, _ := pk.GetServiceInterface(v)
 	es, err := pi.Event()
 	if err != nil {
 		this.errReturn(err, 500)
