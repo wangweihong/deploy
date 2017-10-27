@@ -456,7 +456,7 @@ func (p *DeploymentManager) UpdateObject(groupName, workspaceName string, resour
 	p.locker.Lock()
 	defer p.locker.Unlock()
 
-	_, err := p.get(groupName, workspaceName, resourceName)
+	res, err := p.get(groupName, workspaceName, resourceName)
 	if err != nil {
 		return err
 	}
@@ -478,8 +478,21 @@ func (p *DeploymentManager) UpdateObject(groupName, workspaceName string, resour
 	if err != nil {
 		return log.DebugPrint(err)
 	}
+
+	old := *res
+	res.Comment = opt.Comment
+	be := backend.NewBackendHandler()
+	err = be.UpdateResource(resourceKind, res.Group, res.Workspace, res.Name, res)
+	if err != nil {
+		return err
+	}
+
 	err = ph.Update(workspaceName, &newr)
 	if err != nil {
+		err2 := be.UpdateResource(resourceKind, res.Group, res.Workspace, res.Name, &old)
+		if err2 != nil {
+			log.ErrorPrint(err2)
+		}
 		return log.DebugPrint(err)
 	}
 

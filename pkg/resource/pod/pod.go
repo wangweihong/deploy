@@ -358,8 +358,7 @@ func (p *PodManager) UpdateObject(groupName, workspaceName string, resourceName 
 	p.locker.Lock()
 	defer p.locker.Unlock()
 
-	log.DebugPrint("%v %v %v", groupName, workspaceName, resourceName)
-	_, err := p.get(groupName, workspaceName, resourceName)
+	res, err := p.get(groupName, workspaceName, resourceName)
 	if err != nil {
 		return log.DebugPrint(err)
 	}
@@ -391,8 +390,21 @@ func (p *PodManager) UpdateObject(groupName, workspaceName string, resourceName 
 	if err != nil {
 		return log.DebugPrint(err)
 	}
+
+	old := *res
+	res.Comment = opt.Comment
+	be := backend.NewBackendHandler()
+	err = be.UpdateResource(resourceKind, res.Group, res.Workspace, res.Name, res)
+	if err != nil {
+		return err
+	}
+
 	err = ph.Update(workspaceName, &newr)
 	if err != nil {
+		err2 := be.UpdateResource(resourceKind, res.Group, res.Workspace, res.Name, &old)
+		if err2 != nil {
+			log.ErrorPrint(err2)
+		}
 		return log.DebugPrint(err)
 	}
 

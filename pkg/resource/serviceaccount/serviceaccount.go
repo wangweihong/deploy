@@ -314,6 +314,7 @@ func (p *ServiceAccountManager) CreateObject(groupName, workspaceName string, da
 	cp.CreateTime = time.Now().Unix()
 	cp.Name = obj.Name
 	cp.Workspace = workspaceName
+	cp.Comment = opt.Comment
 	cp.Group = groupName
 	cp.Template = string(data)
 	if opt.App != nil {
@@ -414,7 +415,7 @@ func (p *ServiceAccountManager) UpdateObject(groupName, workspaceName string, re
 	p.locker.Lock()
 	defer p.locker.Unlock()
 
-	_, err := p.get(groupName, workspaceName, resourceName)
+	res, err := p.get(groupName, workspaceName, resourceName)
 	if err != nil {
 		return err
 	}
@@ -436,8 +437,21 @@ func (p *ServiceAccountManager) UpdateObject(groupName, workspaceName string, re
 	if err != nil {
 		return log.DebugPrint(err)
 	}
+
+	old := *res
+	res.Comment = opt.Comment
+	be := backend.NewBackendHandler()
+	err = be.UpdateResource(resourceKind, res.Group, res.Workspace, res.Name, res)
+	if err != nil {
+		return err
+	}
+
 	err = ph.Update(workspaceName, &newr)
 	if err != nil {
+		err2 := be.UpdateResource(resourceKind, res.Group, res.Workspace, res.Name, &old)
+		if err2 != nil {
+			log.ErrorPrint(err2)
+		}
 		return log.DebugPrint(err)
 	}
 

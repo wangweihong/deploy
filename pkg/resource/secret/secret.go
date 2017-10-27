@@ -315,6 +315,7 @@ func (p *SecretManager) CreateObject(groupName, workspaceName string, data []byt
 	var cp Secret
 	cp.CreateTime = time.Now().Unix()
 	cp.Name = obj.Name
+	cp.Comment = opt.Comment
 	cp.Workspace = workspaceName
 	cp.Group = groupName
 	cp.Template = string(data)
@@ -329,7 +330,6 @@ func (p *SecretManager) CreateObject(groupName, workspaceName string, data []byt
 		return log.DebugPrint(err)
 	}
 
-	log.DebugPrint(obj.Annotations)
 	err = ph.Create(workspaceName, &obj)
 	if err != nil {
 		err2 := be.DeleteResource(backendKind, groupName, workspaceName, cp.Name)
@@ -417,7 +417,7 @@ func (p *SecretManager) UpdateObject(groupName, workspaceName string, resourceNa
 	p.locker.Lock()
 	defer p.locker.Unlock()
 
-	_, err := p.get(groupName, workspaceName, resourceName)
+	res, err := p.get(groupName, workspaceName, resourceName)
 	if err != nil {
 		return err
 	}
@@ -432,15 +432,29 @@ func (p *SecretManager) UpdateObject(groupName, workspaceName string, resourceNa
 	newr.ResourceVersion = ""
 
 	if newr.Name != resourceName {
-		return fmt.Errorf("invalid update data, name not match")
+		return fmt.Errorf("invalid update data, resource name not match")
 	}
 
 	ph, err := cluster.NewSecretHandler(groupName, workspaceName)
 	if err != nil {
 		return log.DebugPrint(err)
 	}
+
+	old := *res
+	res.Comment = opt.Comment
+	be := backend.NewBackendHandler()
+	err = be.UpdateResource(resourceKind, res.Group, res.Workspace, res.Name, res)
+	if err != nil {
+		return err
+	}
+
 	err = ph.Update(workspaceName, &newr)
 	if err != nil {
+		err2 := be.UpdateResource(resourceKind, res.Group, res.Workspace, res.Name, &old)
+		if err2 != nil {
+			log.ErrorPrint(err2)
+		}
+
 		return log.DebugPrint(err)
 	}
 
