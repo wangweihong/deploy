@@ -443,14 +443,14 @@ func (p *SecretManager) UpdateObject(groupName, workspaceName string, resourceNa
 	old := *res
 	res.Comment = opt.Comment
 	be := backend.NewBackendHandler()
-	err = be.UpdateResource(resourceKind, res.Group, res.Workspace, res.Name, res)
+	err = be.UpdateResource(backendKind, res.Group, res.Workspace, res.Name, res)
 	if err != nil {
-		return err
+		return log.DebugPrint(err)
 	}
 
 	err = ph.Update(workspaceName, &newr)
 	if err != nil {
-		err2 := be.UpdateResource(resourceKind, res.Group, res.Workspace, res.Name, &old)
+		err2 := be.UpdateResource(backendKind, res.Group, res.Workspace, res.Name, &old)
 		if err2 != nil {
 			log.ErrorPrint(err2)
 		}

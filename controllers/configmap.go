@@ -335,7 +335,7 @@ func (this *ConfigMapController) UpdateConfigMapCustom() {
 	var opt resource.UpdateOption
 	opt.Comment = co.Comment
 
-	err = pk.Controller.UpdateObject(group, workspace, co.Name, bytedata, opt)
+	err = pk.Controller.UpdateObject(group, workspace, configmap, bytedata, opt)
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)

@@ -93,15 +93,15 @@ func (s *App) AddResources(desc []byte, flush bool) error {
 			return err
 		}
 
-		var rcud resource.RCUD
-		rcud, err = resource.GetResourceCUD(res.Kind)
+		var rcud resource.ObjectController
+		rcud, err = resource.GetResourceController(res.Kind)
 		if err != nil {
 			return log.DebugPrint(err)
 		}
 
 		opt := resource.CreateOption{}
 		opt.App = &appName
-		err = rcud.Create(groupName, workspaceName, v.Raw, opt)
+		err = rcud.CreateObject(groupName, workspaceName, v.Raw, opt)
 		if err != nil {
 			return log.DebugPrint(err)
 		}
@@ -110,7 +110,7 @@ func (s *App) AddResources(desc []byte, flush bool) error {
 		if flush {
 			err = be.UpdateResource(backendKind, groupName, workspaceName, appName, s)
 			if err != nil {
-				err2 := rcud.Delete(groupName, workspaceName, res.Name, resource.DeleteOption{})
+				err2 := rcud.DeleteObject(groupName, workspaceName, res.Name, resource.DeleteOption{})
 				if err2 != nil {
 					log.ErrorPrint(err2)
 				}
@@ -136,7 +136,7 @@ func (s *App) RemoveResource(kind string, name string, flush bool) error {
 		return ErrResourceNotFound
 	}
 
-	rcud, err := resource.GetResourceCUD(kind)
+	rcud, err := resource.GetResourceController(kind)
 	if err != nil {
 		return err
 	}
@@ -145,7 +145,7 @@ func (s *App) RemoveResource(kind string, name string, flush bool) error {
 	if !flush {
 		opt.DontCallApp = true
 	}
-	err = rcud.Delete(s.Group, s.Workspace, name, opt)
+	err = rcud.DeleteObject(s.Group, s.Workspace, name, opt)
 	if err != nil && !resource.IsErrorNotFound(err) {
 		return err
 	}
