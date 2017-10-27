@@ -533,19 +533,19 @@ type Status struct {
 	PodNum     int      `json:"podnum"`
 	ClusterIP  string   `json:"clusterip"`
 	//Replicas    int32             `json:"replicas"`
-	Strategy    extensionsv1beta1.DeploymentStrategy `json:"strategy"`
-	Desire      int                                  `json:"desire"`
-	Current     int                                  `json:"current"`
-	Available   int                                  `json:"available"`
-	UpToDate    int                                  `json:"uptodate"`
-	Ready       int                                  `json:"ready"`
-	Labels      map[string]string                    `json:"labels"`
-	Annotations map[string]string                    `json:"annotations"`
-	Selectors   map[string]string                    `json:"selectors"`
-	Reason      string                               `json:"reason"`
-	timeout     int64                                `json:"timemout"`
-	Paused      bool                                 `json:"paused"`
-	Revision    int64                                `json:"revision"`
+	Strategy    string            `json:"strategy"`
+	Desire      int               `json:"desire"`
+	Current     int               `json:"current"`
+	Available   int               `json:"available"`
+	UpToDate    int               `json:"uptodate"`
+	Ready       int               `json:"ready"`
+	Labels      map[string]string `json:"labels"`
+	Annotations map[string]string `json:"annotations"`
+	Selectors   map[string]string `json:"selectors"`
+	Reason      string            `json:"reason"`
+	timeout     int64             `json:"timemout"`
+	Paused      bool              `json:"paused"`
+	Revision    int64             `json:"revision"`
 	//	Pods       []string `json:"pods"`
 	PodStatus      []pk.Status        `json:"podstatus"`
 	ContainerSpecs []pk.ContainerSpec `json:"containerspecs"`
@@ -591,6 +591,7 @@ func (j *Deployment) GetStatus() *Status {
 	js.Annotations = make(map[string]string)
 	js.Selectors = make(map[string]string)
 	js.Paused = deployment.Spec.Paused
+	js.Strategy = string(deployment.Spec.Strategy.Type)
 
 	if js.CreateTime == 0 {
 		js.CreateTime = deployment.CreationTimestamp.Unix()
