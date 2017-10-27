@@ -36,6 +36,10 @@ type DeleteOption struct {
 	MemoryOnly  bool //只清除内存中的数据
 }
 
+type UpdateOption struct {
+	Comment string //注释
+}
+
 type RCUD interface {
 	Create(group, workspace string, data []byte, opt CreateOption) error
 	Delete(group, workspace, resource string, opt DeleteOption) error
@@ -100,7 +104,7 @@ type ObjectController interface {
 	CreateObject(group, workspace string, data []byte, opt CreateOption) error
 	DeleteObject(group, workspace, configmap string, opt DeleteOption) error
 	GetObject(group, workspace, configmap string) (Object, error)
-	UpdateObject(group, workspace, resource string, newdata []byte) error
+	UpdateObject(group, workspace, resource string, newdata []byte, opt UpdateOption) error
 	ListObject(group, workspace string) ([]Object, error)
 	ListGroup(group string) ([]Object, error)
 }

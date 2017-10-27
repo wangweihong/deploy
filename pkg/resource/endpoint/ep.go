@@ -412,7 +412,7 @@ func (p *EndpointManager) DeleteObject(group, workspace, resourceName string, op
 	}
 }
 
-func (p *EndpointManager) UpdateObject(groupName, workspaceName string, resourceName string, data []byte) error {
+func (p *EndpointManager) UpdateObject(groupName, workspaceName string, resourceName string, data []byte, opt resource.UpdateOption) error {
 	p.locker.Lock()
 	defer p.locker.Unlock()
 

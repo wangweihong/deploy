@@ -414,7 +414,7 @@ func (p *IngressManager) DeleteObject(group, workspace, resourceName string, opt
 	}
 }
 
-func (p *IngressManager) UpdateObject(groupName, workspaceName string, resourceName string, data []byte) error {
+func (p *IngressManager) UpdateObject(groupName, workspaceName string, resourceName string, data []byte, opt resource.UpdateOption) error {
 	p.locker.Lock()
 	defer p.locker.Unlock()
 

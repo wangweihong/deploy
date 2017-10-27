@@ -116,6 +116,10 @@ var (
 			object:  operateObjectConfigMap,
 			operate: operateTypeUpdate,
 		},
+		"UpdateConfigMapCustom": audit{
+			object:  operateObjectConfigMap,
+			operate: operateTypeUpdate,
+		},
 		"DeleteConfigMap": audit{
 			object:  operateObjectConfigMap,
 			operate: operateTypeDelete,

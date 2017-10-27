@@ -252,7 +252,7 @@ func (this *ServiceController) UpdateService() {
 		return
 	}
 
-	err := pk.Controller.UpdateObject(group, workspace, service, this.Ctx.Input.RequestBody)
+	err := pk.Controller.UpdateObject(group, workspace, service, this.Ctx.Input.RequestBody, resource.UpdateOption{})
 	if err != nil {
 		this.errReturn(err, 500)
 		this.audit(token, "", true)

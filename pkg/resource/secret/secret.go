@@ -412,7 +412,7 @@ func (p *SecretManager) DeleteObject(group, workspace, resourceName string, opt 
 	}
 }
 
-func (p *SecretManager) UpdateObject(groupName, workspaceName string, resourceName string, data []byte) error {
+func (p *SecretManager) UpdateObject(groupName, workspaceName string, resourceName string, data []byte, opt resource.UpdateOption) error {
 	p.locker.Lock()
 	defer p.locker.Unlock()
 

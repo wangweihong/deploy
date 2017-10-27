@@ -452,7 +452,7 @@ func (p *DeploymentManager) update(groupName, workspaceName string, resourceName
 	rm.Groups[groupName] = group
 	return nil
 }
-func (p *DeploymentManager) UpdateObject(groupName, workspaceName string, resourceName string, data []byte) error {
+func (p *DeploymentManager) UpdateObject(groupName, workspaceName string, resourceName string, data []byte, opt resource.UpdateOption) error {
 	p.locker.Lock()
 	defer p.locker.Unlock()
 

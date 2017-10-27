@@ -401,7 +401,7 @@ func (p *DaemonSetManager) DeleteObject(group, workspace, resourceName string, o
 	}
 }
 
-func (p *DaemonSetManager) UpdateObject(groupName, workspaceName string, resourceName string, data []byte) error {
+func (p *DaemonSetManager) UpdateObject(groupName, workspaceName string, resourceName string, data []byte, opt resource.UpdateOption) error {
 	p.locker.Lock()
 	defer p.locker.Unlock()
 

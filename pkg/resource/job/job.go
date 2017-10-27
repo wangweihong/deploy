@@ -414,7 +414,7 @@ func (p *JobManager) DeleteObject(group, workspace, resourceName string, opt res
 	}
 }
 
-func (p *JobManager) UpdateObject(groupName, workspaceName string, resourceName string, data []byte) error {
+func (p *JobManager) UpdateObject(groupName, workspaceName string, resourceName string, data []byte, opt resource.UpdateOption) error {
 	p.locker.Lock()
 	defer p.locker.Unlock()
 

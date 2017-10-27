@@ -415,7 +415,7 @@ func (p *ReplicaSetManager) DeleteObject(group, workspace, replicasetName string
 	}
 }
 
-func (p *ReplicaSetManager) UpdateObject(groupName, workspaceName string, resourceName string, data []byte) error {
+func (p *ReplicaSetManager) UpdateObject(groupName, workspaceName string, resourceName string, data []byte, opt resource.UpdateOption) error {
 	p.locker.Lock()
 	defer p.locker.Unlock()
 

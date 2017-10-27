@@ -354,7 +354,7 @@ func (p *PodManager) CreateObject(groupName, workspaceName string, data []byte, 
 
 }
 
-func (p *PodManager) UpdateObject(groupName, workspaceName string, resourceName string, data []byte) error {
+func (p *PodManager) UpdateObject(groupName, workspaceName string, resourceName string, data []byte, opt resource.UpdateOption) error {
 	p.locker.Lock()
 	defer p.locker.Unlock()
 

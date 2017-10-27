@@ -348,7 +348,7 @@ func (p *ConfigMapManager) CreateObject(groupName, workspaceName string, data []
 	return nil
 }
 
-func (p *ConfigMapManager) UpdateObject(groupName, workspaceName string, resourceName string, data []byte) error {
+func (p *ConfigMapManager) UpdateObject(groupName, workspaceName string, resourceName string, data []byte, opt resource.UpdateOption) error {
 	p.locker.Lock()
 	defer p.locker.Unlock()
 

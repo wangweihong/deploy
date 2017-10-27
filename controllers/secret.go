@@ -371,7 +371,7 @@ func (this *SecretController) UpdateSecret() {
 		return
 	}
 
-	err := pk.Controller.UpdateObject(group, workspace, secret, this.Ctx.Input.RequestBody)
+	err := pk.Controller.UpdateObject(group, workspace, secret, this.Ctx.Input.RequestBody, resource.UpdateOption{})
 	if err != nil {
 		this.errReturn(err, 500)
 		this.audit(token, "", true)

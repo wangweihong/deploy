@@ -71,6 +71,13 @@ func init() {
 
 	beego.GlobalControllerRouter["ufleet-deploy/controllers:ConfigMapController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:ConfigMapController"],
 		beego.ControllerComments{
+			Method: "UpdateConfigMapCustom",
+			Router: `/:configmap/group/:group/workspace/:workspace/custom`,
+			AllowHTTPMethods: []string{"Put"},
+			Params: nil})
+
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:ConfigMapController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:ConfigMapController"],
+		beego.ControllerComments{
 			Method: "DeleteConfigMap",
 			Router: `/:configmap/group/:group/workspace/:workspace`,
 			AllowHTTPMethods: []string{"Delete"},

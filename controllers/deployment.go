@@ -196,7 +196,7 @@ func (this *DeploymentController) UpdateDeployment() {
 		return
 	}
 
-	err := pk.Controller.UpdateObject(group, workspace, deployment, this.Ctx.Input.RequestBody)
+	err := pk.Controller.UpdateObject(group, workspace, deployment, this.Ctx.Input.RequestBody, resource.UpdateOption{})
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)

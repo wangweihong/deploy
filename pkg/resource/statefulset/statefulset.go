@@ -411,7 +411,7 @@ func (p *StatefulSetManager) DeleteObject(group, workspace, resourceName string,
 		return nil
 	}
 }
-func (p *StatefulSetManager) UpdateObject(groupName, workspaceName string, resourceName string, data []byte) error {
+func (p *StatefulSetManager) UpdateObject(groupName, workspaceName string, resourceName string, data []byte, opt resource.UpdateOption) error {
 	p.locker.Lock()
 	defer p.locker.Unlock()
 

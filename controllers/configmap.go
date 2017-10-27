@@ -185,7 +185,7 @@ func (this *ConfigMapController) CreateConfigMap() {
 	this.normalReturn("ok")
 }
 
-type ConfigMapCreateOption struct {
+type CustomOption struct {
 	Comment string `json:"comment"`
 	//Data map[string]string `json:"data"`
 	Data string `json:"data"`
@@ -220,7 +220,7 @@ func (this *ConfigMapController) CreateConfigMapCustom() {
 		this.errReturn(err, 500)
 		return
 	}
-	var co ConfigMapCreateOption
+	var co CustomOption
 	err := json.Unmarshal(this.Ctx.Input.RequestBody, &co)
 	if err != nil {
 		this.audit(token, "", true)
@@ -263,6 +263,79 @@ func (this *ConfigMapController) CreateConfigMapCustom() {
 	opt.User = who
 
 	err = pk.Controller.CreateObject(group, workspace, bytedata, opt)
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+
+	this.audit(token, "", false)
+	this.normalReturn("ok")
+}
+
+// UpdateConfigMapCustom
+// @Title ConfigMap
+// @Description  创建配置
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Param workspace path string true "工作区"
+// @Param body body string true "资源描述"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /:configmap/group/:group/workspace/:workspace/custom [Put]
+func (this *ConfigMapController) UpdateConfigMapCustom() {
+	token := this.Ctx.Request.Header.Get("token")
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.audit(token, "", true)
+		this.abilityErrorReturn(aerr)
+		return
+	}
+
+	group := this.Ctx.Input.Param(":group")
+	workspace := this.Ctx.Input.Param(":workspace")
+	configmap := this.Ctx.Input.Param(":configmap")
+
+	if this.Ctx.Input.RequestBody == nil {
+		err := fmt.Errorf("must commit resource json/yaml data")
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+	var co CustomOption
+	err := json.Unmarshal(this.Ctx.Input.RequestBody, &co)
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+
+	data := make(map[string]string)
+	err = yaml.Unmarshal([]byte(co.Data), &data)
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+
+	cm := corev1.ConfigMap{}
+	cm.Name = configmap
+	//	cm.Data = co.Data
+	cm.Data = data
+	cm.Kind = "ConfigMap"
+	cm.APIVersion = "v1"
+
+	bytedata, err := json.Marshal(cm)
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+
+	var opt resource.UpdateOption
+	opt.Comment = co.Comment
+
+	err = pk.Controller.UpdateObject(group, workspace, co.Name, bytedata, opt)
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
@@ -339,7 +412,7 @@ func (this *ConfigMapController) UpdateConfigMap() {
 		return
 	}
 
-	err := pk.Controller.UpdateObject(group, workspace, configmap, this.Ctx.Input.RequestBody)
+	err := pk.Controller.UpdateObject(group, workspace, configmap, this.Ctx.Input.RequestBody, resource.UpdateOption{})
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)

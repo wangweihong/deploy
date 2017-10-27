@@ -410,7 +410,7 @@ func (p *ServiceAccountManager) DeleteObject(group, workspace, resourceName stri
 	}
 }
 
-func (p *ServiceAccountManager) UpdateObject(groupName, workspaceName string, resourceName string, data []byte) error {
+func (p *ServiceAccountManager) UpdateObject(groupName, workspaceName string, resourceName string, data []byte, opt resource.UpdateOption) error {
 	p.locker.Lock()
 	defer p.locker.Unlock()
 
