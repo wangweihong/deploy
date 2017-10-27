@@ -33,6 +33,7 @@ type CreateOption struct {
 type ListOption struct{}
 type DeleteOption struct {
 	DontCallApp bool
+	MemoryOnly  bool //只清除内存中的数据
 }
 
 type RCUD interface {
@@ -89,11 +90,17 @@ type Locker interface {
 type ObjectController interface {
 	Locker
 	NewObject(meta ObjectMeta) error
-	Delete(group, workspace, name string, opt DeleteOption) error
 	GetObjectWithoutLock(group, workspace, name string) (Object, error)
 	DeleteGroup(group string) error
 	DeleteWorkspace(groupName string, workspaceName string) error
 	AddGroup(group string) error
 	AddWorkspace(group, workspace string) error
 	AddObjectFromBytes(data []byte) error
+
+	CreateObject(group, workspace string, data []byte, opt CreateOption) error
+	DeleteObject(group, workspace, configmap string, opt DeleteOption) error
+	GetObject(group, workspace, configmap string) (Object, error)
+	UpdateObject(group, workspace, resource string, newdata []byte) error
+	ListObject(group, workspace string) ([]Object, error)
+	ListGroup(group string) ([]Object, error)
 }

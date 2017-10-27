@@ -35,14 +35,16 @@ func (this *ConfigMapController) ListGroupWorkspaceConfigMaps() {
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
 
-	pis, err := pk.Controller.List(group, workspace)
+	pis, err := pk.Controller.ListObject(group, workspace)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
 	}
 
 	jss := make([]pk.Status, 0)
-	for _, v := range pis {
+	for _, j := range pis {
+
+		v, _ := pk.GetConfigMapInterface(j)
 		js := v.GetStatus()
 		jss = append(jss, *js)
 	}
@@ -79,7 +81,7 @@ func (this *ConfigMapController) ListGroupsConfigMaps() {
 		return
 	}
 
-	pis := make([]pk.ConfigMapInterface, 0)
+	pis := make([]resource.Object, 0)
 
 	for _, v := range groups {
 		tmp, err := pk.Controller.ListGroup(v)
@@ -90,7 +92,8 @@ func (this *ConfigMapController) ListGroupsConfigMaps() {
 		pis = append(pis, tmp...)
 	}
 	jss := make([]pk.Status, 0)
-	for _, v := range pis {
+	for _, j := range pis {
+		v, _ := pk.GetConfigMapInterface(j)
 		js := v.GetStatus()
 		jss = append(jss, *js)
 	}
@@ -122,7 +125,8 @@ func (this *ConfigMapController) ListGroupConfigMaps() {
 	}
 
 	jss := make([]pk.Status, 0)
-	for _, v := range pis {
+	for _, j := range pis {
+		v, _ := pk.GetConfigMapInterface(j)
 		js := v.GetStatus()
 		jss = append(jss, *js)
 	}
@@ -170,7 +174,7 @@ func (this *ConfigMapController) CreateConfigMap() {
 	var opt resource.CreateOption
 	opt.User = who
 
-	err = pk.Controller.Create(group, workspace, this.Ctx.Input.RequestBody, opt)
+	err = pk.Controller.CreateObject(group, workspace, this.Ctx.Input.RequestBody, opt)
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
@@ -258,7 +262,7 @@ func (this *ConfigMapController) CreateConfigMapCustom() {
 	opt.Comment = co.Comment
 	opt.User = who
 
-	err = pk.Controller.Create(group, workspace, bytedata, opt)
+	err = pk.Controller.CreateObject(group, workspace, bytedata, opt)
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
@@ -292,7 +296,7 @@ func (this *ConfigMapController) DeleteConfigMap() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	configmap := this.Ctx.Input.Param(":configmap")
 
-	err := pk.Controller.Delete(group, workspace, configmap, resource.DeleteOption{})
+	err := pk.Controller.DeleteObject(group, workspace, configmap, resource.DeleteOption{})
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
@@ -335,7 +339,7 @@ func (this *ConfigMapController) UpdateConfigMap() {
 		return
 	}
 
-	err := pk.Controller.Update(group, workspace, configmap, this.Ctx.Input.RequestBody)
+	err := pk.Controller.UpdateObject(group, workspace, configmap, this.Ctx.Input.RequestBody)
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
@@ -367,11 +371,12 @@ func (this *ConfigMapController) GetConfigMapTemplate() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	configmap := this.Ctx.Input.Param(":configmap")
 
-	pi, err := pk.Controller.Get(group, workspace, configmap)
+	ri, err := pk.Controller.GetObject(group, workspace, configmap)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
 	}
+	pi, _ := pk.GetConfigMapInterface(ri)
 
 	t, err := pi.GetTemplate()
 	if err != nil {
@@ -403,11 +408,14 @@ func (this *ConfigMapController) GetConfigMapEvent() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	configmap := this.Ctx.Input.Param(":configmap")
 
-	pi, err := pk.Controller.Get(group, workspace, configmap)
+	ri, err := pk.Controller.GetObject(group, workspace, configmap)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
 	}
+
+	pi, _ := pk.GetConfigMapInterface(ri)
+
 	es, err := pi.Event()
 	if err != nil {
 		this.errReturn(err, 500)

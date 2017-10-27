@@ -32,14 +32,15 @@ func (this *DeploymentController) ListGroupWorkspaceDeployments() {
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
 
-	pis, err := pk.Controller.List(group, workspace)
+	pis, err := pk.Controller.ListObject(group, workspace)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
 	}
 
 	jss := make([]pk.Status, 0)
-	for _, v := range pis {
+	for _, j := range pis {
+		v, _ := pk.GetDeploymentInterface(j)
 		js := v.GetStatus()
 		jss = append(jss, *js)
 	}
@@ -70,7 +71,9 @@ func (this *DeploymentController) ListGroupDeployments() {
 		return
 	}
 	jss := make([]pk.Status, 0)
-	for _, v := range pis {
+	for _, j := range pis {
+		v, _ := pk.GetDeploymentInterface(j)
+
 		js := v.GetStatus()
 		jss = append(jss, *js)
 	}
@@ -100,12 +103,12 @@ func (this *DeploymentController) GetDeployment() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	deployment := this.Ctx.Input.Param(":deployment")
 
-	pi, err := pk.Controller.Get(group, workspace, deployment)
+	pi, err := pk.Controller.GetObject(group, workspace, deployment)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
 	}
-	v := pi
+	v, _ := pk.GetDeploymentInterface(pi)
 	js := v.GetStatus()
 
 	this.normalReturn(js)
@@ -152,7 +155,7 @@ func (this *DeploymentController) CreateDeployment() {
 	var opt resource.CreateOption
 	opt.User = who
 
-	err = pk.Controller.Create(group, workspace, this.Ctx.Input.RequestBody, opt)
+	err = pk.Controller.CreateObject(group, workspace, this.Ctx.Input.RequestBody, opt)
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
@@ -193,12 +196,7 @@ func (this *DeploymentController) UpdateDeployment() {
 		return
 	}
 
-	/*
-		ui := user.NewUserClient(token)
-		ui.GetUserName()
-	*/
-
-	err := pk.Controller.Update(group, workspace, deployment, this.Ctx.Input.RequestBody)
+	err := pk.Controller.UpdateObject(group, workspace, deployment, this.Ctx.Input.RequestBody)
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
@@ -231,7 +229,7 @@ func (this *DeploymentController) DeleteDeployment() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	deployment := this.Ctx.Input.Param(":deployment")
 
-	err := pk.Controller.Delete(group, workspace, deployment, resource.DeleteOption{})
+	err := pk.Controller.DeleteObject(group, workspace, deployment, resource.DeleteOption{})
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
@@ -263,11 +261,12 @@ func (this *DeploymentController) GetDeploymentEvent() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	deployment := this.Ctx.Input.Param(":deployment")
 
-	pi, err := pk.Controller.Get(group, workspace, deployment)
+	v, err := pk.Controller.GetObject(group, workspace, deployment)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
 	}
+	pi, _ := pk.GetDeploymentInterface(v)
 	es, err := pi.Event()
 	if err != nil {
 		this.errReturn(err, 500)
@@ -302,19 +301,20 @@ func (this *DeploymentController) ScaleDeployment() {
 	deployment := this.Ctx.Input.Param(":deployment")
 	replicasStr := this.Ctx.Input.Param(":replicas")
 
-	ri, err := pk.Controller.Get(group, workspace, deployment)
-	if err != nil {
-		this.audit(token, "", true)
-		this.errReturn(err, 500)
-		return
-	}
-
 	replicas, err := strconv.ParseInt(replicasStr, 10, 32)
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
+
+	v, err := pk.Controller.GetObject(group, workspace, deployment)
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+	ri, _ := pk.GetDeploymentInterface(v)
 
 	err = ri.Scale(int(replicas))
 	if err != nil {
@@ -353,13 +353,6 @@ func (this *DeploymentController) ScaleDeploymentIncrement() {
 	deployment := this.Ctx.Input.Param(":deployment")
 	incrementStr := this.Ctx.Input.Param(":increment")
 
-	ri, err := pk.Controller.Get(group, workspace, deployment)
-	if err != nil {
-		this.audit(token, "", true)
-		this.errReturn(err, 500)
-		return
-	}
-
 	increment, err := strconv.ParseInt(incrementStr, 10, 32)
 	if err != nil {
 		this.audit(token, "", true)
@@ -367,6 +360,14 @@ func (this *DeploymentController) ScaleDeploymentIncrement() {
 		return
 	}
 
+	v, err := pk.Controller.GetObject(group, workspace, deployment)
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+
+	ri, _ := pk.GetDeploymentInterface(v)
 	js := ri.GetStatus()
 	if js.Reason != "" {
 		err := fmt.Errorf(js.Reason)
@@ -409,11 +410,13 @@ func (this *DeploymentController) GetDeploymentTemplate() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	deployment := this.Ctx.Input.Param(":deployment")
 
-	pi, err := pk.Controller.Get(group, workspace, deployment)
+	v, err := pk.Controller.GetObject(group, workspace, deployment)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
 	}
+
+	pi, _ := pk.GetDeploymentInterface(v)
 
 	t, err := pi.GetTemplate()
 	if err != nil {
@@ -454,11 +457,13 @@ func (this *DeploymentController) GetDeploymentReplicaSet() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	deployment := this.Ctx.Input.Param(":deployment")
 
-	pi, err := pk.Controller.Get(group, workspace, deployment)
+	v, err := pk.Controller.GetObject(group, workspace, deployment)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
 	}
+
+	pi, _ := pk.GetDeploymentInterface(v)
 
 	rm, err := pi.GetAllReplicaSets()
 	if err != nil {
@@ -508,11 +513,13 @@ func (this *DeploymentController) GetDeploymentRevisions() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	deployment := this.Ctx.Input.Param(":deployment")
 
-	pi, err := pk.Controller.Get(group, workspace, deployment)
+	v, err := pk.Controller.GetObject(group, workspace, deployment)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
 	}
+
+	pi, _ := pk.GetDeploymentInterface(v)
 
 	rm, err := pi.GetRevisionsAndDescribe()
 	if err != nil {
@@ -570,12 +577,13 @@ func (this *DeploymentController) RollBackDeployment() {
 		return
 	}
 
-	pi, err := pk.Controller.Get(group, workspace, deployment)
+	v, err := pk.Controller.GetObject(group, workspace, deployment)
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
+	pi, _ := pk.GetDeploymentInterface(v)
 
 	result, err := pi.Rollback(toRevision)
 	if err != nil {
@@ -610,11 +618,12 @@ func (this *DeploymentController) GetHPA() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	deployment := this.Ctx.Input.Param(":deployment")
 
-	pi, err := pk.Controller.Get(group, workspace, deployment)
+	v, err := pk.Controller.GetObject(group, workspace, deployment)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
 	}
+	pi, _ := pk.GetDeploymentInterface(v)
 
 	result, err := pi.GetAutoScale()
 	if err != nil {
@@ -675,12 +684,13 @@ func (this *DeploymentController) StartHPA() {
 		return
 	}
 
-	pi, err := pk.Controller.Get(group, workspace, deployment)
+	v, err := pk.Controller.GetObject(group, workspace, deployment)
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
+	pi, _ := pk.GetDeploymentInterface(v)
 
 	err = pi.StartAutoScale(hpaopt.MinReplicas, hpaopt.MaxReplicas, hpaopt.CpuPercent, hpaopt.MemPercent, hpaopt.DiskPercent, hpaopt.NetPercent)
 	if err != nil {
@@ -717,12 +727,13 @@ func (this *DeploymentController) RollBackResumeOrPauseDeployment() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	deployment := this.Ctx.Input.Param(":deployment")
 
-	pi, err := pk.Controller.Get(group, workspace, deployment)
+	v, err := pk.Controller.GetObject(group, workspace, deployment)
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
+	pi, _ := pk.GetDeploymentInterface(v)
 
 	err = pi.ResumeOrPauseRollOut()
 	if err != nil {

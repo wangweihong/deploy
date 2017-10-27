@@ -2,6 +2,7 @@ package pod
 
 import (
 	"ufleet-deploy/pkg/backend"
+	"ufleet-deploy/pkg/cluster"
 	"ufleet-deploy/pkg/resource"
 )
 
@@ -19,12 +20,7 @@ func Init() {
 		panic(err.Error())
 	}
 
-	err = resource.RegisterCURInterface(resourceKind, Controller)
-	if err != nil {
-		panic(err.Error())
-	}
-
 	backend.RegisterEventHandler(backendKind, rm)
 
-	go HandleClusterResourceEvent()
+	go resource.HandleEventWatchFromK8sCluster(cluster.PodEventChan, resourceKind, rm)
 }

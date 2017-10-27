@@ -32,7 +32,7 @@ func HandleEventWatchFromK8sCluster(echan chan cluster.Event, kind string, oc Ob
 			case cluster.ActionDelete:
 				//忽略ufleet主动创建的资源
 
-				if err := oc.Delete(e.Group, e.Workspace, e.Name, DeleteOption{}); err != nil {
+				if err := oc.DeleteObject(e.Group, e.Workspace, e.Name, DeleteOption{}); err != nil {
 					log.ErrorPrint("%v:  event handler/delete:%v", kind, err)
 				}
 				return
@@ -104,7 +104,7 @@ func EtcdEventHandler(e backend.ResourceEvent, cm ObjectController) {
 
 			//这是一个app事件
 			if e.Resource != nil {
-				err := cm.Delete(e.Group, *e.Workspace, *e.Resource, DeleteOption{})
+				err := cm.DeleteObject(e.Group, *e.Workspace, *e.Resource, DeleteOption{})
 				if err != nil {
 					log.ErrorPrint("handle delete event(%v) fail for %v", e, err)
 				}
@@ -137,4 +137,5 @@ func EtcdEventHandler(e backend.ResourceEvent, cm ObjectController) {
 		log.ErrorPrint("configmap: app watcher:ingore invalid action:", e.Action)
 		return
 	}
+
 }

@@ -31,13 +31,14 @@ func (this *DaemonSetController) ListDaemonSets() {
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
 
-	pis, err := pk.Controller.List(group, workspace)
+	pis, err := pk.Controller.ListObject(group, workspace)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
 	}
 	jss := make([]pk.Status, 0)
-	for _, v := range pis {
+	for _, j := range pis {
+		v, _ := pk.GetDaemonSetInterface(j)
 		js := v.GetStatus()
 
 		jss = append(jss, *js)
@@ -68,7 +69,8 @@ func (this *DaemonSetController) ListGroupDaemonSets() {
 		return
 	}
 	jss := make([]pk.Status, 0)
-	for _, v := range pis {
+	for _, j := range pis {
+		v, _ := pk.GetDaemonSetInterface(j)
 		js := v.GetStatus()
 		jss = append(jss, *js)
 	}
@@ -98,12 +100,12 @@ func (this *DaemonSetController) GetDaemonSet() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	daemonset := this.Ctx.Input.Param(":daemonset")
 
-	pi, err := pk.Controller.Get(group, workspace, daemonset)
+	pi, err := pk.Controller.GetObject(group, workspace, daemonset)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
 	}
-	v := pi
+	v, _ := pk.GetDaemonSetInterface(pi)
 	js := v.GetStatus()
 
 	this.normalReturn(js)
@@ -151,7 +153,7 @@ func (this *DaemonSetController) CreateDaemonSet() {
 	var opt resource.CreateOption
 	opt.User = who
 
-	err = pk.Controller.Create(group, workspace, this.Ctx.Input.RequestBody, opt)
+	err = pk.Controller.CreateObject(group, workspace, this.Ctx.Input.RequestBody, opt)
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
@@ -194,12 +196,7 @@ func (this *DaemonSetController) UpdateDaemonSet() {
 		return
 	}
 
-	/*
-		ui := user.NewUserClient(token)
-		ui.GetUserName()
-	*/
-
-	err := pk.Controller.Update(group, workspace, daemonset, this.Ctx.Input.RequestBody)
+	err := pk.Controller.UpdateObject(group, workspace, daemonset, this.Ctx.Input.RequestBody)
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
@@ -233,7 +230,7 @@ func (this *DaemonSetController) DeleteDaemonSet() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	daemonset := this.Ctx.Input.Param(":daemonset")
 
-	err := pk.Controller.Delete(group, workspace, daemonset, resource.DeleteOption{})
+	err := pk.Controller.DeleteObject(group, workspace, daemonset, resource.DeleteOption{})
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
@@ -265,11 +262,12 @@ func (this *DaemonSetController) GetDaemonSetEvent() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	daemonset := this.Ctx.Input.Param(":daemonset")
 
-	pi, err := pk.Controller.Get(group, workspace, daemonset)
+	v, err := pk.Controller.GetObject(group, workspace, daemonset)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
 	}
+	pi, _ := pk.GetDaemonSetInterface(v)
 	es, err := pi.Event()
 	if err != nil {
 		this.errReturn(err, 500)
@@ -300,12 +298,12 @@ func (this *DaemonSetController) GetDaemonSetTemplate() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	daemonset := this.Ctx.Input.Param(":daemonset")
 
-	pi, err := pk.Controller.Get(group, workspace, daemonset)
+	v, err := pk.Controller.GetObject(group, workspace, daemonset)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
 	}
-
+	pi, _ := pk.GetDaemonSetInterface(v)
 	t, err := pi.GetTemplate()
 	if err != nil {
 		this.errReturn(err, 500)
@@ -336,12 +334,13 @@ func (this *DaemonSetController) GetDaemonSetRevisions() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	daemonset := this.Ctx.Input.Param(":daemonset")
 
-	pi, err := pk.Controller.Get(group, workspace, daemonset)
+	v, err := pk.Controller.GetObject(group, workspace, daemonset)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
 	}
 
+	pi, _ := pk.GetDaemonSetInterface(v)
 	rm, err := pi.GetRevisionsAndDescribe()
 	if err != nil {
 		this.errReturn(err, 500)
@@ -398,12 +397,13 @@ func (this *DaemonSetController) RollBackDaemonSet() {
 		return
 	}
 
-	pi, err := pk.Controller.Get(group, workspace, daemonset)
+	v, err := pk.Controller.GetObject(group, workspace, daemonset)
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
+	pi, _ := pk.GetDaemonSetInterface(v)
 
 	result, err := pi.Rollback(toRevision)
 	if err != nil {

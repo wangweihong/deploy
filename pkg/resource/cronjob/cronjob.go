@@ -3,6 +3,7 @@ package cronjob
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 	"ufleet-deploy/pkg/backend"
@@ -22,17 +23,8 @@ import (
 
 var (
 	rm         *CronJobManager
-	Controller CronJobController
+	Controller resource.ObjectController
 )
-
-type CronJobController interface {
-	Create(group, workspace string, data []byte, opt resource.CreateOption) error
-	Delete(group, workspace, cronjob string, opt resource.DeleteOption) error
-	Update(groupName, workspaceName string, resourceName string, data []byte) error
-	Get(group, workspace, cronjob string) (CronJobInterface, error)
-	List(group, workspace string) ([]CronJobInterface, error)
-	ListGroup(group string) ([]CronJobInterface, error)
-}
 
 type CronJobInterface interface {
 	Info() *CronJob
@@ -41,6 +33,7 @@ type CronJobInterface interface {
 	GetTemplate() (string, error)
 	Event() ([]corev1.Event, error)
 	SuspendOrResume() error
+	Metadata() resource.ObjectMeta
 }
 
 type CronJobManager struct {
@@ -70,6 +63,135 @@ type CronJob struct {
 	memoryOnly bool
 }
 
+func (p *CronJobManager) Lock() {
+	p.locker.Lock()
+}
+func (p *CronJobManager) Unlock() {
+	p.locker.Unlock()
+}
+
+//仅仅用于基于内存的对象的创建
+func (p *CronJobManager) NewObject(meta resource.ObjectMeta) error {
+
+	if strings.TrimSpace(meta.Group) == "" ||
+		strings.TrimSpace(meta.Workspace) == "" ||
+		strings.TrimSpace(meta.Name) == "" {
+		return fmt.Errorf("Invalid object data")
+	}
+
+	cp := CronJob{ObjectMeta: meta}
+	cp.MemoryOnly = true
+
+	err := p.fillObjectToManager(&cp)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (p *CronJobManager) fillObjectToManager(meta resource.Object) error {
+
+	cm, ok := meta.(*CronJob)
+	if !ok {
+		return fmt.Errorf("object is not correct type")
+	}
+
+	group, ok := rm.Groups[cm.Group]
+	if !ok {
+		return resource.ErrGroupNotFound
+	}
+
+	workspace, ok := group.Workspaces[cm.Workspace]
+	if !ok {
+		return resource.ErrWorkspaceNotFound
+	}
+
+	_, ok = workspace.CronJobs[cm.Name]
+	if ok {
+		return resource.ErrResourceExists
+	}
+
+	workspace.CronJobs[cm.Name] = *cm
+	group.Workspaces[cm.Workspace] = workspace
+	p.Groups[cm.Group] = group
+	return nil
+
+}
+
+func (p *CronJobManager) DeleteGroup(groupName string) error {
+	_, ok := p.Groups[groupName]
+	if !ok {
+		return resource.ErrGroupNotFound
+	}
+
+	delete(p.Groups, groupName)
+	return nil
+}
+
+func (p *CronJobManager) AddGroup(groupName string) error {
+	p.Lock()
+	defer p.Unlock()
+	_, ok := p.Groups[groupName]
+	if ok {
+		return resource.ErrGroupExists
+	}
+	var group CronJobGroup
+	group.Workspaces = make(map[string]CronJobWorkspace)
+	p.Groups[groupName] = group
+	return nil
+}
+
+func (p *CronJobManager) AddObjectFromBytes(data []byte) error {
+	p.Lock()
+	defer p.Unlock()
+	var res CronJob
+	err := json.Unmarshal(data, &res)
+	if err != nil {
+		return err
+	}
+	err = p.fillObjectToManager(&res)
+	return err
+
+}
+
+func (p *CronJobManager) AddWorkspace(groupName string, workspaceName string) error {
+	p.Lock()
+	defer p.Unlock()
+	g, ok := p.Groups[groupName]
+	if !ok {
+		return resource.ErrGroupNotFound
+	}
+
+	_, ok = g.Workspaces[workspaceName]
+	if ok {
+		return resource.ErrWorkspaceExists
+	}
+
+	var ws CronJobWorkspace
+	ws.CronJobs = make(map[string]CronJob)
+	g.Workspaces[workspaceName] = ws
+	p.Groups[groupName] = g
+	return nil
+
+}
+
+func (p *CronJobManager) DeleteWorkspace(groupName string, workspaceName string) error {
+	p.locker.Lock()
+	defer p.locker.Unlock()
+	group, ok := p.Groups[groupName]
+	if !ok {
+		return resource.ErrGroupNotFound
+	}
+
+	_, ok = group.Workspaces[workspaceName]
+	if !ok {
+		return resource.ErrWorkspaceNotFound
+	}
+	delete(group.Workspaces, workspaceName)
+	p.Groups[groupName] = group
+	return nil
+}
+
 //注意这里没锁
 func (p *CronJobManager) get(groupName, workspaceName, resourceName string) (*CronJob, error) {
 
@@ -91,13 +213,18 @@ func (p *CronJobManager) get(groupName, workspaceName, resourceName string) (*Cr
 	return &cronjob, nil
 }
 
-func (p *CronJobManager) Get(group, workspace, resourceName string) (CronJobInterface, error) {
+func (p *CronJobManager) GetObject(group, workspace, resourceName string) (resource.Object, error) {
 	p.locker.Lock()
 	defer p.locker.Unlock()
 	return p.get(group, workspace, resourceName)
 }
 
-func (p *CronJobManager) List(groupName, workspaceName string) ([]CronJobInterface, error) {
+func (p *CronJobManager) GetObjectWithoutLock(groupName, workspaceName, resourceName string) (resource.Object, error) {
+
+	return p.get(groupName, workspaceName, resourceName)
+}
+
+func (p *CronJobManager) ListObject(groupName, workspaceName string) ([]resource.Object, error) {
 
 	p.locker.Lock()
 	defer p.locker.Unlock()
@@ -112,7 +239,7 @@ func (p *CronJobManager) List(groupName, workspaceName string) ([]CronJobInterfa
 		return nil, fmt.Errorf("%v:group/%v,workspace/%v", resource.ErrWorkspaceNotFound, groupName, workspaceName)
 	}
 
-	pis := make([]CronJobInterface, 0)
+	pis := make([]resource.Object, 0)
 
 	//不能够直接使用k,v来赋值,会出现值都是同一个的问题
 	for k := range workspace.CronJobs {
@@ -123,7 +250,7 @@ func (p *CronJobManager) List(groupName, workspaceName string) ([]CronJobInterfa
 	return pis, nil
 }
 
-func (p *CronJobManager) ListGroup(groupName string) ([]CronJobInterface, error) {
+func (p *CronJobManager) ListGroup(groupName string) ([]resource.Object, error) {
 
 	p.locker.Lock()
 	defer p.locker.Unlock()
@@ -133,7 +260,7 @@ func (p *CronJobManager) ListGroup(groupName string) ([]CronJobInterface, error)
 		return nil, fmt.Errorf("%v:%v", resource.ErrGroupNotFound, groupName)
 	}
 
-	pis := make([]CronJobInterface, 0)
+	pis := make([]resource.Object, 0)
 
 	//不能够直接使用k,v来赋值,会出现值都是同一个的问题
 	for _, v := range group.Workspaces {
@@ -146,7 +273,7 @@ func (p *CronJobManager) ListGroup(groupName string) ([]CronJobInterface, error)
 	return pis, nil
 }
 
-func (p *CronJobManager) Create(groupName, workspaceName string, data []byte, opt resource.CreateOption) error {
+func (p *CronJobManager) CreateObject(groupName, workspaceName string, data []byte, opt resource.CreateOption) error {
 
 	p.locker.Lock()
 	defer p.locker.Unlock()
@@ -206,7 +333,7 @@ func (p *CronJobManager) Create(groupName, workspaceName string, data []byte, op
 
 }
 
-func (p *CronJobManager) Update(groupName, workspaceName string, resourceName string, data []byte) error {
+func (p *CronJobManager) UpdateObject(groupName, workspaceName string, resourceName string, data []byte) error {
 	p.locker.Lock()
 	defer p.locker.Unlock()
 
@@ -257,12 +384,16 @@ func (p *CronJobManager) delete(groupName, workspaceName, resourceName string) e
 	return nil
 }
 
-func (p *CronJobManager) Delete(group, workspace, resourceName string, opt resource.DeleteOption) error {
+func (p *CronJobManager) DeleteObject(group, workspace, resourceName string, opt resource.DeleteOption) error {
 	p.locker.Lock()
 	defer p.locker.Unlock()
 	ph, err := cluster.NewCronJobHandler(group, workspace)
 	if err != nil {
 		return log.DebugPrint(err)
+	}
+
+	if opt.MemoryOnly {
+		return p.delete(group, workspace, resourceName)
 	}
 
 	res, err := p.get(group, workspace, resourceName)
@@ -488,7 +619,10 @@ func (p *CronJob) GetStatus() *Status {
 
 	s.JobStatus = make([]jk.Status, 0)
 	for _, v := range runtime.Jobs {
-		ji, err := jk.Controller.Get(info.Group, info.Workspace, v.Name)
+		tmp, err := jk.Controller.GetObject(info.Group, info.Workspace, v.Name)
+
+		ji, _ := jk.GetJobInterface(tmp)
+
 		if err != nil {
 			s.Reason = err.Error()
 			return &s
@@ -502,8 +636,24 @@ func (p *CronJob) GetStatus() *Status {
 	}
 	return &s
 }
+func (s *CronJob) Metadata() resource.ObjectMeta {
+	return s.ObjectMeta
+}
 
-func InitCronJobController(be backend.BackendHandler) (CronJobController, error) {
+func GetCronJobInterface(obj resource.Object) (CronJobInterface, error) {
+	if obj == nil {
+		return nil, fmt.Errorf("resource object is nil")
+	}
+
+	ri, ok := obj.(*CronJob)
+	if !ok {
+		return nil, fmt.Errorf("resource object is not CronJob type")
+	}
+
+	return ri, nil
+
+}
+func InitCronJobController(be backend.BackendHandler) (resource.ObjectController, error) {
 	rm = &CronJobManager{}
 	rm.Groups = make(map[string]CronJobGroup)
 	rm.locker = sync.Mutex{}

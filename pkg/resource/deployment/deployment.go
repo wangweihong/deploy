@@ -3,6 +3,7 @@ package deployment
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 	"ufleet-deploy/pkg/backend"
@@ -21,17 +22,8 @@ import (
 
 var (
 	rm         *DeploymentManager
-	Controller DeploymentController
+	Controller resource.ObjectController
 )
-
-type DeploymentController interface {
-	Create(group, workspace string, data []byte, opt resource.CreateOption) error
-	Delete(group, workspace, deployment string, opt resource.DeleteOption) error
-	Get(group, workspace, deployment string) (DeploymentInterface, error)
-	Update(group, workspace, resource string, newdata []byte) error
-	List(group, workspace string) ([]DeploymentInterface, error)
-	ListGroup(groupName string) ([]DeploymentInterface, error)
-}
 
 type DeploymentInterface interface {
 	Info() *Deployment
@@ -86,7 +78,153 @@ type HPA struct {
 	MaxReplicas   int  `json:"maxReplicas"`
 }
 
-//注意这里没锁
+func GetDeploymentInterface(obj resource.Object) (DeploymentInterface, error) {
+	if obj == nil {
+		return nil, fmt.Errorf("resource object is nil")
+	}
+
+	ri, ok := obj.(*Deployment)
+	if !ok {
+		return nil, fmt.Errorf("resource object is not deployment type")
+	}
+
+	return ri, nil
+}
+
+func (p *DeploymentManager) Lock() {
+	p.locker.Lock()
+}
+func (p *DeploymentManager) Unlock() {
+	p.locker.Unlock()
+}
+
+//仅仅用于基于内存的对象的创建
+func (p *DeploymentManager) NewObject(meta resource.ObjectMeta) error {
+
+	if strings.TrimSpace(meta.Group) == "" ||
+		strings.TrimSpace(meta.Workspace) == "" ||
+		strings.TrimSpace(meta.Name) == "" {
+		return fmt.Errorf("Invalid object data")
+	}
+
+	cp := Deployment{ObjectMeta: meta}
+	cp.MemoryOnly = true
+
+	err := p.fillObjectToManager(&cp)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (p *DeploymentManager) fillObjectToManager(meta resource.Object) error {
+
+	cm, ok := meta.(*Deployment)
+	if !ok {
+		return fmt.Errorf("object is not correct type")
+	}
+
+	group, ok := rm.Groups[cm.Group]
+	if !ok {
+		return resource.ErrGroupNotFound
+	}
+
+	workspace, ok := group.Workspaces[cm.Workspace]
+	if !ok {
+		return resource.ErrWorkspaceNotFound
+	}
+
+	_, ok = workspace.Deployments[cm.Name]
+	if ok {
+		return resource.ErrResourceExists
+	}
+
+	workspace.Deployments[cm.Name] = *cm
+	group.Workspaces[cm.Workspace] = workspace
+	p.Groups[cm.Group] = group
+	return nil
+
+}
+
+func (p *DeploymentManager) DeleteGroup(groupName string) error {
+	_, ok := p.Groups[groupName]
+	if !ok {
+		return resource.ErrGroupNotFound
+	}
+
+	delete(p.Groups, groupName)
+	return nil
+}
+
+func (p *DeploymentManager) AddGroup(groupName string) error {
+	p.Lock()
+	defer p.Unlock()
+	_, ok := p.Groups[groupName]
+	if ok {
+		return resource.ErrGroupExists
+	}
+	var group DeploymentGroup
+	group.Workspaces = make(map[string]DeploymentWorkspace)
+	p.Groups[groupName] = group
+	return nil
+}
+
+func (p *DeploymentManager) AddObjectFromBytes(data []byte) error {
+	p.Lock()
+	defer p.Unlock()
+	var res Deployment
+	err := json.Unmarshal(data, &res)
+	if err != nil {
+		return err
+	}
+	err = p.fillObjectToManager(&res)
+	return err
+
+}
+
+func (p *DeploymentManager) AddWorkspace(groupName string, workspaceName string) error {
+	p.Lock()
+	defer p.Unlock()
+	g, ok := p.Groups[groupName]
+	if !ok {
+		return resource.ErrGroupNotFound
+	}
+
+	_, ok = g.Workspaces[workspaceName]
+	if ok {
+		return resource.ErrWorkspaceExists
+	}
+
+	var ws DeploymentWorkspace
+	ws.Deployments = make(map[string]Deployment)
+	g.Workspaces[workspaceName] = ws
+	p.Groups[groupName] = g
+	return nil
+
+}
+
+func (p *DeploymentManager) DeleteWorkspace(groupName string, workspaceName string) error {
+	p.locker.Lock()
+	defer p.locker.Unlock()
+	group, ok := p.Groups[groupName]
+	if !ok {
+		return resource.ErrGroupNotFound
+	}
+
+	_, ok = group.Workspaces[workspaceName]
+	if !ok {
+		return resource.ErrWorkspaceNotFound
+	}
+	delete(group.Workspaces, workspaceName)
+	p.Groups[groupName] = group
+	return nil
+}
+
+func (p *DeploymentManager) GetObjectWithoutLock(groupName, workspaceName, resourceName string) (resource.Object, error) {
+
+	return p.get(groupName, workspaceName, resourceName)
+	//注意这里没锁
+}
 func (p *DeploymentManager) get(groupName, workspaceName, resourceName string) (*Deployment, error) {
 
 	group, ok := p.Groups[groupName]
@@ -107,13 +245,13 @@ func (p *DeploymentManager) get(groupName, workspaceName, resourceName string) (
 	return &deployment, nil
 }
 
-func (p *DeploymentManager) Get(group, workspace, resourceName string) (DeploymentInterface, error) {
+func (p *DeploymentManager) GetObject(group, workspace, resourceName string) (resource.Object, error) {
 	p.locker.Lock()
 	defer p.locker.Unlock()
 	return p.get(group, workspace, resourceName)
 }
 
-func (p *DeploymentManager) List(groupName, workspaceName string) ([]DeploymentInterface, error) {
+func (p *DeploymentManager) ListObject(groupName, workspaceName string) ([]resource.Object, error) {
 
 	p.locker.Lock()
 	defer p.locker.Unlock()
@@ -128,7 +266,7 @@ func (p *DeploymentManager) List(groupName, workspaceName string) ([]DeploymentI
 		return nil, fmt.Errorf("%v:group/%v,workspace/%v", resource.ErrWorkspaceNotFound, groupName, workspaceName)
 	}
 
-	pis := make([]DeploymentInterface, 0)
+	pis := make([]resource.Object, 0)
 
 	//不能够直接使用k,v来赋值,会出现值都是同一个的问题
 	for k := range workspace.Deployments {
@@ -139,7 +277,7 @@ func (p *DeploymentManager) List(groupName, workspaceName string) ([]DeploymentI
 	return pis, nil
 }
 
-func (p *DeploymentManager) ListGroup(groupName string) ([]DeploymentInterface, error) {
+func (p *DeploymentManager) ListGroup(groupName string) ([]resource.Object, error) {
 	p.locker.Lock()
 	defer p.locker.Unlock()
 
@@ -148,7 +286,7 @@ func (p *DeploymentManager) ListGroup(groupName string) ([]DeploymentInterface, 
 		return nil, fmt.Errorf("%v:%v", resource.ErrGroupNotFound, groupName)
 	}
 
-	pis := make([]DeploymentInterface, 0)
+	pis := make([]resource.Object, 0)
 	for _, v := range group.Workspaces {
 		for k := range v.Deployments {
 			t := v.Deployments[k]
@@ -158,7 +296,7 @@ func (p *DeploymentManager) ListGroup(groupName string) ([]DeploymentInterface, 
 	return pis, nil
 }
 
-func (p *DeploymentManager) Create(groupName, workspaceName string, data []byte, opt resource.CreateOption) error {
+func (p *DeploymentManager) CreateObject(groupName, workspaceName string, data []byte, opt resource.CreateOption) error {
 
 	p.locker.Lock()
 	defer p.locker.Unlock()
@@ -235,9 +373,14 @@ func (p *DeploymentManager) delete(groupName, workspaceName, resourceName string
 	return nil
 }
 
-func (p *DeploymentManager) Delete(group, workspace, resourceName string, opt resource.DeleteOption) error {
+func (p *DeploymentManager) DeleteObject(group, workspace, resourceName string, opt resource.DeleteOption) error {
 	p.locker.Lock()
 	defer p.locker.Unlock()
+
+	if opt.MemoryOnly {
+		return p.delete(group, workspace, resourceName)
+	}
+
 	ph, err := cluster.NewDeploymentHandler(group, workspace)
 	if err != nil {
 		return log.DebugPrint(err)
@@ -309,7 +452,7 @@ func (p *DeploymentManager) update(groupName, workspaceName string, resourceName
 	rm.Groups[groupName] = group
 	return nil
 }
-func (p *DeploymentManager) Update(groupName, workspaceName string, resourceName string, data []byte) error {
+func (p *DeploymentManager) UpdateObject(groupName, workspaceName string, resourceName string, data []byte) error {
 	p.locker.Lock()
 	defer p.locker.Unlock()
 
@@ -667,9 +810,13 @@ func (j *Deployment) ResumeOrPauseRollOut() error {
 	} else {
 		return ph.PauseRollout(j.Workspace, j.Name)
 	}
-
 }
-func InitDeploymentController(be backend.BackendHandler) (DeploymentController, error) {
+
+func (s *Deployment) Metadata() resource.ObjectMeta {
+	return s.ObjectMeta
+}
+
+func InitDeploymentController(be backend.BackendHandler) (resource.ObjectController, error) {
 	rm = &DeploymentManager{}
 	rm.Groups = make(map[string]DeploymentGroup)
 	rm.locker = sync.Mutex{}

@@ -3,6 +3,7 @@ package job
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 	"ufleet-deploy/pkg/backend"
@@ -22,17 +23,8 @@ import (
 var (
 	rm *JobManager
 
-	Controller JobController
+	Controller resource.ObjectController
 )
-
-type JobController interface {
-	Create(group, workspace string, data []byte, opt resource.CreateOption) error
-	Delete(group, workspace, job string, opt resource.DeleteOption) error
-	Get(group, workspace, job string) (JobInterface, error)
-	List(group, workspace string) ([]JobInterface, error)
-	Update(group, workspace, resource string, newdata []byte) error
-	ListGroup(group string) ([]JobInterface, error)
-}
 
 type JobInterface interface {
 	Info() *Job
@@ -70,6 +62,153 @@ type Job struct {
 	memoryOnly bool //用于判定pod是否由k8s自动创建
 }
 
+func GetJobInterface(obj resource.Object) (JobInterface, error) {
+	if obj == nil {
+		return nil, fmt.Errorf("resource object is nil")
+	}
+
+	ri, ok := obj.(*Job)
+	if !ok {
+		return nil, fmt.Errorf("resource object is not configmap type")
+	}
+
+	return ri, nil
+}
+
+func (p *JobManager) Lock() {
+	p.locker.Lock()
+}
+func (p *JobManager) Unlock() {
+	p.locker.Unlock()
+}
+
+//仅仅用于基于内存的对象的创建
+func (p *JobManager) NewObject(meta resource.ObjectMeta) error {
+
+	if strings.TrimSpace(meta.Group) == "" ||
+		strings.TrimSpace(meta.Workspace) == "" ||
+		strings.TrimSpace(meta.Name) == "" {
+		return fmt.Errorf("Invalid object data")
+	}
+
+	cp := Job{ObjectMeta: meta}
+	cp.MemoryOnly = true
+
+	err := p.fillObjectToManager(&cp)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (p *JobManager) fillObjectToManager(meta resource.Object) error {
+
+	cm, ok := meta.(*Job)
+	if !ok {
+		return fmt.Errorf("object is not correct type")
+	}
+
+	group, ok := rm.Groups[cm.Group]
+	if !ok {
+		return resource.ErrGroupNotFound
+	}
+
+	workspace, ok := group.Workspaces[cm.Workspace]
+	if !ok {
+		return resource.ErrWorkspaceNotFound
+	}
+
+	_, ok = workspace.Jobs[cm.Name]
+	if ok {
+		return resource.ErrResourceExists
+	}
+
+	workspace.Jobs[cm.Name] = *cm
+	group.Workspaces[cm.Workspace] = workspace
+	p.Groups[cm.Group] = group
+	return nil
+
+}
+
+func (p *JobManager) DeleteGroup(groupName string) error {
+	_, ok := p.Groups[groupName]
+	if !ok {
+		return resource.ErrGroupNotFound
+	}
+
+	delete(p.Groups, groupName)
+	return nil
+}
+
+func (p *JobManager) AddGroup(groupName string) error {
+	p.Lock()
+	defer p.Unlock()
+	_, ok := p.Groups[groupName]
+	if ok {
+		return resource.ErrGroupExists
+	}
+	var group JobGroup
+	group.Workspaces = make(map[string]JobWorkspace)
+	p.Groups[groupName] = group
+	return nil
+}
+
+func (p *JobManager) AddObjectFromBytes(data []byte) error {
+	p.Lock()
+	defer p.Unlock()
+	var res Job
+	err := json.Unmarshal(data, &res)
+	if err != nil {
+		return err
+	}
+	err = p.fillObjectToManager(&res)
+	return err
+
+}
+
+func (p *JobManager) AddWorkspace(groupName string, workspaceName string) error {
+	p.Lock()
+	defer p.Unlock()
+	g, ok := p.Groups[groupName]
+	if !ok {
+		return resource.ErrGroupNotFound
+	}
+
+	_, ok = g.Workspaces[workspaceName]
+	if ok {
+		return resource.ErrWorkspaceExists
+	}
+
+	var ws JobWorkspace
+	ws.Jobs = make(map[string]Job)
+	g.Workspaces[workspaceName] = ws
+	p.Groups[groupName] = g
+	return nil
+
+}
+
+func (p *JobManager) DeleteWorkspace(groupName string, workspaceName string) error {
+	p.locker.Lock()
+	defer p.locker.Unlock()
+	group, ok := p.Groups[groupName]
+	if !ok {
+		return resource.ErrGroupNotFound
+	}
+
+	_, ok = group.Workspaces[workspaceName]
+	if !ok {
+		return resource.ErrWorkspaceNotFound
+	}
+	delete(group.Workspaces, workspaceName)
+	p.Groups[groupName] = group
+	return nil
+}
+
+func (p *JobManager) GetObjectWithoutLock(groupName, workspaceName, resourceName string) (resource.Object, error) {
+
+	return p.get(groupName, workspaceName, resourceName)
+}
+
 //注意这里没锁
 func (p *JobManager) get(groupName, workspaceName, resourceName string) (*Job, error) {
 
@@ -91,13 +230,13 @@ func (p *JobManager) get(groupName, workspaceName, resourceName string) (*Job, e
 	return &job, nil
 }
 
-func (p *JobManager) Get(group, workspace, resourceName string) (JobInterface, error) {
+func (p *JobManager) GetObject(group, workspace, resourceName string) (resource.Object, error) {
 	p.locker.Lock()
 	defer p.locker.Unlock()
 	return p.get(group, workspace, resourceName)
 }
 
-func (p *JobManager) ListGroup(groupName string) ([]JobInterface, error) {
+func (p *JobManager) ListGroup(groupName string) ([]resource.Object, error) {
 	p.locker.Lock()
 	defer p.locker.Unlock()
 
@@ -106,7 +245,7 @@ func (p *JobManager) ListGroup(groupName string) ([]JobInterface, error) {
 		return nil, fmt.Errorf("%v:%v", resource.ErrGroupNotFound, groupName)
 	}
 
-	pis := make([]JobInterface, 0)
+	pis := make([]resource.Object, 0)
 	for _, v := range group.Workspaces {
 		for k := range v.Jobs {
 			t := v.Jobs[k]
@@ -116,7 +255,7 @@ func (p *JobManager) ListGroup(groupName string) ([]JobInterface, error) {
 	return pis, nil
 }
 
-func (p *JobManager) List(groupName, workspaceName string) ([]JobInterface, error) {
+func (p *JobManager) ListObject(groupName, workspaceName string) ([]resource.Object, error) {
 
 	p.locker.Lock()
 	defer p.locker.Unlock()
@@ -131,7 +270,7 @@ func (p *JobManager) List(groupName, workspaceName string) ([]JobInterface, erro
 		return nil, fmt.Errorf("%v:group/%v,workspace/%v", resource.ErrWorkspaceNotFound, groupName, workspaceName)
 	}
 
-	pis := make([]JobInterface, 0)
+	pis := make([]resource.Object, 0)
 
 	//不能够直接使用k,v来赋值,会出现值都是同一个的问题
 	for k := range workspace.Jobs {
@@ -142,7 +281,7 @@ func (p *JobManager) List(groupName, workspaceName string) ([]JobInterface, erro
 	return pis, nil
 }
 
-func (p *JobManager) Create(groupName, workspaceName string, data []byte, opt resource.CreateOption) error {
+func (p *JobManager) CreateObject(groupName, workspaceName string, data []byte, opt resource.CreateOption) error {
 
 	p.locker.Lock()
 	defer p.locker.Unlock()
@@ -217,9 +356,14 @@ func (p *JobManager) delete(groupName, workspaceName, resourceName string) error
 	return nil
 }
 
-func (p *JobManager) Delete(group, workspace, resourceName string, opt resource.DeleteOption) error {
+func (p *JobManager) DeleteObject(group, workspace, resourceName string, opt resource.DeleteOption) error {
 	p.locker.Lock()
 	defer p.locker.Unlock()
+
+	if opt.MemoryOnly {
+		return p.delete(group, workspace, resourceName)
+	}
+
 	ph, err := cluster.NewJobHandler(group, workspace)
 	if err != nil {
 		return log.DebugPrint(err)
@@ -270,7 +414,7 @@ func (p *JobManager) Delete(group, workspace, resourceName string, opt resource.
 	}
 }
 
-func (p *JobManager) Update(groupName, workspaceName string, resourceName string, data []byte) error {
+func (p *JobManager) UpdateObject(groupName, workspaceName string, resourceName string, data []byte) error {
 	p.locker.Lock()
 	defer p.locker.Unlock()
 
@@ -449,7 +593,10 @@ func (j *Job) Event() ([]corev1.Event, error) {
 	return ph.Event(j.Workspace, j.Name)
 }
 
-func InitJobController(be backend.BackendHandler) (JobController, error) {
+func (s *Job) Metadata() resource.ObjectMeta {
+	return s.ObjectMeta
+}
+func InitJobController(be backend.BackendHandler) (resource.ObjectController, error) {
 	rm = &JobManager{}
 	rm.Groups = make(map[string]JobGroup)
 	rm.locker = sync.Mutex{}

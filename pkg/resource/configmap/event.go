@@ -7,5 +7,4 @@ import (
 
 func (c *ConfigMapManager) HandleEvent(e backend.ResourceEvent) {
 	resource.EtcdEventHandler(e, c)
-
 }

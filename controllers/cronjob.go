@@ -45,13 +45,14 @@ func (this *CronJobController) ListGroupWorkspaceCronJobs() {
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
 
-	pis, err := pk.Controller.List(group, workspace)
+	pis, err := pk.Controller.ListObject(group, workspace)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
 	}
 	pss := make([]pk.Status, 0)
-	for _, v := range pis {
+	for _, j := range pis {
+		v, _ := pk.GetCronJobInterface(j)
 		s := v.GetStatus()
 		pss = append(pss, *s)
 	}
@@ -80,12 +81,12 @@ func (this *CronJobController) GetCronJob() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	cronjob := this.Ctx.Input.Param(":cronjob")
 
-	pi, err := pk.Controller.Get(group, workspace, cronjob)
+	pi, err := pk.Controller.GetObject(group, workspace, cronjob)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
 	}
-	v := pi
+	v, _ := pk.GetCronJobInterface(pi)
 	s := v.GetStatus()
 
 	this.normalReturn(s)
@@ -126,7 +127,7 @@ func (this *CronJobController) ListGroupsCronJobs() {
 		return
 	}
 
-	pis := make([]pk.CronJobInterface, 0)
+	pis := make([]resource.Object, 0)
 
 	for _, v := range groups {
 		tmp, err := pk.Controller.ListGroup(v)
@@ -137,7 +138,9 @@ func (this *CronJobController) ListGroupsCronJobs() {
 		pis = append(pis, tmp...)
 	}
 	pss := make([]pk.Status, 0)
-	for _, v := range pis {
+	for _, j := range pis {
+		v, _ := pk.GetCronJobInterface(j)
+
 		s := v.GetStatus()
 
 		pss = append(pss, *s)
@@ -169,7 +172,8 @@ func (this *CronJobController) ListGroupCronJobs() {
 		return
 	}
 	pss := make([]pk.Status, 0)
-	for _, v := range pis {
+	for _, j := range pis {
+		v, _ := pk.GetCronJobInterface(j)
 		s := v.GetStatus()
 		pss = append(pss, *s)
 	}
@@ -218,7 +222,7 @@ func (this *CronJobController) CreateCronJob() {
 
 	var opt resource.CreateOption
 	opt.User = who
-	err = pk.Controller.Create(group, workspace, this.Ctx.Input.RequestBody, opt)
+	err = pk.Controller.CreateObject(group, workspace, this.Ctx.Input.RequestBody, opt)
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
@@ -260,12 +264,7 @@ func (this *CronJobController) UpdateCronJob() {
 		return
 	}
 
-	/*
-		ui := user.NewUserClient(token)
-		ui.GetUserName()
-	*/
-
-	err := pk.Controller.Update(group, workspace, cronjob, this.Ctx.Input.RequestBody)
+	err := pk.Controller.UpdateObject(group, workspace, cronjob, this.Ctx.Input.RequestBody)
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
@@ -299,7 +298,7 @@ func (this *CronJobController) DeleteCronJob() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	cronjob := this.Ctx.Input.Param(":cronjob")
 
-	err := pk.Controller.Delete(group, workspace, cronjob, resource.DeleteOption{})
+	err := pk.Controller.DeleteObject(group, workspace, cronjob, resource.DeleteOption{})
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
@@ -331,11 +330,12 @@ func (this *CronJobController) GetCronJobTemplate() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	cronjob := this.Ctx.Input.Param(":cronjob")
 
-	pi, err := pk.Controller.Get(group, workspace, cronjob)
+	v, err := pk.Controller.GetObject(group, workspace, cronjob)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
 	}
+	pi, _ := pk.GetCronJobInterface(v)
 
 	t, err := pi.GetTemplate()
 	if err != nil {
@@ -367,11 +367,12 @@ func (this *CronJobController) GetCronJobEvent() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	cronjob := this.Ctx.Input.Param(":cronjob")
 
-	pi, err := pk.Controller.Get(group, workspace, cronjob)
+	v, err := pk.Controller.GetObject(group, workspace, cronjob)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
 	}
+	pi, _ := pk.GetCronJobInterface(v)
 	es, err := pi.Event()
 	if err != nil {
 		this.errReturn(err, 500)
@@ -405,12 +406,13 @@ func (this *CronJobController) SuspendOrResumeCronJob() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	cronjob := this.Ctx.Input.Param(":cronjob")
 
-	pi, err := pk.Controller.Get(group, workspace, cronjob)
+	v, err := pk.Controller.GetObject(group, workspace, cronjob)
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
+	pi, _ := pk.GetCronJobInterface(v)
 	err = pi.SuspendOrResume()
 	if err != nil {
 		this.audit(token, "", true)

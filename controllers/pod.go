@@ -66,13 +66,14 @@ func (this *PodController) ListPods() {
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
 
-	pis, err := pk.Controller.List(group, workspace)
+	pis, err := pk.Controller.ListObject(group, workspace)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
 	}
 	pss := make([]PodState, 0)
-	for _, v := range pis {
+	for _, j := range pis {
+		v, _ := pk.GetPodInterface(j)
 		ps := GetPodState(v)
 		pss = append(pss, ps)
 	}
@@ -102,11 +103,13 @@ func (this *PodController) GetPod() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	pod := this.Ctx.Input.Param(":pod")
 
-	pi, err := pk.Controller.Get(group, workspace, pod)
+	v, err := pk.Controller.GetObject(group, workspace, pod)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
 	}
+	pi, _ := pk.GetPodInterface(v)
+
 	s, err := pi.GetStatus()
 	if err != nil {
 		this.errReturn(err, 500)
@@ -145,7 +148,7 @@ func (this *PodController) ListGroupsPods() {
 		return
 	}
 
-	pis := make([]pk.PodInterface, 0)
+	pis := make([]resource.Object, 0)
 
 	for _, v := range groups {
 		tmp, err := pk.Controller.ListGroup(v)
@@ -156,7 +159,8 @@ func (this *PodController) ListGroupsPods() {
 		pis = append(pis, tmp...)
 	}
 	pss := make([]PodState, 0)
-	for _, v := range pis {
+	for _, j := range pis {
+		v, _ := pk.GetPodInterface(j)
 		ps := GetPodState(v)
 		pss = append(pss, ps)
 	}
@@ -187,7 +191,8 @@ func (this *PodController) ListGroupPods() {
 		return
 	}
 	pss := make([]PodState, 0)
-	for _, v := range pis {
+	for _, j := range pis {
+		v, _ := pk.GetPodInterface(j)
 		ps := GetPodState(v)
 		pss = append(pss, ps)
 	}
@@ -236,7 +241,7 @@ func (this *PodController) CreatePod() {
 	var opt resource.CreateOption
 	opt.User = who
 
-	err = pk.Controller.Create(group, workspace, this.Ctx.Input.RequestBody, opt)
+	err = pk.Controller.CreateObject(group, workspace, this.Ctx.Input.RequestBody, opt)
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
@@ -270,7 +275,7 @@ func (this *PodController) DeletePod() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	pod := this.Ctx.Input.Param(":pod")
 
-	err = pk.Controller.Delete(group, workspace, pod, resource.DeleteOption{})
+	err = pk.Controller.DeleteObject(group, workspace, pod, resource.DeleteOption{})
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
@@ -313,12 +318,7 @@ func (this *PodController) UpdatePod() {
 		return
 	}
 
-	/*
-		ui := user.NewUserClient(token)
-		ui.GetUserName()
-	*/
-
-	err = pk.Controller.Update(group, workspace, pod, this.Ctx.Input.RequestBody)
+	err = pk.Controller.UpdateObject(group, workspace, pod, this.Ctx.Input.RequestBody)
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
@@ -350,12 +350,12 @@ func (this *PodController) GetPodTemplate() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	pod := this.Ctx.Input.Param(":pod")
 
-	pi, err := pk.Controller.Get(group, workspace, pod)
+	v, err := pk.Controller.GetObject(group, workspace, pod)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
 	}
-
+	pi, _ := pk.GetPodInterface(v)
 	t, err := pi.GetTemplate()
 	if err != nil {
 		this.errReturn(err, 500)
@@ -386,11 +386,12 @@ func (this *PodController) GetPodContainers() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	pod := this.Ctx.Input.Param(":pod")
 
-	pi, err := pk.Controller.Get(group, workspace, pod)
+	v, err := pk.Controller.GetObject(group, workspace, pod)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
 	}
+	pi, _ := pk.GetPodInterface(v)
 
 	infor, err := pi.GetRuntime()
 	if err != nil {
@@ -429,11 +430,13 @@ func (this *PodController) GetPodLog() {
 	pod := this.Ctx.Input.Param(":pod")
 	c := this.Ctx.Input.Param(":container")
 
-	pi, err := pk.Controller.Get(group, workspace, pod)
+	v, err := pk.Controller.GetObject(group, workspace, pod)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
 	}
+	pi, _ := pk.GetPodInterface(v)
+
 	logs, err := pi.Log(c)
 	if err != nil {
 		this.errReturn(err, 500)
@@ -466,11 +469,13 @@ func (this *PodController) GetPodStat() {
 	pod := this.Ctx.Input.Param(":pod")
 	c := this.Ctx.Input.Param(":container")
 
-	pi, err := pk.Controller.Get(group, workspace, pod)
+	v, err := pk.Controller.GetObject(group, workspace, pod)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
 	}
+	pi, _ := pk.GetPodInterface(v)
+
 	logs, err := pi.Stat(c)
 	if err != nil {
 		this.errReturn(err, 500)
@@ -501,11 +506,13 @@ func (this *PodController) GetPodEvent() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	pod := this.Ctx.Input.Param(":pod")
 
-	pi, err := pk.Controller.Get(group, workspace, pod)
+	v, err := pk.Controller.GetObject(group, workspace, pod)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
 	}
+
+	pi, _ := pk.GetPodInterface(v)
 	es, err := pi.Event()
 	if err != nil {
 		this.errReturn(err, 500)
@@ -538,11 +545,14 @@ func (this *PodController) GetPodTerminal() {
 	pod := this.Ctx.Input.Param(":pod")
 	c := this.Ctx.Input.Param(":container")
 
-	pi, err := pk.Controller.Get(group, workspace, pod)
+	v, err := pk.Controller.GetObject(group, workspace, pod)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
 	}
+
+	pi, _ := pk.GetPodInterface(v)
+
 	logs, err := pi.Terminal(c)
 	if err != nil {
 		this.errReturn(err, 500)
@@ -575,11 +585,12 @@ func (this *PodController) GetPodContainerSpec() {
 	pod := this.Ctx.Input.Param(":pod")
 	container := this.Ctx.Input.Param(":container")
 
-	pi, err := pk.Controller.Get(group, workspace, pod)
+	v, err := pk.Controller.GetObject(group, workspace, pod)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
 	}
+	pi, _ := pk.GetPodInterface(v)
 
 	stat, err := pi.GetStatus()
 	if err != nil {

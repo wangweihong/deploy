@@ -31,13 +31,14 @@ func (this *IngressController) ListIngresss() {
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
 
-	pis, err := pk.Controller.List(group, workspace)
+	pis, err := pk.Controller.ListObject(group, workspace)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
 	}
 	jss := make([]pk.Status, 0)
-	for _, v := range pis {
+	for _, j := range pis {
+		v, _ := pk.GetIngressInterface(j)
 		js := v.GetStatus()
 		jss = append(jss, *js)
 	}
@@ -66,12 +67,12 @@ func (this *IngressController) GetGroupWorkspaceIngress() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	ingress := this.Ctx.Input.Param(":ingress")
 
-	pi, err := pk.Controller.Get(group, workspace, ingress)
+	pi, err := pk.Controller.GetObject(group, workspace, ingress)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
 	}
-	v := pi
+	v, _ := pk.GetIngressInterface(pi)
 
 	var js *pk.Status
 	js = v.GetStatus()
@@ -108,7 +109,7 @@ func (this *IngressController) ListGroupsIngresss() {
 		return
 	}
 
-	pis := make([]pk.IngressInterface, 0)
+	pis := make([]resource.Object, 0)
 
 	for _, v := range groups {
 		tmp, err := pk.Controller.ListGroup(v)
@@ -120,7 +121,9 @@ func (this *IngressController) ListGroupsIngresss() {
 	}
 
 	jss := make([]pk.Status, 0)
-	for _, v := range pis {
+	for _, j := range pis {
+		v, _ := pk.GetIngressInterface(j)
+
 		js := v.GetStatus()
 		jss = append(jss, *js)
 	}
@@ -150,7 +153,8 @@ func (this *IngressController) ListGroupIngresss() {
 		return
 	}
 	jss := make([]pk.Status, 0)
-	for _, v := range pis {
+	for _, j := range pis {
+		v, _ := pk.GetIngressInterface(j)
 		js := v.GetStatus()
 		jss = append(jss, *js)
 	}
@@ -199,7 +203,7 @@ func (this *IngressController) CreateIngress() {
 	var opt resource.CreateOption
 	opt.User = who
 
-	err = pk.Controller.Create(group, workspace, this.Ctx.Input.RequestBody, opt)
+	err = pk.Controller.CreateObject(group, workspace, this.Ctx.Input.RequestBody, opt)
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
@@ -242,12 +246,7 @@ func (this *IngressController) UpdateIngress() {
 		return
 	}
 
-	/*
-		ui := user.NewUserClient(token)
-		ui.GetUserName()
-	*/
-
-	err := pk.Controller.Update(group, workspace, ingress, this.Ctx.Input.RequestBody)
+	err := pk.Controller.UpdateObject(group, workspace, ingress, this.Ctx.Input.RequestBody)
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
@@ -281,7 +280,7 @@ func (this *IngressController) DeleteIngress() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	ingress := this.Ctx.Input.Param(":ingress")
 
-	err := pk.Controller.Delete(group, workspace, ingress, resource.DeleteOption{})
+	err := pk.Controller.DeleteObject(group, workspace, ingress, resource.DeleteOption{})
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
@@ -313,11 +312,12 @@ func (this *IngressController) GetIngressEvent() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	ingress := this.Ctx.Input.Param(":ingress")
 
-	pi, err := pk.Controller.Get(group, workspace, ingress)
+	v, err := pk.Controller.GetObject(group, workspace, ingress)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
 	}
+	pi, _ := pk.GetIngressInterface(v)
 	es, err := pi.Event()
 	if err != nil {
 		this.errReturn(err, 500)
@@ -348,12 +348,13 @@ func (this *IngressController) GetIngressTemplate() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	ingress := this.Ctx.Input.Param(":ingress")
 
-	pi, err := pk.Controller.Get(group, workspace, ingress)
+	v, err := pk.Controller.GetObject(group, workspace, ingress)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
 	}
 
+	pi, _ := pk.GetIngressInterface(v)
 	t, err := pi.GetTemplate()
 	if err != nil {
 		this.errReturn(err, 500)

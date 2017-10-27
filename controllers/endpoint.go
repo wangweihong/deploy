@@ -32,13 +32,14 @@ func (this *EndpointController) ListEndpoints() {
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
 
-	pis, err := pk.Controller.List(group, workspace)
+	pis, err := pk.Controller.ListObject(group, workspace)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
 	}
 	jss := make([]pk.Status, 0)
-	for _, v := range pis {
+	for _, j := range pis {
+		v, _ := pk.GetEndpointInterface(j)
 		js := v.GetStatus()
 		jss = append(jss, *js)
 	}
@@ -67,12 +68,12 @@ func (this *EndpointController) GetGroupWorkspaceEndpoint() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	endpoint := this.Ctx.Input.Param(":endpoint")
 
-	pi, err := pk.Controller.Get(group, workspace, endpoint)
+	pi, err := pk.Controller.GetObject(group, workspace, endpoint)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
 	}
-	v := pi
+	v, _ := pk.GetEndpointInterface(pi)
 
 	var js *pk.Status
 	js = v.GetStatus()
@@ -109,7 +110,7 @@ func (this *EndpointController) ListGroupsEndpoints() {
 		return
 	}
 
-	pis := make([]pk.EndpointInterface, 0)
+	pis := make([]resource.Object, 0)
 
 	for _, v := range groups {
 		tmp, err := pk.Controller.ListGroup(v)
@@ -121,7 +122,8 @@ func (this *EndpointController) ListGroupsEndpoints() {
 	}
 
 	jss := make([]pk.Status, 0)
-	for _, v := range pis {
+	for _, j := range pis {
+		v, _ := pk.GetEndpointInterface(j)
 		js := v.GetStatus()
 		jss = append(jss, *js)
 	}
@@ -151,7 +153,8 @@ func (this *EndpointController) ListGroupEndpoints() {
 		return
 	}
 	jss := make([]pk.Status, 0)
-	for _, v := range pis {
+	for _, j := range pis {
+		v, _ := pk.GetEndpointInterface(j)
 		js := v.GetStatus()
 		jss = append(jss, *js)
 	}
@@ -208,7 +211,7 @@ func (this *EndpointController) CreateEndpoint() {
 	var opt resource.CreateOption
 	opt.Comment = co.Comment
 	opt.User = who
-	err = pk.Controller.Create(group, workspace, []byte(co.Data), opt)
+	err = pk.Controller.CreateObject(group, workspace, []byte(co.Data), opt)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
@@ -250,7 +253,7 @@ func (this *EndpointController) UpdateEndpoint() {
 		return
 	}
 
-	err := pk.Controller.Update(group, workspace, endpoint, this.Ctx.Input.RequestBody)
+	err := pk.Controller.UpdateObject(group, workspace, endpoint, this.Ctx.Input.RequestBody)
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
@@ -284,7 +287,7 @@ func (this *EndpointController) DeleteEndpoint() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	endpoint := this.Ctx.Input.Param(":endpoint")
 
-	err := pk.Controller.Delete(group, workspace, endpoint, resource.DeleteOption{})
+	err := pk.Controller.DeleteObject(group, workspace, endpoint, resource.DeleteOption{})
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
@@ -316,11 +319,12 @@ func (this *EndpointController) GetEndpointEvent() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	endpoint := this.Ctx.Input.Param(":endpoint")
 
-	pi, err := pk.Controller.Get(group, workspace, endpoint)
+	v, err := pk.Controller.GetObject(group, workspace, endpoint)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
 	}
+	pi, _ := pk.GetEndpointInterface(v)
 	es, err := pi.Event()
 	if err != nil {
 		this.errReturn(err, 500)
