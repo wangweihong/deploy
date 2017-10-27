@@ -84,6 +84,7 @@ func (p *SecretManager) NewObject(meta resource.ObjectMeta) error {
 		strings.TrimSpace(meta.Name) == "" {
 		return fmt.Errorf("Invalid object data")
 	}
+	log.DebugPrint("start to create secret:", meta.Group, meta.Workspace, meta.Name)
 
 	cp := Secret{ObjectMeta: meta}
 	cp.MemoryOnly = true

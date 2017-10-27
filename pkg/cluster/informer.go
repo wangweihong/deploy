@@ -79,12 +79,6 @@ func (c *ResourceController) locateResourceGW(ns string) *Workspace {
 }
 
 func (c *ResourceController) generateEventFromObj(obj interface{}, action ActionType) (*Event, error) {
-	/*
-		switch e := obj.(type) {
-		case *corev1.Pod:
-			log.DebugPrint("kind:", e.Kind)
-		}
-	*/
 
 	runobj := obj.(runtime.Object)
 	accessor := meta.NewAccessor()
@@ -92,11 +86,19 @@ func (c *ResourceController) generateEventFromObj(obj interface{}, action Action
 	if err != nil {
 		return nil, fmt.Errorf("<cluster ResourceController> Get object Namespace fail :%v", err)
 	}
+	/*
+		kind, err := accessor.Kind(runobj)
+		if err != nil {
+			return nil, fmt.Errorf("<cluster ResourceController> Get object Kind fail :%v", err)
+		}
+	*/
+
+	//	log.DebugPrint("00=======================================")
 	wg := c.locateResourceGW(ns)
 	if wg == nil {
-		//		log.DebugPrint("ignore workspace %v dont care", ns)
 		return nil, nil
 	}
+	//	log.DebugPrint("=======================================")
 
 	name, err := accessor.Name(runobj)
 	if err != nil {
@@ -133,6 +135,7 @@ func (c *ResourceController) generateEventFromObj(obj interface{}, action Action
 //周期性resync时,会触发Update事件
 //调用者要tongue
 func (c *ResourceController) resourceAdd(obj interface{}) {
+
 	ep, err := c.generateEventFromObj(obj, ActionCreate)
 	if err != nil {
 		log.ErrorPrint(err)
@@ -144,7 +147,6 @@ func (c *ResourceController) resourceAdd(obj interface{}) {
 	}
 
 	e := *ep
-	log.DebugPrint(e)
 	switch obj.(type) {
 	case *corev1.Pod:
 		PodEventChan <- e
@@ -159,6 +161,7 @@ func (c *ResourceController) resourceAdd(obj interface{}) {
 	case *corev1.ServiceAccount:
 		ServiceAccountEventChan <- e
 	case *corev1.Secret:
+		log.DebugPrint("-0------------------------->", e)
 		SecretEventChan <- e
 	case *extensionsv1beta1.Deployment:
 		DeploymentEventChan <- e

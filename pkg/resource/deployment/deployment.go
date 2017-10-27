@@ -401,7 +401,6 @@ func (p *DeploymentManager) DeleteObject(group, workspace, resourceName string, 
 				return log.DebugPrint(err)
 			}
 		}
-		//TODO:ufleet创建的数据
 		return nil
 	} else {
 		be := backend.NewBackendHandler()

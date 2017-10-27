@@ -30,9 +30,8 @@ func HandleEventWatchFromK8sCluster(echan chan cluster.Event, kind string, oc Ob
 		go func(e cluster.Event) {
 			switch e.Action {
 			case cluster.ActionDelete:
-				//忽略ufleet主动创建的资源
-
-				if err := oc.DeleteObject(e.Group, e.Workspace, e.Name, DeleteOption{}); err != nil {
+				//清除内存中的数据即可
+				if err := oc.DeleteObject(e.Group, e.Workspace, e.Name, DeleteOption{MemoryOnly: true}); err != nil {
 					log.ErrorPrint("%v:  event handler/delete:%v", kind, err)
 				}
 				return
@@ -65,9 +64,7 @@ func HandleEventWatchFromK8sCluster(echan chan cluster.Event, kind string, oc Ob
 				}
 
 				return
-
 			case cluster.ActionUpdate:
-
 			}
 		}(pe)
 
@@ -87,6 +84,10 @@ func EtcdEventHandler(e backend.ResourceEvent, cm ObjectController) {
 		}
 	}
 
+	if etype == eResource {
+		log.DebugPrint(fmt.Sprintf("handle etcd event:%v %v %v %v", e.Group, *e.Workspace, *e.Resource, e.Action))
+	}
+
 	switch e.Action {
 	case backend.ActionDelete:
 		//这是一个组事件
@@ -102,9 +103,9 @@ func EtcdEventHandler(e backend.ResourceEvent, cm ObjectController) {
 
 		case eResource:
 
-			//这是一个app事件
 			if e.Resource != nil {
-				err := cm.DeleteObject(e.Group, *e.Workspace, *e.Resource, DeleteOption{})
+				//清除内存中的数据即可
+				err := cm.DeleteObject(e.Group, *e.Workspace, *e.Resource, DeleteOption{MemoryOnly: true})
 				if err != nil {
 					log.ErrorPrint("handle delete event(%v) fail for %v", e, err)
 				}
@@ -124,13 +125,11 @@ func EtcdEventHandler(e backend.ResourceEvent, cm ObjectController) {
 
 			return
 		case eResource:
-			//这是一个资源事件
 			err := cm.AddObjectFromBytes([]byte(e.Value), true)
 			if err != nil {
 				log.ErrorPrint(err)
 			}
 			return
-			//这是一个工作区事件
 		}
 
 	default:
