@@ -548,8 +548,9 @@ type Status struct {
 	Paused      bool              `json:"paused"`
 	Revision    int64             `json:"revision"`
 	//	Pods       []string `json:"pods"`
-	PodStatus      []pk.Status        `json:"podstatus"`
-	ContainerSpecs []pk.ContainerSpec `json:"containerspecs"`
+	PodStatus               []pk.Status        `json:"podstatus"`
+	ContainerSpecs          []pk.ContainerSpec `json:"containerspecs"`
+	ProgressDeadlineSeconds int                `json:"progressdeadlineseconds"`
 	extensionsv1beta1.DeploymentStatus
 }
 
@@ -606,6 +607,12 @@ func (j *Deployment) GetStatus() *Status {
 	}
 	if deployment.Annotations != nil {
 		js.Annotations = deployment.Annotations
+	}
+
+	if deployment.Spec.ProgressDeadlineSeconds != nil {
+		js.ProgressDeadlineSeconds = int(*deployment.Spec.ProgressDeadlineSeconds)
+	} else {
+		js.ProgressDeadlineSeconds = -1
 	}
 
 	if deployment.Spec.Selector != nil {
@@ -811,7 +818,6 @@ func InitDeploymentController(be backend.BackendHandler) (resource.ObjectControl
 		}
 		rm.Groups[k] = group
 	}
-	log.DebugPrint(rm)
 	return rm, nil
 
 }
