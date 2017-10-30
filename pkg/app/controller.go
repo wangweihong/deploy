@@ -16,16 +16,9 @@ type AppController interface {
 	List(group string, opt ListOption) ([]AppInterface, error)
 }
 
-type Backend interface {
-	Create(Data string) error
-	Update(Data string) error
-	Remove() error
-}
-
 type AppMananger struct {
 	Groups map[string]AppGroup `json:"groups"`
 	Locker Locker
-	BE     Backend
 }
 
 func InitAppController(be backend.BackendHandler) (AppController, error) {

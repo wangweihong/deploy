@@ -4,6 +4,10 @@ import (
 	"ufleet-deploy/pkg/backend"
 )
 
+const (
+	backendKind = backend.ResourceApps
+)
+
 func Init() {
 	be := backend.NewBackendHandler()
 
