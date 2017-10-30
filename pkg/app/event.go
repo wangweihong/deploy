@@ -30,7 +30,7 @@ func (a *AppMananger) HandleEvent(e backend.ResourceEvent) {
 			etype = eWorkspace
 		}
 	}
-	log.DebugPrint("recieve app event", e)
+
 	switch e.Action {
 	case backend.ActionDelete:
 		//这是一个组事件

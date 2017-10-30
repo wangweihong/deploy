@@ -20,6 +20,10 @@ func Init() {
 		panic(err.Error())
 	}
 	backend.RegisterEventHandler(backendKind, rm)
+	err = resource.RegisterResourceController(resourceKind, rm)
+	if err != nil {
+		panic(err.Error())
+	}
 
 	go resource.HandleEventWatchFromK8sCluster(cluster.ServiceEventChan, resourceKind, rm)
 }

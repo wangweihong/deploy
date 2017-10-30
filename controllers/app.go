@@ -97,7 +97,7 @@ func (this *AppController) DeleteApp() {
 
 // GetApp
 // @Title 应用
-// @Description   添加指定应用
+// @Description   获取指定应用
 // @Param Token header string true 'Token'
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
