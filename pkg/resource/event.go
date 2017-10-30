@@ -39,6 +39,11 @@ func HandleEventWatchFromK8sCluster(echan chan cluster.Event, kind string, oc Ob
 			case cluster.ActionCreate:
 				oc.Lock()
 				defer oc.Unlock()
+				if kind == "ConfigMap" || kind == "ServiceAccount" {
+					log.DebugPrint("-------------------")
+					gv, _ := oc.ListGroup("haha")
+					log.DebugPrint(gv)
+				}
 				_, err := oc.GetObjectWithoutLock(e.Group, e.Workspace, e.Name)
 				if err != nil {
 					if err != ErrResourceNotFound {

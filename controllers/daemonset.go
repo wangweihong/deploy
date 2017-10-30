@@ -497,7 +497,7 @@ func (this *DaemonSetController) AddDaemonSetContainerSpecEnv() {
 		return
 	}
 
-	var envVar corev1.EnvVar
+	envVar := make([]corev1.EnvVar, 0)
 	err = json.Unmarshal(this.Ctx.Input.RequestBody, &envVar)
 	if err != nil {
 		this.audit(token, "", true)
@@ -527,7 +527,6 @@ func (this *DaemonSetController) AddDaemonSetContainerSpecEnv() {
 
 	old := runtime.DaemonSet
 	var containerFound bool
-	var envFound bool
 	var containerIndex int
 	podSpec := old.Spec.Template.Spec
 
@@ -536,12 +535,6 @@ func (this *DaemonSetController) AddDaemonSetContainerSpecEnv() {
 			containerFound = true
 			containerIndex = k
 
-			for _, j := range v.Env {
-				if j.Name == envVar.Name {
-					envFound = true
-					break
-				}
-			}
 			break
 		}
 	}
@@ -552,13 +545,7 @@ func (this *DaemonSetController) AddDaemonSetContainerSpecEnv() {
 		this.errReturn(err, 500)
 	}
 
-	if envFound {
-		err = fmt.Errorf("env has exist")
-		this.audit(token, "", true)
-		this.errReturn(err, 500)
-	}
-
-	podSpec.Containers[containerIndex].Env = append(podSpec.Containers[containerIndex].Env, envVar)
+	podSpec.Containers[containerIndex].Env = append(podSpec.Containers[containerIndex].Env, envVar...)
 
 	byteContent, err := json.Marshal(old)
 	if err != nil {

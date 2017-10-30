@@ -501,7 +501,7 @@ func (this *ReplicationControllerController) AddReplicationControllerContainerSp
 		return
 	}
 
-	var envVar corev1.EnvVar
+	envVar := make([]corev1.EnvVar, 0)
 	err = json.Unmarshal(this.Ctx.Input.RequestBody, &envVar)
 	if err != nil {
 		this.audit(token, "", true)
@@ -531,7 +531,6 @@ func (this *ReplicationControllerController) AddReplicationControllerContainerSp
 
 	old := runtime.ReplicationController
 	var containerFound bool
-	var envFound bool
 	var containerIndex int
 	podSpec := old.Spec.Template.Spec
 
@@ -540,12 +539,6 @@ func (this *ReplicationControllerController) AddReplicationControllerContainerSp
 			containerFound = true
 			containerIndex = k
 
-			for _, j := range v.Env {
-				if j.Name == envVar.Name {
-					envFound = true
-					break
-				}
-			}
 			break
 		}
 	}
@@ -556,13 +549,7 @@ func (this *ReplicationControllerController) AddReplicationControllerContainerSp
 		this.errReturn(err, 500)
 	}
 
-	if envFound {
-		err = fmt.Errorf("env has exist")
-		this.audit(token, "", true)
-		this.errReturn(err, 500)
-	}
-
-	podSpec.Containers[containerIndex].Env = append(podSpec.Containers[containerIndex].Env, envVar)
+	podSpec.Containers[containerIndex].Env = append(podSpec.Containers[containerIndex].Env, envVar...)
 
 	byteContent, err := json.Marshal(old)
 	if err != nil {
