@@ -503,13 +503,15 @@ func (s *ServiceAccount) GetTemplate() (string, error) {
 
 type Status struct {
 	resource.ObjectMeta
-	Secrts []string `json:"secrets"`
-	Reason string   `json:"reason"`
+	Secrts           []string `json:"secrets"`
+	ImagePullSecrets []string `json:"imagePullSecrets"`
+	Reason           string   `json:"reason"`
 }
 
 func (s *ServiceAccount) GetStatus() *Status {
 	js := Status{ObjectMeta: s.ObjectMeta}
 	js.Secrts = make([]string, 0)
+	js.ImagePullSecretsSecrts = make([]string, 0)
 
 	runtime, err := s.GetRuntime()
 	if err != nil {
@@ -520,8 +522,11 @@ func (s *ServiceAccount) GetStatus() *Status {
 	if js.CreateTime == 0 {
 		js.CreateTime = runtime.CreationTimestamp.Unix()
 	}
-	for _, v := range runtime.OwnerReferences {
+	for _, v := range runtime.Secrets {
 		js.Secrts = append(js.Secrts, v.Name)
+	}
+	for _, v := range runtime.ImagePullSecrets {
+		js.ImagePullSecrets = append(js.ImagePullSecrets, v.Name)
 	}
 	return &js
 }
