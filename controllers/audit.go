@@ -116,6 +116,10 @@ var (
 			object:  operateObjectConfigMap,
 			operate: operateTypeUpdate,
 		},
+		"UpdateConfigMapCustom": audit{
+			object:  operateObjectConfigMap,
+			operate: operateTypeUpdate,
+		},
 		"DeleteConfigMap": audit{
 			object:  operateObjectConfigMap,
 			operate: operateTypeDelete,
@@ -170,6 +174,10 @@ var (
 			object:  operateObjectServiceAccount,
 			operate: operateTypeDelete,
 		},
+		"UpdateServiceAccountCustom": audit{
+			object:  operateObjectServiceAccount,
+			operate: operateTypeUpdate,
+		},
 
 		//Endpoint
 		"CreateEndpoint": audit{
@@ -218,6 +226,18 @@ var (
 			object:  operateObjectDeployment,
 			operate: operateTypePauseOrResume,
 		},
+		"DeleteDeploymentContainerSpecEnv": audit{
+			object:  operateObjectDeployment,
+			operate: operateTypeUpdate,
+		},
+		"UpdateDeploymentContainerSpecEnv": audit{
+			object:  operateObjectDeployment,
+			operate: operateTypeUpdate,
+		},
+		"AddDeploymentContainerSpecEnv": audit{
+			object:  operateObjectDeployment,
+			operate: operateTypeUpdate,
+		},
 
 		//DaemonSet
 		"CreateDaemonSet": audit{
@@ -235,6 +255,18 @@ var (
 		"RollBackDaemonSet": audit{
 			object:  operateObjectDaemonSet,
 			operate: operateTypeRollback,
+		},
+		"UpdateDaemonSetContainerSpecEnv": audit{
+			object:  operateObjectDaemonSet,
+			operate: operateTypeUpdate,
+		},
+		"AddDaemonSetContainerSpecEnv": audit{
+			object:  operateObjectDaemonSet,
+			operate: operateTypeUpdate,
+		},
+		"DeleteDaemonSetContainerSpecEnv": audit{
+			object:  operateObjectDaemonSet,
+			operate: operateTypeUpdate,
 		},
 
 		//ReplicaSet

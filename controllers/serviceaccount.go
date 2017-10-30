@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"ufleet-deploy/models"
+	"ufleet-deploy/pkg/log"
 	"ufleet-deploy/pkg/resource"
 	pk "ufleet-deploy/pkg/resource/serviceaccount"
 	"ufleet-deploy/pkg/user"
@@ -34,13 +35,14 @@ func (this *ServiceAccountController) ListServiceAccounts() {
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
 
-	pis, err := pk.Controller.List(group, workspace)
+	pis, err := pk.Controller.ListObject(group, workspace)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
 	}
 	jss := make([]pk.Status, 0)
-	for _, v := range pis {
+	for _, j := range pis {
+		v, _ := pk.GetServiceAccountInterface(j)
 		js := v.GetStatus()
 		jss = append(jss, *js)
 	}
@@ -77,7 +79,7 @@ func (this *ServiceAccountController) ListGroupsServiceAccounts() {
 		return
 	}
 
-	pis := make([]pk.ServiceAccountInterface, 0)
+	pis := make([]resource.Object, 0)
 
 	for _, v := range groups {
 		tmp, err := pk.Controller.ListGroup(v)
@@ -89,7 +91,8 @@ func (this *ServiceAccountController) ListGroupsServiceAccounts() {
 	}
 
 	jss := make([]pk.Status, 0)
-	for _, v := range pis {
+	for _, j := range pis {
+		v, _ := pk.GetServiceAccountInterface(j)
 		js := v.GetStatus()
 		jss = append(jss, *js)
 	}
@@ -105,6 +108,7 @@ func (this *ServiceAccountController) ListGroupsServiceAccounts() {
 // @Failure 500
 // @router /group/:group [Get]
 func (this *ServiceAccountController) ListGroupServiceAccounts() {
+	log.DebugPrint("------------------------------")
 	aerr := this.checkRouteControllerAbility()
 	if aerr != nil {
 		this.abilityErrorReturn(aerr)
@@ -120,7 +124,8 @@ func (this *ServiceAccountController) ListGroupServiceAccounts() {
 	}
 
 	jss := make([]pk.Status, 0)
-	for _, v := range pis {
+	for _, j := range pis {
+		v, _ := pk.GetServiceAccountInterface(j)
 		js := v.GetStatus()
 		jss = append(jss, *js)
 	}
@@ -130,7 +135,7 @@ func (this *ServiceAccountController) ListGroupServiceAccounts() {
 
 // CreateServiceAccount
 // @Title ServiceAccount
-// @Description  创建容器组
+// @Description  创建服务帐号
 // @Param Token header string true 'Token'
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
@@ -177,7 +182,7 @@ func (this *ServiceAccountController) CreateServiceAccount() {
 	var opt resource.CreateOption
 	opt.Comment = co.Comment
 	opt.User = who
-	err = pk.Controller.Create(group, workspace, []byte(co.Data), opt)
+	err = pk.Controller.CreateObject(group, workspace, []byte(co.Data), opt)
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
@@ -188,7 +193,7 @@ func (this *ServiceAccountController) CreateServiceAccount() {
 	this.normalReturn("ok")
 }
 
-type ServiceAccountCreateOption struct {
+type ServiceAccountCustomOption struct {
 	Comment string   `json:"comment"`
 	Name    string   `json:"name"`
 	Secrets []string `json:"secrets"`
@@ -196,7 +201,7 @@ type ServiceAccountCreateOption struct {
 
 // CreateServiceAccountCustom
 // @Title ServiceAccount
-// @Description  创建容器组
+// @Description  创建服务帐号
 // @Param Token header string true 'Token'
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
@@ -222,7 +227,7 @@ func (this *ServiceAccountController) CreateServiceAccountCustom() {
 		return
 	}
 
-	var co ServiceAccountCreateOption
+	var co ServiceAccountCustomOption
 	err := json.Unmarshal(this.Ctx.Input.RequestBody, &co)
 	if err != nil {
 		this.audit(token, "", true)
@@ -259,7 +264,7 @@ func (this *ServiceAccountController) CreateServiceAccountCustom() {
 	var opt resource.CreateOption
 	opt.Comment = co.Comment
 	opt.User = who
-	err = pk.Controller.Create(group, workspace, bytedata, opt)
+	err = pk.Controller.CreateObject(group, workspace, bytedata, opt)
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
@@ -272,11 +277,11 @@ func (this *ServiceAccountController) CreateServiceAccountCustom() {
 
 // UpdateServiceAccount
 // @Title ServiceAccount
-// @Description  更新容器组
+// @Description  更新服务帐号
 // @Param Token header string true 'Token'
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
-// @Param serviceaccount path string true "容器组"
+// @Param serviceaccount path string true "服务帐号"
 // @Param body body string true "资源描述"
 // @Success 201 {string} create success!
 // @Failure 500
@@ -302,12 +307,75 @@ func (this *ServiceAccountController) UpdateServiceAccount() {
 		return
 	}
 
-	/*
-		ui := user.NewUserClient(token)
-		ui.GetUserName()
-	*/
+	err := pk.Controller.UpdateObject(group, workspace, serviceaccount, this.Ctx.Input.RequestBody, resource.UpdateOption{})
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
 
-	err := pk.Controller.Update(group, workspace, serviceaccount, this.Ctx.Input.RequestBody)
+	this.audit(token, "", false)
+	this.normalReturn("ok")
+}
+
+// UpdateServiceAccountCustom
+// @Title ServiceAccount
+// @Description  创建服务帐号
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Param workspace path string true "工作区"
+// @Param body body string true "资源描述"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /:serviceaccount/group/:group/workspace/:workspace/custom [Put]
+func (this *ServiceAccountController) UpdateServiceAccountCustom() {
+	token := this.Ctx.Request.Header.Get("token")
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.audit(token, "", true)
+		this.abilityErrorReturn(aerr)
+		return
+	}
+
+	group := this.Ctx.Input.Param(":group")
+	workspace := this.Ctx.Input.Param(":workspace")
+	sa := this.Ctx.Input.Param(":serviceaccount")
+
+	if this.Ctx.Input.RequestBody == nil {
+		err := fmt.Errorf("must commit resource json/yaml data")
+		this.errReturn(err, 500)
+		return
+	}
+
+	var co ServiceAccountCustomOption
+	err := json.Unmarshal(this.Ctx.Input.RequestBody, &co)
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+
+	cm := corev1.ServiceAccount{}
+	cm.Kind = "ServiceAccount"
+	cm.APIVersion = "v1"
+	cm.Name = sa
+	cm.Secrets = make([]corev1.ObjectReference, 0)
+	for _, v := range co.Secrets {
+		var or corev1.ObjectReference
+		or.Name = v
+		cm.Secrets = append(cm.Secrets, or)
+	}
+
+	bytedata, err := json.Marshal(cm)
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+
+	var opt resource.UpdateOption
+	opt.Comment = co.Comment
+	err = pk.Controller.UpdateObject(group, workspace, sa, bytedata, opt)
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
@@ -324,7 +392,7 @@ func (this *ServiceAccountController) UpdateServiceAccount() {
 // @Param Token header string true 'Token'
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
-// @Param serviceaccount path string true "容器组"
+// @Param serviceaccount path string true "服务帐号"
 // @Success 201 {string} create success!
 // @Failure 500
 // @router /:serviceaccount/group/:group/workspace/:workspace [Delete]
@@ -341,7 +409,7 @@ func (this *ServiceAccountController) DeleteServiceAccount() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	serviceaccount := this.Ctx.Input.Param(":serviceaccount")
 
-	err := pk.Controller.Delete(group, workspace, serviceaccount, resource.DeleteOption{})
+	err := pk.Controller.DeleteObject(group, workspace, serviceaccount, resource.DeleteOption{})
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
@@ -358,7 +426,7 @@ func (this *ServiceAccountController) DeleteServiceAccount() {
 // @Param Token header string true 'Token'
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
-// @Param serviceaccount path string true "容器组"
+// @Param serviceaccount path string true "服务帐号"
 // @Success 201 {string} create success!
 // @Failure 500
 // @router /:serviceaccount/group/:group/workspace/:workspace/template [Get]
@@ -373,12 +441,12 @@ func (this *ServiceAccountController) GetServiceAccountTemplate() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	serviceaccount := this.Ctx.Input.Param(":serviceaccount")
 
-	pi, err := pk.Controller.Get(group, workspace, serviceaccount)
+	v, err := pk.Controller.GetObject(group, workspace, serviceaccount)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
 	}
-
+	pi, _ := pk.GetServiceAccountInterface(v)
 	t, err := pi.GetTemplate()
 	if err != nil {
 		this.errReturn(err, 500)
@@ -394,7 +462,7 @@ func (this *ServiceAccountController) GetServiceAccountTemplate() {
 // @Param Token header string true 'Token'
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
-// @Param serviceaccount path string true "容器组"
+// @Param serviceaccount path string true "服务帐号"
 // @Success 201 {string} create success!
 // @Failure 500
 // @router /:serviceaccount/group/:group/workspace/:workspace/event [Get]
@@ -409,11 +477,12 @@ func (this *ServiceAccountController) GetServiceAccountEvent() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	endpoint := this.Ctx.Input.Param(":endpoint")
 
-	pi, err := pk.Controller.Get(group, workspace, endpoint)
+	v, err := pk.Controller.GetObject(group, workspace, endpoint)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
 	}
+	pi, _ := pk.GetServiceAccountInterface(v)
 	es, err := pi.Event()
 	if err != nil {
 		this.errReturn(err, 500)

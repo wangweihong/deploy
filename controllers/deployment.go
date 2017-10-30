@@ -4,9 +4,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"ufleet-deploy/pkg/log"
 	"ufleet-deploy/pkg/resource"
 	pk "ufleet-deploy/pkg/resource/deployment"
 	"ufleet-deploy/pkg/user"
+
+	corev1 "k8s.io/client-go/pkg/api/v1"
 )
 
 type DeploymentController struct {
@@ -32,14 +35,15 @@ func (this *DeploymentController) ListGroupWorkspaceDeployments() {
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
 
-	pis, err := pk.Controller.List(group, workspace)
+	pis, err := pk.Controller.ListObject(group, workspace)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
 	}
 
 	jss := make([]pk.Status, 0)
-	for _, v := range pis {
+	for _, j := range pis {
+		v, _ := pk.GetDeploymentInterface(j)
 		js := v.GetStatus()
 		jss = append(jss, *js)
 	}
@@ -70,7 +74,9 @@ func (this *DeploymentController) ListGroupDeployments() {
 		return
 	}
 	jss := make([]pk.Status, 0)
-	for _, v := range pis {
+	for _, j := range pis {
+		v, _ := pk.GetDeploymentInterface(j)
+
 		js := v.GetStatus()
 		jss = append(jss, *js)
 	}
@@ -100,12 +106,12 @@ func (this *DeploymentController) GetDeployment() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	deployment := this.Ctx.Input.Param(":deployment")
 
-	pi, err := pk.Controller.Get(group, workspace, deployment)
+	pi, err := pk.Controller.GetObject(group, workspace, deployment)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
 	}
-	v := pi
+	v, _ := pk.GetDeploymentInterface(pi)
 	js := v.GetStatus()
 
 	this.normalReturn(js)
@@ -152,7 +158,7 @@ func (this *DeploymentController) CreateDeployment() {
 	var opt resource.CreateOption
 	opt.User = who
 
-	err = pk.Controller.Create(group, workspace, this.Ctx.Input.RequestBody, opt)
+	err = pk.Controller.CreateObject(group, workspace, this.Ctx.Input.RequestBody, opt)
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
@@ -193,12 +199,7 @@ func (this *DeploymentController) UpdateDeployment() {
 		return
 	}
 
-	/*
-		ui := user.NewUserClient(token)
-		ui.GetUserName()
-	*/
-
-	err := pk.Controller.Update(group, workspace, deployment, this.Ctx.Input.RequestBody)
+	err := pk.Controller.UpdateObject(group, workspace, deployment, this.Ctx.Input.RequestBody, resource.UpdateOption{})
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
@@ -231,7 +232,7 @@ func (this *DeploymentController) DeleteDeployment() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	deployment := this.Ctx.Input.Param(":deployment")
 
-	err := pk.Controller.Delete(group, workspace, deployment, resource.DeleteOption{})
+	err := pk.Controller.DeleteObject(group, workspace, deployment, resource.DeleteOption{})
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
@@ -263,11 +264,12 @@ func (this *DeploymentController) GetDeploymentEvent() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	deployment := this.Ctx.Input.Param(":deployment")
 
-	pi, err := pk.Controller.Get(group, workspace, deployment)
+	v, err := pk.Controller.GetObject(group, workspace, deployment)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
 	}
+	pi, _ := pk.GetDeploymentInterface(v)
 	es, err := pi.Event()
 	if err != nil {
 		this.errReturn(err, 500)
@@ -302,19 +304,20 @@ func (this *DeploymentController) ScaleDeployment() {
 	deployment := this.Ctx.Input.Param(":deployment")
 	replicasStr := this.Ctx.Input.Param(":replicas")
 
-	ri, err := pk.Controller.Get(group, workspace, deployment)
-	if err != nil {
-		this.audit(token, "", true)
-		this.errReturn(err, 500)
-		return
-	}
-
 	replicas, err := strconv.ParseInt(replicasStr, 10, 32)
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
+
+	v, err := pk.Controller.GetObject(group, workspace, deployment)
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+	ri, _ := pk.GetDeploymentInterface(v)
 
 	err = ri.Scale(int(replicas))
 	if err != nil {
@@ -353,13 +356,6 @@ func (this *DeploymentController) ScaleDeploymentIncrement() {
 	deployment := this.Ctx.Input.Param(":deployment")
 	incrementStr := this.Ctx.Input.Param(":increment")
 
-	ri, err := pk.Controller.Get(group, workspace, deployment)
-	if err != nil {
-		this.audit(token, "", true)
-		this.errReturn(err, 500)
-		return
-	}
-
 	increment, err := strconv.ParseInt(incrementStr, 10, 32)
 	if err != nil {
 		this.audit(token, "", true)
@@ -367,6 +363,14 @@ func (this *DeploymentController) ScaleDeploymentIncrement() {
 		return
 	}
 
+	v, err := pk.Controller.GetObject(group, workspace, deployment)
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+
+	ri, _ := pk.GetDeploymentInterface(v)
 	js := ri.GetStatus()
 	if js.Reason != "" {
 		err := fmt.Errorf(js.Reason)
@@ -409,11 +413,13 @@ func (this *DeploymentController) GetDeploymentTemplate() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	deployment := this.Ctx.Input.Param(":deployment")
 
-	pi, err := pk.Controller.Get(group, workspace, deployment)
+	v, err := pk.Controller.GetObject(group, workspace, deployment)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
 	}
+
+	pi, _ := pk.GetDeploymentInterface(v)
 
 	t, err := pi.GetTemplate()
 	if err != nil {
@@ -454,11 +460,13 @@ func (this *DeploymentController) GetDeploymentReplicaSet() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	deployment := this.Ctx.Input.Param(":deployment")
 
-	pi, err := pk.Controller.Get(group, workspace, deployment)
+	v, err := pk.Controller.GetObject(group, workspace, deployment)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
 	}
+
+	pi, _ := pk.GetDeploymentInterface(v)
 
 	rm, err := pi.GetAllReplicaSets()
 	if err != nil {
@@ -508,11 +516,13 @@ func (this *DeploymentController) GetDeploymentRevisions() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	deployment := this.Ctx.Input.Param(":deployment")
 
-	pi, err := pk.Controller.Get(group, workspace, deployment)
+	v, err := pk.Controller.GetObject(group, workspace, deployment)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
 	}
+
+	pi, _ := pk.GetDeploymentInterface(v)
 
 	rm, err := pi.GetRevisionsAndDescribe()
 	if err != nil {
@@ -570,12 +580,13 @@ func (this *DeploymentController) RollBackDeployment() {
 		return
 	}
 
-	pi, err := pk.Controller.Get(group, workspace, deployment)
+	v, err := pk.Controller.GetObject(group, workspace, deployment)
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
+	pi, _ := pk.GetDeploymentInterface(v)
 
 	result, err := pi.Rollback(toRevision)
 	if err != nil {
@@ -610,11 +621,12 @@ func (this *DeploymentController) GetHPA() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	deployment := this.Ctx.Input.Param(":deployment")
 
-	pi, err := pk.Controller.Get(group, workspace, deployment)
+	v, err := pk.Controller.GetObject(group, workspace, deployment)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
 	}
+	pi, _ := pk.GetDeploymentInterface(v)
 
 	result, err := pi.GetAutoScale()
 	if err != nil {
@@ -675,12 +687,13 @@ func (this *DeploymentController) StartHPA() {
 		return
 	}
 
-	pi, err := pk.Controller.Get(group, workspace, deployment)
+	v, err := pk.Controller.GetObject(group, workspace, deployment)
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
+	pi, _ := pk.GetDeploymentInterface(v)
 
 	err = pi.StartAutoScale(hpaopt.MinReplicas, hpaopt.MaxReplicas, hpaopt.CpuPercent, hpaopt.MemPercent, hpaopt.DiskPercent, hpaopt.NetPercent)
 	if err != nil {
@@ -700,7 +713,6 @@ func (this *DeploymentController) StartHPA() {
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
 // @Param deployment path string true "部署"
-// @Param revision path string true "版本"
 // @Success 201 {string} create success!
 // @Failure 500
 // @router /:deployment/group/:group/workspace/:workspace/resumeorpause [Put]
@@ -717,12 +729,13 @@ func (this *DeploymentController) RollBackResumeOrPauseDeployment() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	deployment := this.Ctx.Input.Param(":deployment")
 
-	pi, err := pk.Controller.Get(group, workspace, deployment)
+	v, err := pk.Controller.GetObject(group, workspace, deployment)
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
+	pi, _ := pk.GetDeploymentInterface(v)
 
 	err = pi.ResumeOrPauseRollOut()
 	if err != nil {
@@ -733,4 +746,334 @@ func (this *DeploymentController) RollBackResumeOrPauseDeployment() {
 
 	this.audit(token, "", false)
 	this.normalReturn("ok")
+}
+
+// GetDeploymentContainerEnv
+// @Title Deployment
+// @Description   Deployment Containers
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Param workspace path string true "工作区"
+// @Param deployment path string true "部署"
+// @Param container path string true "容器"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /:deployment/group/:group/workspace/:workspace/container/:container/env [Get]
+func (this *DeploymentController) GetDeploymentContainerSpecEnv() {
+	err := this.checkRouteControllerAbility()
+	if err != nil {
+		this.abilityErrorReturn(err)
+		return
+	}
+
+	group := this.Ctx.Input.Param(":group")
+	workspace := this.Ctx.Input.Param(":workspace")
+	deployment := this.Ctx.Input.Param(":deployment")
+	container := this.Ctx.Input.Param(":container")
+
+	v, err := pk.Controller.GetObject(group, workspace, deployment)
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+	pi, _ := pk.GetDeploymentInterface(v)
+
+	stat := pi.GetStatus()
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+
+	for _, v := range stat.ContainerSpecs {
+		if v.Name == container {
+			this.normalReturn(v.Env)
+			return
+		}
+	}
+
+	err = fmt.Errorf("container not found")
+
+	this.errReturn(err, 500)
+}
+
+// DeploymentContainerEnv
+// @Title Deployment
+// @Description   新增Deployment Container env
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Param workspace path string true "工作区"
+// @Param deployment path string true "部署"
+// @Param container path string true "容器"
+// @Param body body string true "更新内容"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /:deployment/group/:group/workspace/:workspace/container/:container/env [Post]
+func (this *DeploymentController) AddDeploymentContainerSpecEnv() {
+	token := this.Ctx.Request.Header.Get("token")
+	err := this.checkRouteControllerAbility()
+	if err != nil {
+		this.abilityErrorReturn(err)
+		this.audit(token, "", true)
+		return
+	}
+
+	if this.Ctx.Input.RequestBody == nil {
+		err := fmt.Errorf("must commit groups name")
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+
+	envVars := make([]corev1.EnvVar, 0)
+	err = json.Unmarshal(this.Ctx.Input.RequestBody, &envVars)
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+
+	group := this.Ctx.Input.Param(":group")
+	workspace := this.Ctx.Input.Param(":workspace")
+	deployment := this.Ctx.Input.Param(":deployment")
+	container := this.Ctx.Input.Param(":container")
+
+	v, err := pk.Controller.GetObject(group, workspace, deployment)
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+	pi, _ := pk.GetDeploymentInterface(v)
+
+	runtime, err := pi.GetRuntime()
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+
+	old := runtime.Deployment
+	var containerFound bool
+	var containerIndex int
+	podSpec := old.Spec.Template.Spec
+
+	for k, v := range podSpec.Containers {
+		if v.Name == container {
+			containerFound = true
+			containerIndex = k
+			break
+		}
+	}
+
+	if !containerFound {
+		err = fmt.Errorf("container not found")
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+	}
+
+	podSpec.Containers[containerIndex].Env = append(podSpec.Containers[containerIndex].Env, envVars...)
+
+	byteContent, err := json.Marshal(old)
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+
+	}
+
+	err = pk.Controller.UpdateObject(group, workspace, deployment, byteContent, resource.UpdateOption{})
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+	this.audit(token, "", false)
+	this.normalReturn("ok")
+
+}
+
+// DeleteDeploymentContainerEnv
+// @Title Deployment
+// @Description   Deployment Containers
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Param workspace path string true "工作区"
+// @Param deployment path string true "部署"
+// @Param container path string true "容器"
+// @Param env path string true "环境变量"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /:deployment/group/:group/workspace/:workspace/container/:container/env/:env [Delete]
+func (this *DeploymentController) DeleteDeploymentContainerSpecEnv() {
+	token := this.Ctx.Request.Header.Get("token")
+	err := this.checkRouteControllerAbility()
+	if err != nil {
+		this.abilityErrorReturn(err)
+		this.audit(token, "", true)
+		return
+	}
+
+	group := this.Ctx.Input.Param(":group")
+	workspace := this.Ctx.Input.Param(":workspace")
+	deployment := this.Ctx.Input.Param(":deployment")
+	container := this.Ctx.Input.Param(":container")
+	env := this.Ctx.Input.Param(":env")
+	log.DebugPrint(env)
+
+	v, err := pk.Controller.GetObject(group, workspace, deployment)
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+	pi, _ := pk.GetDeploymentInterface(v)
+
+	runtime, err := pi.GetRuntime()
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+
+	old := runtime.Deployment
+	var containerFound bool
+	var envFound bool
+	podSpec := old.Spec.Template.Spec
+
+	for k, v := range podSpec.Containers {
+		if v.Name == container {
+			containerFound = true
+			for i, j := range v.Env {
+				log.DebugPrint(j.Name)
+				if j.Name == env {
+					podSpec.Containers[k].Env = append(podSpec.Containers[k].Env[:i], podSpec.Containers[k].Env[i+1:]...)
+					envFound = true
+					log.DebugPrint("found env", v.Name)
+					break
+				}
+			}
+			break
+		}
+	}
+
+	if !containerFound {
+		err = fmt.Errorf("container not found")
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+	}
+	if !envFound {
+		err = fmt.Errorf("env not found")
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+
+	}
+
+	byteContent, err := json.Marshal(old)
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+
+	}
+
+	err = pk.Controller.UpdateObject(group, workspace, deployment, byteContent, resource.UpdateOption{})
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+	this.audit(token, "", false)
+	this.normalReturn("ok")
+
+}
+
+// DeploymentContainerEnv
+// @Title Deployment
+// @Description   更新Deployment Container env
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Param workspace path string true "工作区"
+// @Param deployment path string true "部署"
+// @Param container path string true "容器"
+// @Param body body string true "更新内容"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /:deployment/group/:group/workspace/:workspace/container/:container/env [Put]
+func (this *DeploymentController) UpdateDeploymentContainerSpecEnv() {
+	token := this.Ctx.Request.Header.Get("token")
+	err := this.checkRouteControllerAbility()
+	if err != nil {
+		this.abilityErrorReturn(err)
+		this.audit(token, "", true)
+		return
+	}
+
+	if this.Ctx.Input.RequestBody == nil {
+		err := fmt.Errorf("must commit groups name")
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+
+	envVar := make([]corev1.EnvVar, 0)
+	err = json.Unmarshal(this.Ctx.Input.RequestBody, &envVar)
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+
+	group := this.Ctx.Input.Param(":group")
+	workspace := this.Ctx.Input.Param(":workspace")
+	deployment := this.Ctx.Input.Param(":deployment")
+	container := this.Ctx.Input.Param(":container")
+
+	v, err := pk.Controller.GetObject(group, workspace, deployment)
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+	pi, _ := pk.GetDeploymentInterface(v)
+
+	runtime, err := pi.GetRuntime()
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+
+	old := runtime.Deployment
+	var containerFound bool
+	podSpec := old.Spec.Template.Spec
+
+	for k, v := range podSpec.Containers {
+		if v.Name == container {
+			containerFound = true
+			podSpec.Containers[k].Env = envVar
+
+			break
+		}
+	}
+
+	if !containerFound {
+		err = fmt.Errorf("container not found")
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+	}
+
+	byteContent, err := json.Marshal(old)
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+
+	}
+
+	err = pk.Controller.UpdateObject(group, workspace, deployment, byteContent, resource.UpdateOption{})
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+	this.audit(token, "", false)
+	this.normalReturn("ok")
+
 }

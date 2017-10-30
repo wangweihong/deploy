@@ -14,6 +14,175 @@
     },
     "basePath": "/v1/deploy",
     "paths": {
+        "/app/group/{group}": {
+            "get": {
+                "tags": [
+                    "app"
+                ],
+                "description": "添加指定应用",
+                "operationId": "AppController.应用",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Token",
+                        "description": "'Token'",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "group",
+                        "description": "组名",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "{string} create success!"
+                    },
+                    "500": {}
+                }
+            }
+        },
+        "/app/{app}/group/{group}/workspace/{workspace}": {
+            "get": {
+                "tags": [
+                    "app"
+                ],
+                "description": "获取指定应用",
+                "operationId": "AppController.应用",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Token",
+                        "description": "'Token'",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "group",
+                        "description": "组名",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "workspace",
+                        "description": "工作区",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "app",
+                        "description": "栈名",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "{string} create success!"
+                    },
+                    "500": {}
+                }
+            },
+            "post": {
+                "tags": [
+                    "app"
+                ],
+                "description": "添加新的应用",
+                "operationId": "AppController.应用",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Token",
+                        "description": "'Token'",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "group",
+                        "description": "组名",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "workspace",
+                        "description": "工作区",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "app",
+                        "description": "栈名",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "body",
+                        "name": "body",
+                        "description": "资源描述",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "{string} create success!"
+                    },
+                    "500": {}
+                }
+            },
+            "delete": {
+                "tags": [
+                    "app"
+                ],
+                "description": "删除应用",
+                "operationId": "AppController.应用",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Token",
+                        "description": "'Token'",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "group",
+                        "description": "组名",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "workspace",
+                        "description": "工作区",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "app",
+                        "description": "栈名",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "{string} create success!"
+                    },
+                    "500": {}
+                }
+            }
+        },
         "/configmap/group/{group}": {
             "get": {
                 "tags": [
@@ -297,6 +466,58 @@
                 }
             }
         },
+        "/configmap/{configmap}/group/{group}/workspace/{workspace}/custom": {
+            "put": {
+                "tags": [
+                    "configmap"
+                ],
+                "description": "创建配置",
+                "operationId": "ConfigMapController.ConfigMap",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Token",
+                        "description": "'Token'",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "group",
+                        "description": "组名",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "workspace",
+                        "description": "工作区",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "configmap",
+                        "description": "配置名",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "body",
+                        "name": "body",
+                        "description": "资源描述",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "{string} create success!"
+                    },
+                    "500": {}
+                }
+            }
+        },
         "/configmap/{configmap}/group/{group}/workspace/{workspace}/event": {
             "get": {
                 "tags": [
@@ -329,7 +550,7 @@
                     {
                         "in": "path",
                         "name": "configmap",
-                        "description": "容器组",
+                        "description": "配置",
                         "required": true,
                         "type": "string"
                     }
@@ -1067,6 +1288,231 @@
                 }
             }
         },
+        "/daemonset/{daemonset}/group/{group}/workspace/{workspace}/container/{container}/env": {
+            "get": {
+                "tags": [
+                    "daemonset"
+                ],
+                "description": "DaemonSet Containers",
+                "operationId": "DaemonSetController.DaemonSet",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Token",
+                        "description": "'Token'",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "group",
+                        "description": "组名",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "workspace",
+                        "description": "工作区",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "pod",
+                        "description": "容器组",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "container",
+                        "description": "容器",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "{string} create success!"
+                    },
+                    "500": {}
+                }
+            },
+            "put": {
+                "tags": [
+                    "daemonset"
+                ],
+                "description": "更新DaemonSet Container env",
+                "operationId": "DaemonSetController.DaemonSet",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Token",
+                        "description": "'Token'",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "group",
+                        "description": "组名",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "workspace",
+                        "description": "工作区",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "daemonset",
+                        "description": "守护进程",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "container",
+                        "description": "容器",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "body",
+                        "name": "body",
+                        "description": "更新内容",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "{string} create success!"
+                    },
+                    "500": {}
+                }
+            },
+            "post": {
+                "tags": [
+                    "daemonset"
+                ],
+                "description": "新增DaemonSet Container env",
+                "operationId": "DaemonSetController.DaemonSet",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Token",
+                        "description": "'Token'",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "group",
+                        "description": "组名",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "workspace",
+                        "description": "工作区",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "daemonset",
+                        "description": "守护进程",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "container",
+                        "description": "容器",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "body",
+                        "name": "body",
+                        "description": "更新内容",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "{string} create success!"
+                    },
+                    "500": {}
+                }
+            }
+        },
+        "/daemonset/{daemonset}/group/{group}/workspace/{workspace}/container/{container}/env/{env}": {
+            "delete": {
+                "tags": [
+                    "daemonset"
+                ],
+                "description": "DaemonSet Containers",
+                "operationId": "DaemonSetController.DaemonSet",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Token",
+                        "description": "'Token'",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "group",
+                        "description": "组名",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "workspace",
+                        "description": "工作区",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "daemonset",
+                        "description": "守护进程",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "container",
+                        "description": "容器",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "env",
+                        "description": "环境变量",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "{string} create success!"
+                    },
+                    "500": {}
+                }
+            }
+        },
         "/daemonset/{daemonset}/group/{group}/workspace/{workspace}/event": {
             "get": {
                 "tags": [
@@ -1504,6 +1950,231 @@
                 }
             }
         },
+        "/deployment/{deployment}/group/{group}/workspace/{workspace}/container/{container}/env": {
+            "get": {
+                "tags": [
+                    "deployment"
+                ],
+                "description": "Deployment Containers",
+                "operationId": "DeploymentController.Deployment",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Token",
+                        "description": "'Token'",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "group",
+                        "description": "组名",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "workspace",
+                        "description": "工作区",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "deployment",
+                        "description": "部署",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "container",
+                        "description": "容器",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "{string} create success!"
+                    },
+                    "500": {}
+                }
+            },
+            "put": {
+                "tags": [
+                    "deployment"
+                ],
+                "description": "更新Deployment Container env",
+                "operationId": "DeploymentController.Deployment",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Token",
+                        "description": "'Token'",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "group",
+                        "description": "组名",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "workspace",
+                        "description": "工作区",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "deployment",
+                        "description": "部署",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "container",
+                        "description": "容器",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "body",
+                        "name": "body",
+                        "description": "更新内容",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "{string} create success!"
+                    },
+                    "500": {}
+                }
+            },
+            "post": {
+                "tags": [
+                    "deployment"
+                ],
+                "description": "新增Deployment Container env",
+                "operationId": "DeploymentController.Deployment",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Token",
+                        "description": "'Token'",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "group",
+                        "description": "组名",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "workspace",
+                        "description": "工作区",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "deployment",
+                        "description": "部署",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "container",
+                        "description": "容器",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "body",
+                        "name": "body",
+                        "description": "更新内容",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "{string} create success!"
+                    },
+                    "500": {}
+                }
+            }
+        },
+        "/deployment/{deployment}/group/{group}/workspace/{workspace}/container/{container}/env/{env}": {
+            "delete": {
+                "tags": [
+                    "deployment"
+                ],
+                "description": "Deployment Containers",
+                "operationId": "DeploymentController.Deployment",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Token",
+                        "description": "'Token'",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "group",
+                        "description": "组名",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "workspace",
+                        "description": "工作区",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "deployment",
+                        "description": "部署",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "container",
+                        "description": "容器",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "env",
+                        "description": "环境变量",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "{string} create success!"
+                    },
+                    "500": {}
+                }
+            }
+        },
         "/deployment/{deployment}/group/{group}/workspace/{workspace}/event": {
             "get": {
                 "tags": [
@@ -1826,13 +2497,6 @@
                         "in": "path",
                         "name": "deployment",
                         "description": "部署",
-                        "required": true,
-                        "type": "string"
-                    },
-                    {
-                        "in": "path",
-                        "name": "revision",
-                        "description": "版本",
                         "required": true,
                         "type": "string"
                     }
@@ -3336,6 +4000,58 @@
                 }
             }
         },
+        "/pod/{pod}/group/{group}/workspace/{workspace}/container/{container}/env": {
+            "get": {
+                "tags": [
+                    "pod"
+                ],
+                "description": "Pod Containers",
+                "operationId": "PodController.Pod",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Token",
+                        "description": "'Token'",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "group",
+                        "description": "组名",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "workspace",
+                        "description": "工作区",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "pod",
+                        "description": "容器组",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "container",
+                        "description": "容器",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "{string} create success!"
+                    },
+                    "500": {}
+                }
+            }
+        },
         "/pod/{pod}/group/{group}/workspace/{workspace}/container/{container}/log": {
             "get": {
                 "tags": [
@@ -3992,6 +4708,231 @@
                 }
             }
         },
+        "/replicaset/{replicaset}/group/{group}/workspace/{workspace}/container/{container}/env": {
+            "get": {
+                "tags": [
+                    "replicaset"
+                ],
+                "description": "Deployment Containers",
+                "operationId": "ReplicaSetController.Deployment",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Token",
+                        "description": "'Token'",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "group",
+                        "description": "组名",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "workspace",
+                        "description": "工作区",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "deployment",
+                        "description": "部署",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "container",
+                        "description": "容器",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "{string} create success!"
+                    },
+                    "500": {}
+                }
+            },
+            "put": {
+                "tags": [
+                    "replicaset"
+                ],
+                "description": "更新ReplicaSet Container env",
+                "operationId": "ReplicaSetController.ReplicaSet",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Token",
+                        "description": "'Token'",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "group",
+                        "description": "组名",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "workspace",
+                        "description": "工作区",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "replicaset",
+                        "description": "部署",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "container",
+                        "description": "容器",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "body",
+                        "name": "body",
+                        "description": "更新内容",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "{string} create success!"
+                    },
+                    "500": {}
+                }
+            },
+            "post": {
+                "tags": [
+                    "replicaset"
+                ],
+                "description": "新增ReplicaSet Container env",
+                "operationId": "ReplicaSetController.ReplicaSet",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Token",
+                        "description": "'Token'",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "group",
+                        "description": "组名",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "workspace",
+                        "description": "工作区",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "replicaset",
+                        "description": "部署",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "container",
+                        "description": "容器",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "body",
+                        "name": "body",
+                        "description": "更新内容",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "{string} create success!"
+                    },
+                    "500": {}
+                }
+            }
+        },
+        "/replicaset/{replicaset}/group/{group}/workspace/{workspace}/container/{container}/env/{env}": {
+            "delete": {
+                "tags": [
+                    "replicaset"
+                ],
+                "description": "ReplicaSet Containers",
+                "operationId": "ReplicaSetController.ReplicaSet",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Token",
+                        "description": "'Token'",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "group",
+                        "description": "组名",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "workspace",
+                        "description": "工作区",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "replicaset",
+                        "description": "部署",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "container",
+                        "description": "容器",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "env",
+                        "description": "环境变量",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "{string} create success!"
+                    },
+                    "500": {}
+                }
+            }
+        },
         "/replicaset/{replicaset}/group/{group}/workspace/{workspace}/event": {
             "get": {
                 "tags": [
@@ -4417,6 +5358,231 @@
                 }
             }
         },
+        "/replicationcontroller/{replicationcontroller}/group/{group}/workspace/{workspace}/container/{container}/env": {
+            "get": {
+                "tags": [
+                    "replicationcontroller"
+                ],
+                "description": "ReplicationController Containers",
+                "operationId": "ReplicationControllerController.ReplicationController",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Token",
+                        "description": "'Token'",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "group",
+                        "description": "组名",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "workspace",
+                        "description": "工作区",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "replicationcontroller",
+                        "description": "部署",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "container",
+                        "description": "容器",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "{string} create success!"
+                    },
+                    "500": {}
+                }
+            },
+            "put": {
+                "tags": [
+                    "replicationcontroller"
+                ],
+                "description": "更新ReplicationController Container env",
+                "operationId": "ReplicationControllerController.ReplicationController",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Token",
+                        "description": "'Token'",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "group",
+                        "description": "组名",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "workspace",
+                        "description": "工作区",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "replicationcontroller",
+                        "description": "部署",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "container",
+                        "description": "容器",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "body",
+                        "name": "body",
+                        "description": "更新内容",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "{string} create success!"
+                    },
+                    "500": {}
+                }
+            },
+            "post": {
+                "tags": [
+                    "replicationcontroller"
+                ],
+                "description": "新增ReplicationController Container env",
+                "operationId": "ReplicationControllerController.ReplicationController",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Token",
+                        "description": "'Token'",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "group",
+                        "description": "组名",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "workspace",
+                        "description": "工作区",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "replicationcontroller",
+                        "description": "部署",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "container",
+                        "description": "容器",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "body",
+                        "name": "body",
+                        "description": "更新内容",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "{string} create success!"
+                    },
+                    "500": {}
+                }
+            }
+        },
+        "/replicationcontroller/{replicationcontroller}/group/{group}/workspace/{workspace}/container/{container}/env/{env}": {
+            "delete": {
+                "tags": [
+                    "replicationcontroller"
+                ],
+                "description": "ReplicationController Containers",
+                "operationId": "ReplicationControllerController.ReplicationController",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Token",
+                        "description": "'Token'",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "group",
+                        "description": "组名",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "workspace",
+                        "description": "工作区",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "replicationcontroller",
+                        "description": "部署",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "container",
+                        "description": "容器",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "env",
+                        "description": "环境变量",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "{string} create success!"
+                    },
+                    "500": {}
+                }
+            }
+        },
         "/replicationcontroller/{replicationcontroller}/group/{group}/workspace/{workspace}/event": {
             "get": {
                 "tags": [
@@ -4631,7 +5797,7 @@
                 "tags": [
                     "secret"
                 ],
-                "description": "创建容器组",
+                "description": "创建私秘凭据",
                 "operationId": "SecretController.Secret",
                 "parameters": [
                     {
@@ -4676,7 +5842,7 @@
                 "tags": [
                     "secret"
                 ],
-                "description": "创建容器组",
+                "description": "创建私秘凭据",
                 "operationId": "SecretController.Secret",
                 "parameters": [
                     {
@@ -4829,7 +5995,7 @@
                     {
                         "in": "path",
                         "name": "secret",
-                        "description": "容器组",
+                        "description": "私秘凭据",
                         "required": true,
                         "type": "string"
                     }
@@ -4874,7 +6040,7 @@
                     {
                         "in": "path",
                         "name": "secret",
-                        "description": "容器组",
+                        "description": "私秘凭据",
                         "required": true,
                         "type": "string"
                     }
@@ -4919,7 +6085,7 @@
                     {
                         "in": "path",
                         "name": "secret",
-                        "description": "容器组",
+                        "description": "私秘凭据",
                         "required": true,
                         "type": "string"
                     }
@@ -5375,7 +6541,7 @@
                 "tags": [
                     "serviceaccount"
                 ],
-                "description": "创建容器组",
+                "description": "创建服务帐号",
                 "operationId": "ServiceAccountController.ServiceAccount",
                 "parameters": [
                     {
@@ -5420,7 +6586,7 @@
                 "tags": [
                     "serviceaccount"
                 ],
-                "description": "创建容器组",
+                "description": "创建服务帐号",
                 "operationId": "ServiceAccountController.ServiceAccount",
                 "parameters": [
                     {
@@ -5496,7 +6662,7 @@
                 "tags": [
                     "serviceaccount"
                 ],
-                "description": "更新容器组",
+                "description": "更新服务帐号",
                 "operationId": "ServiceAccountController.ServiceAccount",
                 "parameters": [
                     {
@@ -5523,7 +6689,7 @@
                     {
                         "in": "path",
                         "name": "serviceaccount",
-                        "description": "容器组",
+                        "description": "服务帐号",
                         "required": true,
                         "type": "string"
                     },
@@ -5573,7 +6739,52 @@
                     {
                         "in": "path",
                         "name": "serviceaccount",
-                        "description": "容器组",
+                        "description": "服务帐号",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "{string} create success!"
+                    },
+                    "500": {}
+                }
+            }
+        },
+        "/serviceaccount/{serviceaccount}/group/{group}/workspace/{workspace}/custom": {
+            "put": {
+                "tags": [
+                    "serviceaccount"
+                ],
+                "description": "创建服务帐号",
+                "operationId": "ServiceAccountController.ServiceAccount",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Token",
+                        "description": "'Token'",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "group",
+                        "description": "组名",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "workspace",
+                        "description": "工作区",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "body",
+                        "name": "body",
+                        "description": "资源描述",
                         "required": true,
                         "type": "string"
                     }
@@ -5618,7 +6829,7 @@
                     {
                         "in": "path",
                         "name": "serviceaccount",
-                        "description": "容器组",
+                        "description": "服务帐号",
                         "required": true,
                         "type": "string"
                     }
@@ -5663,176 +6874,7 @@
                     {
                         "in": "path",
                         "name": "serviceaccount",
-                        "description": "容器组",
-                        "required": true,
-                        "type": "string"
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "{string} create success!"
-                    },
-                    "500": {}
-                }
-            }
-        },
-        "/stack/group/{group}": {
-            "get": {
-                "tags": [
-                    "stack"
-                ],
-                "description": "添加指定应用",
-                "operationId": "AppController.应用",
-                "parameters": [
-                    {
-                        "in": "header",
-                        "name": "Token",
-                        "description": "'Token'",
-                        "required": true,
-                        "type": "string"
-                    },
-                    {
-                        "in": "path",
-                        "name": "group",
-                        "description": "组名",
-                        "required": true,
-                        "type": "string"
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "{string} create success!"
-                    },
-                    "500": {}
-                }
-            }
-        },
-        "/stack/{app}/group/{group}/workspace/{workspace}": {
-            "get": {
-                "tags": [
-                    "stack"
-                ],
-                "description": "添加指定应用",
-                "operationId": "AppController.应用",
-                "parameters": [
-                    {
-                        "in": "header",
-                        "name": "Token",
-                        "description": "'Token'",
-                        "required": true,
-                        "type": "string"
-                    },
-                    {
-                        "in": "path",
-                        "name": "group",
-                        "description": "组名",
-                        "required": true,
-                        "type": "string"
-                    },
-                    {
-                        "in": "path",
-                        "name": "workspace",
-                        "description": "工作区",
-                        "required": true,
-                        "type": "string"
-                    },
-                    {
-                        "in": "path",
-                        "name": "app",
-                        "description": "栈名",
-                        "required": true,
-                        "type": "string"
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "{string} create success!"
-                    },
-                    "500": {}
-                }
-            },
-            "post": {
-                "tags": [
-                    "stack"
-                ],
-                "description": "添加新的应用",
-                "operationId": "AppController.应用",
-                "parameters": [
-                    {
-                        "in": "header",
-                        "name": "Token",
-                        "description": "'Token'",
-                        "required": true,
-                        "type": "string"
-                    },
-                    {
-                        "in": "path",
-                        "name": "group",
-                        "description": "组名",
-                        "required": true,
-                        "type": "string"
-                    },
-                    {
-                        "in": "path",
-                        "name": "workspace",
-                        "description": "工作区",
-                        "required": true,
-                        "type": "string"
-                    },
-                    {
-                        "in": "path",
-                        "name": "app",
-                        "description": "栈名",
-                        "required": true,
-                        "type": "string"
-                    },
-                    {
-                        "in": "body",
-                        "name": "body",
-                        "description": "资源描述",
-                        "required": true,
-                        "type": "string"
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "{string} create success!"
-                    },
-                    "500": {}
-                }
-            },
-            "delete": {
-                "tags": [
-                    "stack"
-                ],
-                "description": "删除应用",
-                "operationId": "AppController.应用",
-                "parameters": [
-                    {
-                        "in": "header",
-                        "name": "Token",
-                        "description": "'Token'",
-                        "required": true,
-                        "type": "string"
-                    },
-                    {
-                        "in": "path",
-                        "name": "group",
-                        "description": "组名",
-                        "required": true,
-                        "type": "string"
-                    },
-                    {
-                        "in": "path",
-                        "name": "workspace",
-                        "description": "工作区",
-                        "required": true,
-                        "type": "string"
-                    },
-                    {
-                        "in": "path",
-                        "name": "app",
-                        "description": "栈名",
+                        "description": "服务帐号",
                         "required": true,
                         "type": "string"
                     }

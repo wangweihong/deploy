@@ -3,6 +3,7 @@ package deployment
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 	"ufleet-deploy/pkg/backend"
@@ -21,17 +22,8 @@ import (
 
 var (
 	rm         *DeploymentManager
-	Controller DeploymentController
+	Controller resource.ObjectController
 )
-
-type DeploymentController interface {
-	Create(group, workspace string, data []byte, opt resource.CreateOption) error
-	Delete(group, workspace, deployment string, opt resource.DeleteOption) error
-	Get(group, workspace, deployment string) (DeploymentInterface, error)
-	Update(group, workspace, resource string, newdata []byte) error
-	List(group, workspace string) ([]DeploymentInterface, error)
-	ListGroup(groupName string) ([]DeploymentInterface, error)
-}
 
 type DeploymentInterface interface {
 	Info() *Deployment
@@ -72,7 +64,6 @@ type Runtime struct {
 //可以根据事件及时更新Deployment的信息
 type Deployment struct {
 	resource.ObjectMeta
-	memoryOnly bool
 	AutoScaler HPA `json:"autoscaler"`
 }
 
@@ -86,7 +77,155 @@ type HPA struct {
 	MaxReplicas   int  `json:"maxReplicas"`
 }
 
-//注意这里没锁
+func GetDeploymentInterface(obj resource.Object) (DeploymentInterface, error) {
+	if obj == nil {
+		return nil, fmt.Errorf("resource object is nil")
+	}
+
+	ri, ok := obj.(*Deployment)
+	if !ok {
+		return nil, fmt.Errorf("resource object is not deployment type")
+	}
+
+	return ri, nil
+}
+
+func (p *DeploymentManager) Lock() {
+	p.locker.Lock()
+}
+func (p *DeploymentManager) Unlock() {
+	p.locker.Unlock()
+}
+
+//仅仅用于基于内存的对象的创建
+func (p *DeploymentManager) NewObject(meta resource.ObjectMeta) error {
+
+	if strings.TrimSpace(meta.Group) == "" ||
+		strings.TrimSpace(meta.Workspace) == "" ||
+		strings.TrimSpace(meta.Name) == "" {
+		return fmt.Errorf("Invalid object data")
+	}
+
+	cp := Deployment{ObjectMeta: meta}
+	cp.MemoryOnly = true
+
+	err := p.fillObjectToManager(&cp, false)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (p *DeploymentManager) fillObjectToManager(meta resource.Object, force bool) error {
+
+	cm, ok := meta.(*Deployment)
+	if !ok {
+		return fmt.Errorf("object is not correct type")
+	}
+
+	group, ok := rm.Groups[cm.Group]
+	if !ok {
+		return resource.ErrGroupNotFound
+	}
+
+	workspace, ok := group.Workspaces[cm.Workspace]
+	if !ok {
+		return resource.ErrWorkspaceNotFound
+	}
+
+	if !force {
+		_, ok = workspace.Deployments[cm.Name]
+		if ok {
+			return resource.ErrResourceExists
+		}
+	}
+
+	workspace.Deployments[cm.Name] = *cm
+	group.Workspaces[cm.Workspace] = workspace
+	p.Groups[cm.Group] = group
+	return nil
+
+}
+
+func (p *DeploymentManager) DeleteGroup(groupName string) error {
+	_, ok := p.Groups[groupName]
+	if !ok {
+		return resource.ErrGroupNotFound
+	}
+
+	delete(p.Groups, groupName)
+	return nil
+}
+
+func (p *DeploymentManager) AddGroup(groupName string) error {
+	p.Lock()
+	defer p.Unlock()
+	_, ok := p.Groups[groupName]
+	if ok {
+		return resource.ErrGroupExists
+	}
+	var group DeploymentGroup
+	group.Workspaces = make(map[string]DeploymentWorkspace)
+	p.Groups[groupName] = group
+	return nil
+}
+
+func (p *DeploymentManager) AddObjectFromBytes(data []byte, force bool) error {
+	p.Lock()
+	defer p.Unlock()
+	var res Deployment
+	err := json.Unmarshal(data, &res)
+	if err != nil {
+		return err
+	}
+	err = p.fillObjectToManager(&res, force)
+	return err
+
+}
+
+func (p *DeploymentManager) AddWorkspace(groupName string, workspaceName string) error {
+	p.Lock()
+	defer p.Unlock()
+	g, ok := p.Groups[groupName]
+	if !ok {
+		return resource.ErrGroupNotFound
+	}
+
+	_, ok = g.Workspaces[workspaceName]
+	if ok {
+		return resource.ErrWorkspaceExists
+	}
+
+	var ws DeploymentWorkspace
+	ws.Deployments = make(map[string]Deployment)
+	g.Workspaces[workspaceName] = ws
+	p.Groups[groupName] = g
+	return nil
+
+}
+
+func (p *DeploymentManager) DeleteWorkspace(groupName string, workspaceName string) error {
+	p.locker.Lock()
+	defer p.locker.Unlock()
+	group, ok := p.Groups[groupName]
+	if !ok {
+		return resource.ErrGroupNotFound
+	}
+
+	_, ok = group.Workspaces[workspaceName]
+	if !ok {
+		return resource.ErrWorkspaceNotFound
+	}
+	delete(group.Workspaces, workspaceName)
+	p.Groups[groupName] = group
+	return nil
+}
+
+func (p *DeploymentManager) GetObjectWithoutLock(groupName, workspaceName, resourceName string) (resource.Object, error) {
+
+	return p.get(groupName, workspaceName, resourceName)
+	//注意这里没锁
+}
 func (p *DeploymentManager) get(groupName, workspaceName, resourceName string) (*Deployment, error) {
 
 	group, ok := p.Groups[groupName]
@@ -107,13 +246,13 @@ func (p *DeploymentManager) get(groupName, workspaceName, resourceName string) (
 	return &deployment, nil
 }
 
-func (p *DeploymentManager) Get(group, workspace, resourceName string) (DeploymentInterface, error) {
+func (p *DeploymentManager) GetObject(group, workspace, resourceName string) (resource.Object, error) {
 	p.locker.Lock()
 	defer p.locker.Unlock()
 	return p.get(group, workspace, resourceName)
 }
 
-func (p *DeploymentManager) List(groupName, workspaceName string) ([]DeploymentInterface, error) {
+func (p *DeploymentManager) ListObject(groupName, workspaceName string) ([]resource.Object, error) {
 
 	p.locker.Lock()
 	defer p.locker.Unlock()
@@ -128,7 +267,7 @@ func (p *DeploymentManager) List(groupName, workspaceName string) ([]DeploymentI
 		return nil, fmt.Errorf("%v:group/%v,workspace/%v", resource.ErrWorkspaceNotFound, groupName, workspaceName)
 	}
 
-	pis := make([]DeploymentInterface, 0)
+	pis := make([]resource.Object, 0)
 
 	//不能够直接使用k,v来赋值,会出现值都是同一个的问题
 	for k := range workspace.Deployments {
@@ -139,7 +278,7 @@ func (p *DeploymentManager) List(groupName, workspaceName string) ([]DeploymentI
 	return pis, nil
 }
 
-func (p *DeploymentManager) ListGroup(groupName string) ([]DeploymentInterface, error) {
+func (p *DeploymentManager) ListGroup(groupName string) ([]resource.Object, error) {
 	p.locker.Lock()
 	defer p.locker.Unlock()
 
@@ -148,7 +287,7 @@ func (p *DeploymentManager) ListGroup(groupName string) ([]DeploymentInterface, 
 		return nil, fmt.Errorf("%v:%v", resource.ErrGroupNotFound, groupName)
 	}
 
-	pis := make([]DeploymentInterface, 0)
+	pis := make([]resource.Object, 0)
 	for _, v := range group.Workspaces {
 		for k := range v.Deployments {
 			t := v.Deployments[k]
@@ -158,7 +297,7 @@ func (p *DeploymentManager) ListGroup(groupName string) ([]DeploymentInterface, 
 	return pis, nil
 }
 
-func (p *DeploymentManager) Create(groupName, workspaceName string, data []byte, opt resource.CreateOption) error {
+func (p *DeploymentManager) CreateObject(groupName, workspaceName string, data []byte, opt resource.CreateOption) error {
 
 	p.locker.Lock()
 	defer p.locker.Unlock()
@@ -177,6 +316,7 @@ func (p *DeploymentManager) Create(groupName, workspaceName string, data []byte,
 	}
 
 	var obj extensionsv1beta1.Deployment
+	obj.Annotations = make(map[string]string)
 	err = json.Unmarshal(exts[0].Raw, &obj)
 	if err != nil {
 		return log.DebugPrint(err)
@@ -186,7 +326,6 @@ func (p *DeploymentManager) Create(groupName, workspaceName string, data []byte,
 		return log.DebugPrint("must and  offer one resource json/yaml data")
 	}
 	obj.ResourceVersion = ""
-	obj.Annotations = make(map[string]string)
 	obj.Annotations[sign.SignFromUfleetKey] = sign.SignFromUfleetValue
 
 	var cp Deployment
@@ -195,6 +334,7 @@ func (p *DeploymentManager) Create(groupName, workspaceName string, data []byte,
 	cp.Workspace = workspaceName
 	cp.Group = groupName
 	cp.Template = string(data)
+	cp.App = resource.DefaultAppBelong
 	if opt.App != nil {
 		cp.App = *opt.App
 	}
@@ -235,9 +375,14 @@ func (p *DeploymentManager) delete(groupName, workspaceName, resourceName string
 	return nil
 }
 
-func (p *DeploymentManager) Delete(group, workspace, resourceName string, opt resource.DeleteOption) error {
+func (p *DeploymentManager) DeleteObject(group, workspace, resourceName string, opt resource.DeleteOption) error {
 	p.locker.Lock()
 	defer p.locker.Unlock()
+
+	if opt.MemoryOnly {
+		return p.delete(group, workspace, resourceName)
+	}
+
 	ph, err := cluster.NewDeploymentHandler(group, workspace)
 	if err != nil {
 		return log.DebugPrint(err)
@@ -248,14 +393,15 @@ func (p *DeploymentManager) Delete(group, workspace, resourceName string, opt re
 		return log.DebugPrint(err)
 	}
 
-	if res.memoryOnly {
+	if res.MemoryOnly {
 
 		//触发集群控制器来删除内存中的数据
 		err = ph.Delete(workspace, resourceName)
 		if err != nil {
-			return log.DebugPrint(err)
+			if !apierrors.IsNotFound(err) {
+				return log.DebugPrint(err)
+			}
 		}
-		//TODO:ufleet创建的数据
 		return nil
 	} else {
 		be := backend.NewBackendHandler()
@@ -269,7 +415,7 @@ func (p *DeploymentManager) Delete(group, workspace, resourceName string, opt re
 				return log.DebugPrint(err)
 			}
 		}
-		if !opt.DontCallApp && res.App != "" {
+		if !opt.DontCallApp && res.App != resource.DefaultAppBelong {
 			go func() {
 				var re resource.ResourceEvent
 				re.Group = group
@@ -309,11 +455,11 @@ func (p *DeploymentManager) update(groupName, workspaceName string, resourceName
 	rm.Groups[groupName] = group
 	return nil
 }
-func (p *DeploymentManager) Update(groupName, workspaceName string, resourceName string, data []byte) error {
+func (p *DeploymentManager) UpdateObject(groupName, workspaceName string, resourceName string, data []byte, opt resource.UpdateOption) error {
 	p.locker.Lock()
 	defer p.locker.Unlock()
 
-	_, err := p.get(groupName, workspaceName, resourceName)
+	res, err := p.get(groupName, workspaceName, resourceName)
 	if err != nil {
 		return err
 	}
@@ -335,8 +481,29 @@ func (p *DeploymentManager) Update(groupName, workspaceName string, resourceName
 	if err != nil {
 		return log.DebugPrint(err)
 	}
+
+	if res.MemoryOnly {
+		err = ph.Update(workspaceName, &newr)
+		if err != nil {
+			return log.DebugPrint(err)
+		}
+		return nil
+	}
+
+	old := *res
+	res.Comment = opt.Comment
+	be := backend.NewBackendHandler()
+	err = be.UpdateResource(backendKind, res.Group, res.Workspace, res.Name, res)
+	if err != nil {
+		return err
+	}
+
 	err = ph.Update(workspaceName, &newr)
 	if err != nil {
+		err2 := be.UpdateResource(backendKind, res.Group, res.Workspace, res.Name, &old)
+		if err2 != nil {
+			log.ErrorPrint(err2)
+		}
 		return log.DebugPrint(err)
 	}
 
@@ -375,74 +542,24 @@ type Status struct {
 	PodNum     int      `json:"podnum"`
 	ClusterIP  string   `json:"clusterip"`
 	//Replicas    int32             `json:"replicas"`
-	Strategy    extensionsv1beta1.DeploymentStrategy `json:"Strategy"`
-	Desire      int                                  `json:"desire"`
-	Current     int                                  `json:"current"`
-	Available   int                                  `json:"available"`
-	UpToDate    int                                  `json:"uptodate"`
-	Ready       int                                  `json:"ready"`
-	Labels      map[string]string                    `json:"labels"`
-	Annotations map[string]string                    `json:"annotations"`
-	Selectors   map[string]string                    `json:"selectors"`
-	Reason      string                               `json:"reason"`
-	timeout     int64                                `json:"timemout"`
-	Paused      bool                                 `json:"paused"`
-	Revision    int64                                `json:"revision"`
+	Strategy    string            `json:"strategy"`
+	Desire      int               `json:"desire"`
+	Current     int               `json:"current"`
+	Available   int               `json:"available"`
+	UpToDate    int               `json:"uptodate"`
+	Ready       int               `json:"ready"`
+	Labels      map[string]string `json:"labels"`
+	Annotations map[string]string `json:"annotations"`
+	Selectors   map[string]string `json:"selectors"`
+	Reason      string            `json:"reason"`
+	timeout     int64             `json:"timemout"`
+	Paused      bool              `json:"paused"`
+	Revision    int64             `json:"revision"`
 	//	Pods       []string `json:"pods"`
-	PodStatus      []pk.Status        `json:"podstatus"`
-	ContainerSpecs []pk.ContainerSpec `json:"containerspecs"`
+	PodStatus               []pk.Status        `json:"podstatus"`
+	ContainerSpecs          []pk.ContainerSpec `json:"containerspecs"`
+	ProgressDeadlineSeconds int                `json:"progressdeadlineseconds"`
 	extensionsv1beta1.DeploymentStatus
-}
-
-//不包含PodStatus的信息
-func K8sDeploymentToDeploymentStatus(deployment *extensionsv1beta1.Deployment) *Status {
-	js := Status{DeploymentStatus: deployment.Status}
-	js.Name = deployment.Name
-	js.Images = make([]string, 0)
-	js.PodStatus = make([]pk.Status, 0)
-	js.ContainerSpecs = make([]pk.ContainerSpec, 0)
-	js.CreateTime = deployment.CreationTimestamp.Unix()
-	if deployment.Spec.Replicas != nil {
-		js.Replicas = *deployment.Spec.Replicas
-	}
-
-	js.Strategy = deployment.Spec.Strategy
-	js.Labels = make(map[string]string)
-	if deployment.Labels != nil {
-		js.Labels = deployment.Labels
-	}
-
-	js.Annotations = make(map[string]string)
-	if deployment.Annotations != nil {
-		js.Labels = deployment.Annotations
-	}
-
-	js.Selectors = make(map[string]string)
-	if deployment.Spec.Selector != nil {
-		js.Selectors = deployment.Spec.Selector.MatchLabels
-	}
-
-	if deployment.Spec.Replicas != nil {
-		js.Desire = int(*deployment.Spec.Replicas)
-	} else {
-		js.Desire = 1
-
-	}
-
-	js.Paused = deployment.Spec.Paused
-
-	js.Current = int(deployment.Status.AvailableReplicas)
-	js.Ready = int(deployment.Status.ReadyReplicas)
-	js.Available = int(deployment.Status.AvailableReplicas)
-	js.UpToDate = int(deployment.Status.UpdatedReplicas)
-
-	for _, v := range deployment.Spec.Template.Spec.Containers {
-		js.Containers = append(js.Containers, v.Name)
-		js.Images = append(js.Images, v.Image)
-		js.ContainerSpecs = append(js.ContainerSpecs, *pk.K8sContainerSpecTran(&v))
-	}
-	return &js
-
 }
 
 func (j *Deployment) GetStatus() *Status {
@@ -483,6 +600,8 @@ func (j *Deployment) GetStatus() *Status {
 	js.Labels = make(map[string]string)
 	js.Annotations = make(map[string]string)
 	js.Selectors = make(map[string]string)
+	js.Paused = deployment.Spec.Paused
+	js.Strategy = string(deployment.Spec.Strategy.Type)
 
 	if js.CreateTime == 0 {
 		js.CreateTime = deployment.CreationTimestamp.Unix()
@@ -496,6 +615,12 @@ func (j *Deployment) GetStatus() *Status {
 	}
 	if deployment.Annotations != nil {
 		js.Annotations = deployment.Annotations
+	}
+
+	if deployment.Spec.ProgressDeadlineSeconds != nil {
+		js.ProgressDeadlineSeconds = int(*deployment.Spec.ProgressDeadlineSeconds)
+	} else {
+		js.ProgressDeadlineSeconds = -1
 	}
 
 	if deployment.Spec.Selector != nil {
@@ -625,7 +750,7 @@ func (j *Deployment) StartAutoScale(min int, max int, cpuPercent int, memPercent
 	j.AutoScaler.MaxReplicas = max
 	j.AutoScaler.MinReplicas = min
 
-	if j.memoryOnly != true {
+	if j.MemoryOnly != true {
 
 		be := backend.NewBackendHandler()
 		err := be.UpdateResource(backendKind, j.Group, j.Workspace, j.Name, j)
@@ -667,9 +792,13 @@ func (j *Deployment) ResumeOrPauseRollOut() error {
 	} else {
 		return ph.PauseRollout(j.Workspace, j.Name)
 	}
-
 }
-func InitDeploymentController(be backend.BackendHandler) (DeploymentController, error) {
+
+func (s *Deployment) Metadata() resource.ObjectMeta {
+	return s.ObjectMeta
+}
+
+func InitDeploymentController(be backend.BackendHandler) (resource.ObjectController, error) {
 	rm = &DeploymentManager{}
 	rm.Groups = make(map[string]DeploymentGroup)
 	rm.locker = sync.Mutex{}
@@ -697,7 +826,6 @@ func InitDeploymentController(be backend.BackendHandler) (DeploymentController, 
 		}
 		rm.Groups[k] = group
 	}
-	log.DebugPrint(rm)
 	return rm, nil
 
 }

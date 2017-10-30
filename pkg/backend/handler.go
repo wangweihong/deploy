@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 
 	"ufleet-deploy/pkg/kv"
+	"ufleet-deploy/pkg/log"
 )
 
 var (
@@ -75,6 +76,7 @@ func (e *eb) CreateResource(kind, groupName, workspaceName, resouceName string, 
 	if err != nil {
 		return BackendResourceInvalid
 	}
+	log.DebugPrint(key)
 
 	_, err = kv.Store.CreateNode(key, data)
 	if err != nil {

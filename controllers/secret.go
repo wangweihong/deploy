@@ -10,6 +10,8 @@ import (
 	pk "ufleet-deploy/pkg/resource/secret"
 	"ufleet-deploy/pkg/user"
 
+	yaml "gopkg.in/yaml.v2"
+
 	corev1 "k8s.io/client-go/pkg/api/v1"
 )
 
@@ -36,13 +38,14 @@ func (this *SecretController) ListSecrets() {
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
 
-	pis, err := pk.Controller.List(group, workspace)
+	pis, err := pk.Controller.ListObject(group, workspace)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
 	}
 	jss := make([]pk.Status, 0)
-	for _, v := range pis {
+	for _, j := range pis {
+		v, _ := pk.GetSecretInterface(j)
 		js := v.GetStatus()
 		jss = append(jss, *js)
 	}
@@ -78,7 +81,7 @@ func (this *SecretController) ListGroupsSecrets() {
 		return
 	}
 
-	pis := make([]pk.SecretInterface, 0)
+	pis := make([]resource.Object, 0)
 
 	for _, v := range groups {
 		tmp, err := pk.Controller.ListGroup(v)
@@ -89,7 +92,8 @@ func (this *SecretController) ListGroupsSecrets() {
 		pis = append(pis, tmp...)
 	}
 	jss := make([]pk.Status, 0)
-	for _, v := range pis {
+	for _, j := range pis {
+		v, _ := pk.GetSecretInterface(j)
 		js := v.GetStatus()
 		jss = append(jss, *js)
 	}
@@ -119,7 +123,8 @@ func (this *SecretController) ListGroupSecrets() {
 	}
 
 	jss := make([]pk.Status, 0)
-	for _, v := range pis {
+	for _, j := range pis {
+		v, _ := pk.GetSecretInterface(j)
 		js := v.GetStatus()
 		jss = append(jss, *js)
 	}
@@ -128,7 +133,7 @@ func (this *SecretController) ListGroupSecrets() {
 
 // CreateSecret
 // @Title Secret
-// @Description  创建容器组
+// @Description  创建私秘凭据
 // @Param Token header string true 'Token'
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
@@ -175,7 +180,7 @@ func (this *SecretController) CreateSecret() {
 	var opt resource.CreateOption
 	opt.Comment = co.Comment
 	opt.User = who
-	err = pk.Controller.Create(group, workspace, []byte(co.Data), opt)
+	err = pk.Controller.CreateObject(group, workspace, []byte(co.Data), opt)
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
@@ -186,12 +191,13 @@ func (this *SecretController) CreateSecret() {
 	this.normalReturn("ok")
 }
 
-type SecretCreateOption struct {
-	Name     string `json:"name"`
-	Comment  string `json:"comment"`
-	Type     string `json:"type"`
-	Data     string `json:"data"`
-	Registry string `json:"registry"`
+type SecretCustomOption struct {
+	Name           string `json:"name"`
+	Comment        string `json:"comment,omitempty"`
+	Type           string `json:"type"`
+	Data           string `json:"data,omitempty"`
+	Registry       string `json:"registry,omitempty"`
+	ServiceAccount string `json:"serviceaccount"`
 }
 
 type DockerRegistryAccount struct {
@@ -203,7 +209,7 @@ type DockerRegistryAccount struct {
 
 // CreateSecretCustom
 // @Title Secret
-// @Description  创建容器组
+// @Description  创建私秘凭据
 // @Param Token header string true 'Token'
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
@@ -237,7 +243,7 @@ func (this *SecretController) CreateSecretCustom() {
 		return
 	}
 
-	var co SecretCreateOption
+	var co SecretCustomOption
 	err = json.Unmarshal(this.Ctx.Input.RequestBody, &co)
 	if err != nil {
 		this.audit(token, "", true)
@@ -246,7 +252,11 @@ func (this *SecretController) CreateSecretCustom() {
 	}
 
 	cm := corev1.Secret{}
-	if strings.TrimSpace(co.Registry) != "" {
+	cm.Name = co.Name
+	cm.Kind = "Secret"
+	cm.APIVersion = "v1"
+	switch corev1.SecretType(co.Type) {
+	case corev1.SecretTypeDockercfg:
 		reg, err := ui.GetRegistry(group, co.Registry)
 		if err != nil {
 			this.audit(token, "", true)
@@ -278,22 +288,36 @@ func (this *SecretController) CreateSecretCustom() {
 		cm.Data[corev1.DockerConfigKey] = []byte(dockercfg)
 		cm.Type = corev1.SecretTypeDockercfg
 
-	} else {
+	case corev1.SecretTypeServiceAccountToken:
+		if strings.TrimSpace(co.ServiceAccount) == "" {
+			err := fmt.Errorf("secret type '%v' must offer service account name", co.Type)
+			this.audit(token, "", true)
+			this.errReturn(err, 500)
+			return
+
+		}
+		cm.Annotations = make(map[string]string)
+		cm.Annotations[corev1.ServiceAccountNameKey] = co.ServiceAccount
+		cm.Type = corev1.SecretType(co.Type)
+
+	default:
+		if strings.TrimSpace(co.Data) == "" {
+			err := fmt.Errorf("must offer secret data")
+			this.audit(token, "", true)
+			this.errReturn(err, 500)
+			return
+		}
 
 		data := make(map[string]string)
-		err := json.Unmarshal([]byte(co.Data), &data)
+		err := yaml.Unmarshal([]byte(co.Data), &data)
 		if err != nil {
 			this.audit(token, "", true)
 			this.errReturn(err, 500)
 			return
 		}
 
-		cm.Name = co.Name
 		cm.Type = corev1.SecretType(co.Type)
 		cm.StringData = data
-		cm.Kind = "Secret"
-		cm.APIVersion = "v1"
-
 	}
 
 	bytedata, err := json.Marshal(cm)
@@ -306,7 +330,7 @@ func (this *SecretController) CreateSecretCustom() {
 	var opt resource.CreateOption
 	opt.Comment = co.Comment
 	opt.User = who
-	err = pk.Controller.Create(group, workspace, bytedata, opt)
+	err = pk.Controller.CreateObject(group, workspace, bytedata, opt)
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
@@ -349,12 +373,7 @@ func (this *SecretController) UpdateSecret() {
 		return
 	}
 
-	/*
-		ui := user.NewUserClient(token)
-		ui.GetUserName()
-	*/
-
-	err := pk.Controller.Update(group, workspace, secret, this.Ctx.Input.RequestBody)
+	err := pk.Controller.UpdateObject(group, workspace, secret, this.Ctx.Input.RequestBody, resource.UpdateOption{})
 	if err != nil {
 		this.errReturn(err, 500)
 		this.audit(token, "", true)
@@ -371,7 +390,7 @@ func (this *SecretController) UpdateSecret() {
 // @Param Token header string true 'Token'
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
-// @Param secret path string true "容器组"
+// @Param secret path string true "私秘凭据"
 // @Success 201 {string} create success!
 // @Failure 500
 // @router /:secret/group/:group/workspace/:workspace [Delete]
@@ -388,7 +407,7 @@ func (this *SecretController) DeleteSecret() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	secret := this.Ctx.Input.Param(":secret")
 
-	err := pk.Controller.Delete(group, workspace, secret, resource.DeleteOption{})
+	err := pk.Controller.DeleteObject(group, workspace, secret, resource.DeleteOption{})
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
@@ -405,7 +424,7 @@ func (this *SecretController) DeleteSecret() {
 // @Param Token header string true 'Token'
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
-// @Param secret path string true "容器组"
+// @Param secret path string true "私秘凭据"
 // @Success 201 {string} create success!
 // @Failure 500
 // @router /:secret/group/:group/workspace/:workspace/template [Get]
@@ -420,11 +439,12 @@ func (this *SecretController) GetSecretTemplate() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	secret := this.Ctx.Input.Param(":secret")
 
-	pi, err := pk.Controller.Get(group, workspace, secret)
+	v, err := pk.Controller.GetObject(group, workspace, secret)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
 	}
+	pi, _ := pk.GetSecretInterface(v)
 
 	t, err := pi.GetTemplate()
 	if err != nil {
@@ -441,7 +461,7 @@ func (this *SecretController) GetSecretTemplate() {
 // @Param Token header string true 'Token'
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
-// @Param secret path string true "容器组"
+// @Param secret path string true "私秘凭据"
 // @Success 201 {string} create success!
 // @Failure 500
 // @router /:secret/group/:group/workspace/:workspace/event [Get]
@@ -456,11 +476,12 @@ func (this *SecretController) GetSecretEvent() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	endpoint := this.Ctx.Input.Param(":endpoint")
 
-	pi, err := pk.Controller.Get(group, workspace, endpoint)
+	v, err := pk.Controller.GetObject(group, workspace, endpoint)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
 	}
+	pi, _ := pk.GetSecretInterface(v)
 	es, err := pi.Event()
 	if err != nil {
 		this.errReturn(err, 500)

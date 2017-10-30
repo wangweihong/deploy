@@ -3,6 +3,7 @@ package configmap
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 	"ufleet-deploy/pkg/backend"
@@ -20,17 +21,8 @@ import (
 
 var (
 	rm         *ConfigMapManager
-	Controller ConfigMapController
+	Controller resource.ObjectController //ConfigMapController
 )
-
-type ConfigMapController interface {
-	Create(group, workspace string, data []byte, opt resource.CreateOption) error
-	Delete(group, workspace, configmap string, opt resource.DeleteOption) error
-	Get(group, workspace, configmap string) (ConfigMapInterface, error)
-	Update(group, workspace, resource string, newdata []byte) error
-	List(group, workspace string) ([]ConfigMapInterface, error)
-	ListGroup(group string) ([]ConfigMapInterface, error)
-}
 
 type ConfigMapInterface interface {
 	Info() *ConfigMap
@@ -38,6 +30,7 @@ type ConfigMapInterface interface {
 	GetTemplate() (string, error)
 	GetStatus() *Status
 	Event() ([]corev1.Event, error)
+	Metadata() resource.ObjectMeta
 }
 
 type ConfigMapManager struct {
@@ -63,8 +56,161 @@ type Runtime struct {
 //可以根据事件及时更新ConfigMap的信息
 type ConfigMap struct {
 	resource.ObjectMeta
-	Cluster    string `json:"cluster"`
-	memoryOnly bool
+	Cluster string `json:"cluster"`
+}
+
+func GetConfigMapInterface(obj resource.Object) (ConfigMapInterface, error) {
+	if obj == nil {
+		return nil, fmt.Errorf("resource object is nil")
+	}
+
+	ri, ok := obj.(*ConfigMap)
+	if !ok {
+		return nil, fmt.Errorf("resource object is not configmap type")
+	}
+
+	return ri, nil
+}
+
+func (p *ConfigMapManager) Lock() {
+	p.locker.Lock()
+}
+func (p *ConfigMapManager) Unlock() {
+	p.locker.Unlock()
+}
+
+//仅仅用于基于内存的对象的创建
+func (p *ConfigMapManager) NewObject(meta resource.ObjectMeta) error {
+
+	if strings.TrimSpace(meta.Group) == "" ||
+		strings.TrimSpace(meta.Workspace) == "" ||
+		strings.TrimSpace(meta.Name) == "" {
+		return fmt.Errorf("Invalid object data")
+	}
+
+	cp := ConfigMap{ObjectMeta: meta}
+	cp.MemoryOnly = true
+
+	err := p.fillObjectToManager(&cp, false)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+//force:强制填充.用于更新时
+func (p *ConfigMapManager) fillObjectToManager(meta resource.Object, force bool) error {
+
+	cm, ok := meta.(*ConfigMap)
+	if !ok {
+		return fmt.Errorf("object is not correct type")
+	}
+
+	group, ok := rm.Groups[cm.Group]
+	if !ok {
+		return resource.ErrGroupNotFound
+	}
+
+	workspace, ok := group.Workspaces[cm.Workspace]
+	if !ok {
+		return resource.ErrWorkspaceNotFound
+	}
+
+	if !force {
+		_, ok = workspace.ConfigMaps[cm.Name]
+		if ok {
+			return resource.ErrResourceExists
+		}
+	}
+
+	workspace.ConfigMaps[cm.Name] = *cm
+	group.Workspaces[cm.Workspace] = workspace
+	p.Groups[cm.Group] = group
+	return nil
+
+}
+
+func (p *ConfigMapManager) DeleteGroup(groupName string) error {
+	_, ok := p.Groups[groupName]
+	if !ok {
+		return resource.ErrGroupNotFound
+	}
+
+	delete(p.Groups, groupName)
+	return nil
+}
+
+func (p *ConfigMapManager) AddGroup(groupName string) error {
+	p.Lock()
+	defer p.Unlock()
+	_, ok := p.Groups[groupName]
+	if ok {
+		return resource.ErrGroupExists
+	}
+	var group ConfigMapGroup
+	group.Workspaces = make(map[string]ConfigMapWorkspace)
+	p.Groups[groupName] = group
+	return nil
+}
+
+func (p *ConfigMapManager) AddObjectFromBytes(data []byte, force bool) error {
+	p.Lock()
+	defer p.Unlock()
+	var res ConfigMap
+	err := json.Unmarshal(data, &res)
+	if err != nil {
+		return err
+	}
+	err = p.fillObjectToManager(&res, force)
+	return err
+
+}
+
+func (p *ConfigMapManager) AddWorkspace(groupName string, workspaceName string) error {
+	p.Lock()
+	defer p.Unlock()
+	g, ok := p.Groups[groupName]
+	if !ok {
+		return resource.ErrGroupNotFound
+	}
+
+	_, ok = g.Workspaces[workspaceName]
+	if ok {
+		return resource.ErrWorkspaceExists
+	}
+
+	var ws ConfigMapWorkspace
+	ws.ConfigMaps = make(map[string]ConfigMap)
+	g.Workspaces[workspaceName] = ws
+	p.Groups[groupName] = g
+	return nil
+
+}
+
+func (p *ConfigMapManager) DeleteWorkspace(groupName string, workspaceName string) error {
+	p.locker.Lock()
+	defer p.locker.Unlock()
+	group, ok := p.Groups[groupName]
+	if !ok {
+		return resource.ErrGroupNotFound
+	}
+
+	_, ok = group.Workspaces[workspaceName]
+	if !ok {
+		return resource.ErrWorkspaceNotFound
+	}
+	delete(group.Workspaces, workspaceName)
+	p.Groups[groupName] = group
+	return nil
+}
+
+func (p *ConfigMapManager) GetObjectWithoutLock(groupName, workspaceName, resourceName string) (resource.Object, error) {
+
+	return p.get(groupName, workspaceName, resourceName)
+}
+
+func (p *ConfigMapManager) GetObject(group, workspace, resourceName string) (resource.Object, error) {
+	return p.Get(group, workspace, resourceName)
 }
 
 //注意这里没锁
@@ -94,7 +240,7 @@ func (p *ConfigMapManager) Get(group, workspace, resourceName string) (ConfigMap
 	return p.get(group, workspace, resourceName)
 }
 
-func (p *ConfigMapManager) List(groupName, workspaceName string) ([]ConfigMapInterface, error) {
+func (p *ConfigMapManager) ListObject(groupName, workspaceName string) ([]resource.Object, error) {
 
 	p.locker.Lock()
 	defer p.locker.Unlock()
@@ -109,7 +255,7 @@ func (p *ConfigMapManager) List(groupName, workspaceName string) ([]ConfigMapInt
 		return nil, fmt.Errorf("%v:group/%v,workspace/%v", resource.ErrWorkspaceNotFound, groupName, workspaceName)
 	}
 
-	pis := make([]ConfigMapInterface, 0)
+	pis := make([]resource.Object, 0)
 
 	//不能够直接使用k,v来赋值,会出现值都是同一个的问题
 	for k := range workspace.ConfigMaps {
@@ -120,7 +266,7 @@ func (p *ConfigMapManager) List(groupName, workspaceName string) ([]ConfigMapInt
 	return pis, nil
 }
 
-func (p *ConfigMapManager) ListGroup(groupName string) ([]ConfigMapInterface, error) {
+func (p *ConfigMapManager) ListGroup(groupName string) ([]resource.Object, error) {
 
 	p.locker.Lock()
 	defer p.locker.Unlock()
@@ -130,7 +276,7 @@ func (p *ConfigMapManager) ListGroup(groupName string) ([]ConfigMapInterface, er
 		return nil, fmt.Errorf("%v:%v", resource.ErrGroupNotFound, groupName)
 	}
 
-	pis := make([]ConfigMapInterface, 0)
+	pis := make([]resource.Object, 0)
 
 	//不能够直接使用k,v来赋值,会出现值都是同一个的问题
 	for _, v := range group.Workspaces {
@@ -143,7 +289,7 @@ func (p *ConfigMapManager) ListGroup(groupName string) ([]ConfigMapInterface, er
 	return pis, nil
 }
 
-func (p *ConfigMapManager) Create(groupName, workspaceName string, data []byte, opt resource.CreateOption) error {
+func (p *ConfigMapManager) CreateObject(groupName, workspaceName string, data []byte, opt resource.CreateOption) error {
 
 	p.locker.Lock()
 	defer p.locker.Unlock()
@@ -182,6 +328,8 @@ func (p *ConfigMapManager) Create(groupName, workspaceName string, data []byte, 
 	cp.Workspace = workspaceName
 	cp.Group = groupName
 	cp.Template = string(data)
+
+	cp.App = resource.DefaultAppBelong
 	if opt.App != nil {
 		cp.App = *opt.App
 	}
@@ -203,15 +351,15 @@ func (p *ConfigMapManager) Create(groupName, workspaceName string, data []byte, 
 	}
 
 	return nil
-
 }
-func (p *ConfigMapManager) Update(groupName, workspaceName string, resourceName string, data []byte) error {
+
+func (p *ConfigMapManager) UpdateObject(groupName, workspaceName string, resourceName string, data []byte, opt resource.UpdateOption) error {
 	p.locker.Lock()
 	defer p.locker.Unlock()
 
-	_, err := p.get(groupName, workspaceName, resourceName)
+	res, err := p.get(groupName, workspaceName, resourceName)
 	if err != nil {
-		return err
+		return log.DebugPrint(err)
 	}
 
 	var newr corev1.ConfigMap
@@ -230,8 +378,29 @@ func (p *ConfigMapManager) Update(groupName, workspaceName string, resourceName 
 	if err != nil {
 		return log.DebugPrint(err)
 	}
+
+	if res.MemoryOnly {
+		err = ph.Update(workspaceName, &newr)
+		if err != nil {
+			return log.DebugPrint(err)
+		}
+		return nil
+	}
+
+	old := *res
+	res.Comment = opt.Comment
+	be := backend.NewBackendHandler()
+	err = be.UpdateResource(backendKind, res.Group, res.Workspace, res.Name, res)
+	if err != nil {
+		return log.DebugPrint(err)
+	}
+
 	err = ph.Update(workspaceName, &newr)
 	if err != nil {
+		err2 := be.UpdateResource(backendKind, res.Group, res.Workspace, res.Name, &old)
+		if err2 != nil {
+			log.ErrorPrint(err2)
+		}
 		return log.DebugPrint(err)
 	}
 
@@ -239,6 +408,22 @@ func (p *ConfigMapManager) Update(groupName, workspaceName string, resourceName 
 }
 
 //无锁
+func (p *ConfigMapManager) DeleteNotLock(groupName, workspaceName, resourceName string) error {
+	group, ok := p.Groups[groupName]
+	if !ok {
+		return resource.ErrGroupNotFound
+	}
+	workspace, ok := group.Workspaces[workspaceName]
+	if !ok {
+		return resource.ErrWorkspaceNotFound
+	}
+
+	delete(workspace.ConfigMaps, resourceName)
+	group.Workspaces[workspaceName] = workspace
+	p.Groups[groupName] = group
+	return nil
+}
+
 func (p *ConfigMapManager) delete(groupName, workspaceName, resourceName string) error {
 	group, ok := p.Groups[groupName]
 	if !ok {
@@ -255,7 +440,7 @@ func (p *ConfigMapManager) delete(groupName, workspaceName, resourceName string)
 	return nil
 }
 
-func (p *ConfigMapManager) Delete(group, workspace, resourceName string, opt resource.DeleteOption) error {
+func (p *ConfigMapManager) DeleteObject(group, workspace, resourceName string, opt resource.DeleteOption) error {
 	p.locker.Lock()
 	defer p.locker.Unlock()
 	ph, err := cluster.NewConfigMapHandler(group, workspace)
@@ -267,12 +452,18 @@ func (p *ConfigMapManager) Delete(group, workspace, resourceName string, opt res
 		return log.DebugPrint(err)
 	}
 
-	if res.memoryOnly {
+	if opt.MemoryOnly {
+		return p.delete(group, workspace, resourceName)
+	}
+
+	if res.MemoryOnly {
 
 		//触发集群控制器来删除内存中的数据
 		err = ph.Delete(workspace, resourceName)
 		if err != nil {
-			return log.DebugPrint(err)
+			if !apierrors.IsNotFound(err) {
+				return log.DebugPrint(err)
+			}
 		}
 		//TODO:ufleet创建的数据
 		return nil
@@ -289,7 +480,7 @@ func (p *ConfigMapManager) Delete(group, workspace, resourceName string, opt res
 			}
 		}
 
-		if !opt.DontCallApp && res.App != "" {
+		if !opt.DontCallApp && res.App != resource.DefaultAppBelong {
 			go func() {
 				var re resource.ResourceEvent
 				re.Group = group
@@ -377,7 +568,11 @@ func (s *ConfigMap) Event() ([]corev1.Event, error) {
 	return e, nil
 }
 
-func InitConfigMapController(be backend.BackendHandler) (ConfigMapController, error) {
+func (s *ConfigMap) Metadata() resource.ObjectMeta {
+	return s.ObjectMeta
+}
+
+func InitConfigMapController(be backend.BackendHandler) (resource.ObjectController, error) {
 	rm = &ConfigMapManager{}
 	rm.Groups = make(map[string]ConfigMapGroup)
 	rm.locker = sync.Mutex{}

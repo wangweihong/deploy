@@ -22,17 +22,8 @@ import (
 
 var (
 	rm         *PodManager
-	Controller PodController
+	Controller resource.ObjectController
 )
-
-type PodController interface {
-	Create(group, workspace string, data []byte, opt resource.CreateOption) error
-	Delete(group, workspace, pod string, opt resource.DeleteOption) error
-	Get(group, workspace, pod string) (PodInterface, error)
-	Update(group, workspace, resource string, newdata []byte) error
-	List(group, workspace string) ([]PodInterface, error)
-	ListGroup(group string) ([]PodInterface, error)
-}
 
 type PodInterface interface {
 	Info() *Pod
@@ -67,15 +58,156 @@ type Runtime struct {
 //在Pod构建到内存的时候,就开始绑定K8s资源,
 //可以根据事件及时更新Pod的信息
 type Pod struct {
-	Name       string `json:"name"`
-	Workspace  string `json:"workspace"`
-	Group      string `json:"group"`
-	AppStack   string `json:"app"`
-	User       string `json:"user"`
-	Cluster    string `json:"cluster"`
-	Template   string `json:"template"`
-	CreateTime int64  `json:"createtime"`
-	memoryOnly bool
+	resource.ObjectMeta
+}
+
+func GetPodInterface(obj resource.Object) (PodInterface, error) {
+	if obj == nil {
+		return nil, fmt.Errorf("resource object is nil")
+	}
+
+	ri, ok := obj.(*Pod)
+	if !ok {
+		return nil, fmt.Errorf("resource object is not configmap type")
+	}
+
+	return ri, nil
+}
+
+func (p *PodManager) Lock() {
+	p.locker.Lock()
+}
+func (p *PodManager) Unlock() {
+	p.locker.Unlock()
+}
+
+//仅仅用于基于内存的对象的创建
+func (p *PodManager) NewObject(meta resource.ObjectMeta) error {
+
+	if strings.TrimSpace(meta.Group) == "" ||
+		strings.TrimSpace(meta.Workspace) == "" ||
+		strings.TrimSpace(meta.Name) == "" {
+		return fmt.Errorf("Invalid object data")
+	}
+
+	cp := Pod{ObjectMeta: meta}
+	cp.MemoryOnly = true
+
+	err := p.fillObjectToManager(&cp, false)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (p *PodManager) fillObjectToManager(meta resource.Object, force bool) error {
+
+	cm, ok := meta.(*Pod)
+	if !ok {
+		return fmt.Errorf("object is not correct type")
+	}
+
+	group, ok := rm.Groups[cm.Group]
+	if !ok {
+		return resource.ErrGroupNotFound
+	}
+
+	workspace, ok := group.Workspaces[cm.Workspace]
+	if !ok {
+		return resource.ErrWorkspaceNotFound
+	}
+
+	if !force {
+		_, ok = workspace.Pods[cm.Name]
+		if ok {
+			return resource.ErrResourceExists
+		}
+	}
+
+	workspace.Pods[cm.Name] = *cm
+	group.Workspaces[cm.Workspace] = workspace
+	p.Groups[cm.Group] = group
+	return nil
+
+}
+
+func (p *PodManager) DeleteGroup(groupName string) error {
+	_, ok := p.Groups[groupName]
+	if !ok {
+		return resource.ErrGroupNotFound
+	}
+
+	delete(p.Groups, groupName)
+	return nil
+}
+
+func (p *PodManager) AddGroup(groupName string) error {
+	p.Lock()
+	defer p.Unlock()
+	_, ok := p.Groups[groupName]
+	if ok {
+		return resource.ErrGroupExists
+	}
+	var group PodGroup
+	group.Workspaces = make(map[string]PodWorkspace)
+	p.Groups[groupName] = group
+	return nil
+}
+
+func (p *PodManager) AddObjectFromBytes(data []byte, force bool) error {
+	p.Lock()
+	defer p.Unlock()
+	var res Pod
+	err := json.Unmarshal(data, &res)
+	if err != nil {
+		return err
+	}
+	err = p.fillObjectToManager(&res, force)
+	return err
+
+}
+
+func (p *PodManager) AddWorkspace(groupName string, workspaceName string) error {
+	p.Lock()
+	defer p.Unlock()
+	g, ok := p.Groups[groupName]
+	if !ok {
+		return resource.ErrGroupNotFound
+	}
+
+	_, ok = g.Workspaces[workspaceName]
+	if ok {
+		return resource.ErrWorkspaceExists
+	}
+
+	var ws PodWorkspace
+	ws.Pods = make(map[string]Pod)
+	g.Workspaces[workspaceName] = ws
+	p.Groups[groupName] = g
+	return nil
+
+}
+
+func (p *PodManager) DeleteWorkspace(groupName string, workspaceName string) error {
+	p.locker.Lock()
+	defer p.locker.Unlock()
+	group, ok := p.Groups[groupName]
+	if !ok {
+		return resource.ErrGroupNotFound
+	}
+
+	_, ok = group.Workspaces[workspaceName]
+	if !ok {
+		return resource.ErrWorkspaceNotFound
+	}
+	delete(group.Workspaces, workspaceName)
+	p.Groups[groupName] = group
+	return nil
+}
+
+func (p *PodManager) GetObjectWithoutLock(groupName, workspaceName, resourceName string) (resource.Object, error) {
+
+	return p.get(groupName, workspaceName, resourceName)
 }
 
 //注意这里没锁
@@ -99,13 +231,13 @@ func (p *PodManager) get(groupName, workspaceName, podName string) (*Pod, error)
 	return &pod, nil
 }
 
-func (p *PodManager) Get(group, workspace, podName string) (PodInterface, error) {
+func (p *PodManager) GetObject(group, workspace, podName string) (resource.Object, error) {
 	p.locker.Lock()
 	defer p.locker.Unlock()
 	return p.get(group, workspace, podName)
 }
 
-func (p *PodManager) List(groupName, workspaceName string) ([]PodInterface, error) {
+func (p *PodManager) ListObject(groupName, workspaceName string) ([]resource.Object, error) {
 
 	p.locker.Lock()
 	defer p.locker.Unlock()
@@ -120,7 +252,7 @@ func (p *PodManager) List(groupName, workspaceName string) ([]PodInterface, erro
 		return nil, fmt.Errorf("%v:group/%v,workspace/%v", resource.ErrWorkspaceNotFound, groupName, workspaceName)
 	}
 
-	pis := make([]PodInterface, 0)
+	pis := make([]resource.Object, 0)
 
 	//不能够直接使用k,v来赋值,会出现值都是同一个的问题
 	for k := range workspace.Pods {
@@ -131,7 +263,7 @@ func (p *PodManager) List(groupName, workspaceName string) ([]PodInterface, erro
 	return pis, nil
 }
 
-func (p *PodManager) ListGroup(groupName string) ([]PodInterface, error) {
+func (p *PodManager) ListGroup(groupName string) ([]resource.Object, error) {
 
 	p.locker.Lock()
 	defer p.locker.Unlock()
@@ -141,7 +273,7 @@ func (p *PodManager) ListGroup(groupName string) ([]PodInterface, error) {
 		return nil, fmt.Errorf("%v:%v", resource.ErrGroupNotFound, groupName)
 	}
 
-	pis := make([]PodInterface, 0)
+	pis := make([]resource.Object, 0)
 
 	//不能够直接使用k,v来赋值,会出现值都是同一个的问题
 	for _, v := range group.Workspaces {
@@ -154,7 +286,7 @@ func (p *PodManager) ListGroup(groupName string) ([]PodInterface, error) {
 	return pis, nil
 }
 
-func (p *PodManager) Create(groupName, workspaceName string, data []byte, opt resource.CreateOption) error {
+func (p *PodManager) CreateObject(groupName, workspaceName string, data []byte, opt resource.CreateOption) error {
 
 	p.locker.Lock()
 	defer p.locker.Unlock()
@@ -173,6 +305,7 @@ func (p *PodManager) Create(groupName, workspaceName string, data []byte, opt re
 	}
 
 	var obj corev1.Pod
+	obj.Annotations = make(map[string]string)
 	err = json.Unmarshal(exts[0].Raw, &obj)
 	if err != nil {
 		return log.DebugPrint(err)
@@ -182,7 +315,6 @@ func (p *PodManager) Create(groupName, workspaceName string, data []byte, opt re
 		return log.DebugPrint("must and  offer one resource json/yaml data")
 	}
 	obj.ResourceVersion = ""
-	obj.Annotations = make(map[string]string)
 	obj.Annotations[sign.SignFromUfleetKey] = sign.SignFromUfleetValue
 
 	var cp Pod
@@ -191,8 +323,9 @@ func (p *PodManager) Create(groupName, workspaceName string, data []byte, opt re
 	cp.Workspace = workspaceName
 	cp.Group = groupName
 	cp.Template = string(data)
+	cp.App = resource.DefaultAppBelong
 	if opt.App != nil {
-		cp.AppStack = *opt.App
+		cp.App = *opt.App
 	}
 	cp.User = opt.User
 	//因为obj创建时,触发informer,所以优先创建etcd
@@ -215,12 +348,11 @@ func (p *PodManager) Create(groupName, workspaceName string, data []byte, opt re
 
 }
 
-func (p *PodManager) Update(groupName, workspaceName string, resourceName string, data []byte) error {
+func (p *PodManager) UpdateObject(groupName, workspaceName string, resourceName string, data []byte, opt resource.UpdateOption) error {
 	p.locker.Lock()
 	defer p.locker.Unlock()
 
-	log.DebugPrint("%v %v %v", groupName, workspaceName, resourceName)
-	_, err := p.get(groupName, workspaceName, resourceName)
+	res, err := p.get(groupName, workspaceName, resourceName)
 	if err != nil {
 		return log.DebugPrint(err)
 	}
@@ -252,8 +384,29 @@ func (p *PodManager) Update(groupName, workspaceName string, resourceName string
 	if err != nil {
 		return log.DebugPrint(err)
 	}
+
+	if res.MemoryOnly {
+		err = ph.Update(workspaceName, &newr)
+		if err != nil {
+			return log.DebugPrint(err)
+		}
+		return nil
+	}
+
+	old := *res
+	res.Comment = opt.Comment
+	be := backend.NewBackendHandler()
+	err = be.UpdateResource(backendKind, res.Group, res.Workspace, res.Name, res)
+	if err != nil {
+		return log.DebugPrint(err)
+	}
+
 	err = ph.Update(workspaceName, &newr)
 	if err != nil {
+		err2 := be.UpdateResource(backendKind, res.Group, res.Workspace, res.Name, &old)
+		if err2 != nil {
+			log.ErrorPrint(err2)
+		}
 		return log.DebugPrint(err)
 	}
 
@@ -277,24 +430,31 @@ func (p *PodManager) delete(groupName, workspaceName, podName string) error {
 	return nil
 }
 
-func (p *PodManager) Delete(group, workspace, podName string, opt resource.DeleteOption) error {
+func (p *PodManager) DeleteObject(group, workspace, podName string, opt resource.DeleteOption) error {
 	ph, err := cluster.NewPodHandler(group, workspace)
 	if err != nil {
 		return log.DebugPrint(err)
 	}
 	p.locker.Lock()
 	defer p.locker.Unlock()
+
+	if opt.MemoryOnly {
+		return p.delete(group, workspace, podName)
+	}
+
 	pod, err := p.get(group, workspace, podName)
 	if err != nil {
 		return log.DebugPrint(err)
 	}
 
-	if pod.memoryOnly {
+	if pod.MemoryOnly {
 
 		//触发集群控制器来删除内存中的数据
 		err = ph.Delete(workspace, podName)
 		if err != nil {
-			return log.DebugPrint(err)
+			if !apierrors.IsNotFound(err) {
+				return log.DebugPrint(err)
+			}
 		}
 		//TODO:ufleet创建的数据
 		return nil
@@ -311,7 +471,7 @@ func (p *PodManager) Delete(group, workspace, podName string, opt resource.Delet
 				return log.DebugPrint(err)
 			}
 		}
-		if !opt.DontCallApp && pod.AppStack != "" {
+		if !opt.DontCallApp && pod.App != resource.DefaultAppBelong {
 			go func() {
 				var re resource.ResourceEvent
 				re.Group = group
@@ -319,7 +479,7 @@ func (p *PodManager) Delete(group, workspace, podName string, opt resource.Delet
 				re.Kind = resourceKind
 				re.Action = resource.ResourceActionDelete
 				re.Resource = podName
-				re.App = pod.AppStack
+				re.App = pod.App
 
 				resource.ResourceEventChan <- re
 			}()
@@ -672,8 +832,11 @@ func (p *Pod) Event() ([]corev1.Event, error) {
 
 	return ph.Event(p.Workspace, p.Name)
 }
+func (s *Pod) Metadata() resource.ObjectMeta {
+	return s.ObjectMeta
+}
 
-func InitPodController(be backend.BackendHandler) (PodController, error) {
+func InitPodController(be backend.BackendHandler) (resource.ObjectController, error) {
 	rm = &PodManager{}
 	rm.Groups = make(map[string]PodGroup)
 	rm.locker = sync.Mutex{}

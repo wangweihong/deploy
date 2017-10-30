@@ -35,14 +35,16 @@ func (this *ConfigMapController) ListGroupWorkspaceConfigMaps() {
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
 
-	pis, err := pk.Controller.List(group, workspace)
+	pis, err := pk.Controller.ListObject(group, workspace)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
 	}
 
 	jss := make([]pk.Status, 0)
-	for _, v := range pis {
+	for _, j := range pis {
+
+		v, _ := pk.GetConfigMapInterface(j)
 		js := v.GetStatus()
 		jss = append(jss, *js)
 	}
@@ -79,7 +81,7 @@ func (this *ConfigMapController) ListGroupsConfigMaps() {
 		return
 	}
 
-	pis := make([]pk.ConfigMapInterface, 0)
+	pis := make([]resource.Object, 0)
 
 	for _, v := range groups {
 		tmp, err := pk.Controller.ListGroup(v)
@@ -90,7 +92,8 @@ func (this *ConfigMapController) ListGroupsConfigMaps() {
 		pis = append(pis, tmp...)
 	}
 	jss := make([]pk.Status, 0)
-	for _, v := range pis {
+	for _, j := range pis {
+		v, _ := pk.GetConfigMapInterface(j)
 		js := v.GetStatus()
 		jss = append(jss, *js)
 	}
@@ -122,7 +125,8 @@ func (this *ConfigMapController) ListGroupConfigMaps() {
 	}
 
 	jss := make([]pk.Status, 0)
-	for _, v := range pis {
+	for _, j := range pis {
+		v, _ := pk.GetConfigMapInterface(j)
 		js := v.GetStatus()
 		jss = append(jss, *js)
 	}
@@ -170,7 +174,7 @@ func (this *ConfigMapController) CreateConfigMap() {
 	var opt resource.CreateOption
 	opt.User = who
 
-	err = pk.Controller.Create(group, workspace, this.Ctx.Input.RequestBody, opt)
+	err = pk.Controller.CreateObject(group, workspace, this.Ctx.Input.RequestBody, opt)
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
@@ -181,7 +185,7 @@ func (this *ConfigMapController) CreateConfigMap() {
 	this.normalReturn("ok")
 }
 
-type ConfigMapCreateOption struct {
+type ConfigMapCustomOption struct {
 	Comment string `json:"comment"`
 	//Data map[string]string `json:"data"`
 	Data string `json:"data"`
@@ -216,7 +220,7 @@ func (this *ConfigMapController) CreateConfigMapCustom() {
 		this.errReturn(err, 500)
 		return
 	}
-	var co ConfigMapCreateOption
+	var co ConfigMapCustomOption
 	err := json.Unmarshal(this.Ctx.Input.RequestBody, &co)
 	if err != nil {
 		this.audit(token, "", true)
@@ -258,7 +262,81 @@ func (this *ConfigMapController) CreateConfigMapCustom() {
 	opt.Comment = co.Comment
 	opt.User = who
 
-	err = pk.Controller.Create(group, workspace, bytedata, opt)
+	err = pk.Controller.CreateObject(group, workspace, bytedata, opt)
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+
+	this.audit(token, "", false)
+	this.normalReturn("ok")
+}
+
+// UpdateConfigMapCustom
+// @Title ConfigMap
+// @Description  创建配置
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Param workspace path string true "工作区"
+// @Param configmap path string true "配置名"
+// @Param body body string true "资源描述"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /:configmap/group/:group/workspace/:workspace/custom [Put]
+func (this *ConfigMapController) UpdateConfigMapCustom() {
+	token := this.Ctx.Request.Header.Get("token")
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.audit(token, "", true)
+		this.abilityErrorReturn(aerr)
+		return
+	}
+
+	group := this.Ctx.Input.Param(":group")
+	workspace := this.Ctx.Input.Param(":workspace")
+	configmap := this.Ctx.Input.Param(":configmap")
+
+	if this.Ctx.Input.RequestBody == nil {
+		err := fmt.Errorf("must commit resource json/yaml data")
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+	var co ConfigMapCustomOption
+	err := json.Unmarshal(this.Ctx.Input.RequestBody, &co)
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+
+	data := make(map[string]string)
+	err = yaml.Unmarshal([]byte(co.Data), &data)
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+
+	cm := corev1.ConfigMap{}
+	cm.Name = configmap
+	//	cm.Data = co.Data
+	cm.Data = data
+	cm.Kind = "ConfigMap"
+	cm.APIVersion = "v1"
+
+	bytedata, err := json.Marshal(cm)
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+
+	var opt resource.UpdateOption
+	opt.Comment = co.Comment
+
+	err = pk.Controller.UpdateObject(group, workspace, configmap, bytedata, opt)
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
@@ -292,7 +370,7 @@ func (this *ConfigMapController) DeleteConfigMap() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	configmap := this.Ctx.Input.Param(":configmap")
 
-	err := pk.Controller.Delete(group, workspace, configmap, resource.DeleteOption{})
+	err := pk.Controller.DeleteObject(group, workspace, configmap, resource.DeleteOption{})
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
@@ -335,7 +413,7 @@ func (this *ConfigMapController) UpdateConfigMap() {
 		return
 	}
 
-	err := pk.Controller.Update(group, workspace, configmap, this.Ctx.Input.RequestBody)
+	err := pk.Controller.UpdateObject(group, workspace, configmap, this.Ctx.Input.RequestBody, resource.UpdateOption{})
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
@@ -367,11 +445,12 @@ func (this *ConfigMapController) GetConfigMapTemplate() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	configmap := this.Ctx.Input.Param(":configmap")
 
-	pi, err := pk.Controller.Get(group, workspace, configmap)
+	ri, err := pk.Controller.GetObject(group, workspace, configmap)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
 	}
+	pi, _ := pk.GetConfigMapInterface(ri)
 
 	t, err := pi.GetTemplate()
 	if err != nil {
@@ -388,7 +467,7 @@ func (this *ConfigMapController) GetConfigMapTemplate() {
 // @Param Token header string true 'Token'
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
-// @Param configmap path string true "容器组"
+// @Param configmap path string true "配置"
 // @Success 201 {string} create success!
 // @Failure 500
 // @router /:configmap/group/:group/workspace/:workspace/event [Get]
@@ -403,11 +482,14 @@ func (this *ConfigMapController) GetConfigMapEvent() {
 	workspace := this.Ctx.Input.Param(":workspace")
 	configmap := this.Ctx.Input.Param(":configmap")
 
-	pi, err := pk.Controller.Get(group, workspace, configmap)
+	ri, err := pk.Controller.GetObject(group, workspace, configmap)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
 	}
+
+	pi, _ := pk.GetConfigMapInterface(ri)
+
 	es, err := pi.Event()
 	if err != nil {
 		this.errReturn(err, 500)

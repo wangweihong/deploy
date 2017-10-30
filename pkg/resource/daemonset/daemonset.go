@@ -3,6 +3,7 @@ package daemonset
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 	"ufleet-deploy/pkg/backend"
@@ -21,17 +22,8 @@ import (
 
 var (
 	rm         *DaemonSetManager
-	Controller DaemonSetController
+	Controller resource.ObjectController
 )
-
-type DaemonSetController interface {
-	Create(group, workspace string, data []byte, opt resource.CreateOption) error
-	Delete(group, workspace, daemonset string, opt resource.DeleteOption) error
-	Get(group, workspace, daemonset string) (DaemonSetInterface, error)
-	Update(group, workspace, resource string, newdata []byte) error
-	List(group, workspace string) ([]DaemonSetInterface, error)
-	ListGroup(groupName string) ([]DaemonSetInterface, error)
-}
 
 type DaemonSetInterface interface {
 	Info() *DaemonSet
@@ -67,7 +59,137 @@ type Runtime struct {
 //可以根据事件及时更新DaemonSet的信息
 type DaemonSet struct {
 	resource.ObjectMeta
-	memoryOnly bool
+}
+
+func (p *DaemonSetManager) Lock() {
+	p.locker.Lock()
+}
+func (p *DaemonSetManager) Unlock() {
+	p.locker.Unlock()
+}
+
+//仅仅用于基于内存的对象的创建
+func (p *DaemonSetManager) NewObject(meta resource.ObjectMeta) error {
+
+	if strings.TrimSpace(meta.Group) == "" ||
+		strings.TrimSpace(meta.Workspace) == "" ||
+		strings.TrimSpace(meta.Name) == "" {
+		return fmt.Errorf("Invalid object data")
+	}
+
+	cp := DaemonSet{ObjectMeta: meta}
+	cp.MemoryOnly = true
+
+	err := p.fillObjectToManager(&cp, false)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (p *DaemonSetManager) fillObjectToManager(meta resource.Object, force bool) error {
+
+	cm, ok := meta.(*DaemonSet)
+	if !ok {
+		return fmt.Errorf("object is not correct type")
+	}
+
+	group, ok := rm.Groups[cm.Group]
+	if !ok {
+		return resource.ErrGroupNotFound
+	}
+
+	workspace, ok := group.Workspaces[cm.Workspace]
+	if !ok {
+		return resource.ErrWorkspaceNotFound
+	}
+
+	if !force {
+		_, ok = workspace.DaemonSets[cm.Name]
+		if ok {
+			return resource.ErrResourceExists
+		}
+
+	}
+	workspace.DaemonSets[cm.Name] = *cm
+	group.Workspaces[cm.Workspace] = workspace
+	p.Groups[cm.Group] = group
+	return nil
+
+}
+
+func (p *DaemonSetManager) DeleteGroup(groupName string) error {
+	_, ok := p.Groups[groupName]
+	if !ok {
+		return resource.ErrGroupNotFound
+	}
+
+	delete(p.Groups, groupName)
+	return nil
+}
+
+func (p *DaemonSetManager) AddGroup(groupName string) error {
+	p.Lock()
+	defer p.Unlock()
+	_, ok := p.Groups[groupName]
+	if ok {
+		return resource.ErrGroupExists
+	}
+	var group DaemonSetGroup
+	group.Workspaces = make(map[string]DaemonSetWorkspace)
+	p.Groups[groupName] = group
+	return nil
+}
+
+func (p *DaemonSetManager) AddObjectFromBytes(data []byte, force bool) error {
+	p.Lock()
+	defer p.Unlock()
+	var res DaemonSet
+	err := json.Unmarshal(data, &res)
+	if err != nil {
+		return err
+	}
+	err = p.fillObjectToManager(&res, force)
+	return err
+
+}
+
+func (p *DaemonSetManager) AddWorkspace(groupName string, workspaceName string) error {
+	p.Lock()
+	defer p.Unlock()
+	g, ok := p.Groups[groupName]
+	if !ok {
+		return resource.ErrGroupNotFound
+	}
+
+	_, ok = g.Workspaces[workspaceName]
+	if ok {
+		return resource.ErrWorkspaceExists
+	}
+
+	var ws DaemonSetWorkspace
+	ws.DaemonSets = make(map[string]DaemonSet)
+	g.Workspaces[workspaceName] = ws
+	p.Groups[groupName] = g
+	return nil
+
+}
+
+func (p *DaemonSetManager) DeleteWorkspace(groupName string, workspaceName string) error {
+	p.locker.Lock()
+	defer p.locker.Unlock()
+	group, ok := p.Groups[groupName]
+	if !ok {
+		return resource.ErrGroupNotFound
+	}
+
+	_, ok = group.Workspaces[workspaceName]
+	if !ok {
+		return resource.ErrWorkspaceNotFound
+	}
+	delete(group.Workspaces, workspaceName)
+	p.Groups[groupName] = group
+	return nil
 }
 
 //注意这里没锁
@@ -91,13 +213,17 @@ func (p *DaemonSetManager) get(groupName, workspaceName, resourceName string) (*
 	return &daemonset, nil
 }
 
-func (p *DaemonSetManager) Get(group, workspace, resourceName string) (DaemonSetInterface, error) {
+func (p *DaemonSetManager) GetObjectWithoutLock(groupName, workspaceName, resourceName string) (resource.Object, error) {
+	return p.get(groupName, workspaceName, resourceName)
+}
+
+func (p *DaemonSetManager) GetObject(group, workspace, resourceName string) (resource.Object, error) {
 	p.locker.Lock()
 	defer p.locker.Unlock()
 	return p.get(group, workspace, resourceName)
 }
 
-func (p *DaemonSetManager) List(groupName, workspaceName string) ([]DaemonSetInterface, error) {
+func (p *DaemonSetManager) ListObject(groupName, workspaceName string) ([]resource.Object, error) {
 
 	p.locker.Lock()
 	defer p.locker.Unlock()
@@ -112,7 +238,7 @@ func (p *DaemonSetManager) List(groupName, workspaceName string) ([]DaemonSetInt
 		return nil, fmt.Errorf("%v:group/%v,workspace/%v", resource.ErrWorkspaceNotFound, groupName, workspaceName)
 	}
 
-	pis := make([]DaemonSetInterface, 0)
+	pis := make([]resource.Object, 0)
 
 	//不能够直接使用k,v来赋值,会出现值都是同一个的问题
 	for k := range workspace.DaemonSets {
@@ -123,7 +249,7 @@ func (p *DaemonSetManager) List(groupName, workspaceName string) ([]DaemonSetInt
 	return pis, nil
 }
 
-func (p *DaemonSetManager) ListGroup(groupName string) ([]DaemonSetInterface, error) {
+func (p *DaemonSetManager) ListGroup(groupName string) ([]resource.Object, error) {
 	p.locker.Lock()
 	defer p.locker.Unlock()
 
@@ -132,7 +258,7 @@ func (p *DaemonSetManager) ListGroup(groupName string) ([]DaemonSetInterface, er
 		return nil, fmt.Errorf("%v:%v", resource.ErrGroupNotFound, groupName)
 	}
 
-	pis := make([]DaemonSetInterface, 0)
+	pis := make([]resource.Object, 0)
 	for _, v := range group.Workspaces {
 		for k := range v.DaemonSets {
 			t := v.DaemonSets[k]
@@ -142,7 +268,7 @@ func (p *DaemonSetManager) ListGroup(groupName string) ([]DaemonSetInterface, er
 	return pis, nil
 }
 
-func (p *DaemonSetManager) Create(groupName, workspaceName string, data []byte, opt resource.CreateOption) error {
+func (p *DaemonSetManager) CreateObject(groupName, workspaceName string, data []byte, opt resource.CreateOption) error {
 
 	p.locker.Lock()
 	defer p.locker.Unlock()
@@ -181,6 +307,7 @@ func (p *DaemonSetManager) Create(groupName, workspaceName string, data []byte, 
 	cp.Group = groupName
 	cp.Template = string(data)
 	cp.CreateTime = time.Now().Unix()
+	cp.App = resource.DefaultAppBelong
 	if opt.App != nil {
 		cp.App = *opt.App
 	}
@@ -221,24 +348,31 @@ func (p *DaemonSetManager) delete(groupName, workspaceName, resourceName string)
 	return nil
 }
 
-func (p *DaemonSetManager) Delete(group, workspace, resourceName string, opt resource.DeleteOption) error {
+func (p *DaemonSetManager) DeleteObject(group, workspace, resourceName string, opt resource.DeleteOption) error {
 	p.locker.Lock()
 	defer p.locker.Unlock()
 	ph, err := cluster.NewDaemonSetHandler(group, workspace)
 	if err != nil {
 		return log.DebugPrint(err)
 	}
+
+	if opt.MemoryOnly {
+		return p.delete(group, workspace, resourceName)
+	}
+
 	res, err := p.get(group, workspace, resourceName)
 	if err != nil {
 		return log.DebugPrint(err)
 	}
 
-	if res.memoryOnly {
+	if res.MemoryOnly {
 
 		//触发集群控制器来删除内存中的数据
 		err = ph.Delete(workspace, resourceName)
 		if err != nil {
-			return log.DebugPrint(err)
+			if !apierrors.IsNotFound(err) {
+				return log.DebugPrint(err)
+			}
 		}
 		//TODO:ufleet创建的数据
 		return nil
@@ -254,7 +388,7 @@ func (p *DaemonSetManager) Delete(group, workspace, resourceName string, opt res
 				return log.DebugPrint(err)
 			}
 		}
-		if !opt.DontCallApp && res.App != "" {
+		if !opt.DontCallApp && res.App != resource.DefaultAppBelong {
 			go func() {
 				var re resource.ResourceEvent
 				re.Group = group
@@ -271,11 +405,11 @@ func (p *DaemonSetManager) Delete(group, workspace, resourceName string, opt res
 	}
 }
 
-func (p *DaemonSetManager) Update(groupName, workspaceName string, resourceName string, data []byte) error {
+func (p *DaemonSetManager) UpdateObject(groupName, workspaceName string, resourceName string, data []byte, opt resource.UpdateOption) error {
 	p.locker.Lock()
 	defer p.locker.Unlock()
 
-	_, err := p.get(groupName, workspaceName, resourceName)
+	res, err := p.get(groupName, workspaceName, resourceName)
 	if err != nil {
 		return err
 	}
@@ -297,8 +431,29 @@ func (p *DaemonSetManager) Update(groupName, workspaceName string, resourceName 
 	if err != nil {
 		return log.DebugPrint(err)
 	}
+
+	if res.MemoryOnly {
+		err = ph.Update(workspaceName, &newr)
+		if err != nil {
+			return log.DebugPrint(err)
+		}
+		return nil
+	}
+
+	old := *res
+	res.Comment = opt.Comment
+	be := backend.NewBackendHandler()
+	err = be.UpdateResource(backendKind, res.Group, res.Workspace, res.Name, res)
+	if err != nil {
+		return err
+	}
+
 	err = ph.Update(workspaceName, &newr)
 	if err != nil {
+		err2 := be.UpdateResource(backendKind, res.Group, res.Workspace, res.Name, &old)
+		if err2 != nil {
+			log.ErrorPrint(err2)
+		}
 		return log.DebugPrint(err)
 	}
 
@@ -465,8 +620,24 @@ func (j *DaemonSet) Rollback(revision int64) (*string, error) {
 	return ph.Rollback(j.Workspace, j.Name, revision)
 
 }
+func (s *DaemonSet) Metadata() resource.ObjectMeta {
+	return s.ObjectMeta
+}
+func GetDaemonSetInterface(obj resource.Object) (DaemonSetInterface, error) {
+	if obj == nil {
+		return nil, fmt.Errorf("resource object is nil")
+	}
 
-func InitDaemonSetController(be backend.BackendHandler) (DaemonSetController, error) {
+	ri, ok := obj.(*DaemonSet)
+	if !ok {
+		return nil, fmt.Errorf("resource object is not DaemonSet type")
+	}
+
+	return ri, nil
+
+}
+
+func InitDaemonSetController(be backend.BackendHandler) (resource.ObjectController, error) {
 	rm = &DaemonSetManager{}
 	rm.Groups = make(map[string]DaemonSetGroup)
 	rm.locker = sync.Mutex{}
@@ -494,7 +665,6 @@ func InitDaemonSetController(be backend.BackendHandler) (DaemonSetController, er
 		}
 		rm.Groups[k] = group
 	}
-	log.DebugPrint(rm)
 	return rm, nil
 
 }

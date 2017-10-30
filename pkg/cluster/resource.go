@@ -66,8 +66,6 @@ type podHandler struct {
 }
 
 func (h *podHandler) Get(namespace, name string, opt GetOptions) (*corev1.Pod, error) {
-	//gv := h.clientset.CoreV1().RESTClient().APIVersion()
-	//	h.clientset.Core().Pods()
 
 	if opt.Direct {
 		pod, err := h.clientset.CoreV1().Pods(namespace).Get(name, metav1.GetOptions{})

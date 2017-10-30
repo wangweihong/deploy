@@ -5,9 +5,13 @@ import (
 	"sync"
 )
 
+const (
+	DefaultAppBelong = "standalone"
+)
+
 var (
-	resourceToRCUD = make(map[string]RCUD)
-	locker         = sync.Mutex{}
+	resourceToController = make(map[string]ObjectController)
+	locker               = sync.Mutex{}
 
 	//通知App 资源的时间
 	ResourceEventChan    = make(chan ResourceEvent)
@@ -33,32 +37,30 @@ type CreateOption struct {
 type ListOption struct{}
 type DeleteOption struct {
 	DontCallApp bool
+	MemoryOnly  bool //只清除内存中的数据
 }
 
-type RCUD interface {
-	Create(group, workspace string, data []byte, opt CreateOption) error
-	Delete(group, workspace, resource string, opt DeleteOption) error
-	Update(group, workspace, resource string, newdata []byte) error
+type UpdateOption struct {
+	Comment string //注释
 }
 
-func RegisterCURInterface(name string, cud RCUD) error {
+func RegisterResourceController(name string, cud ObjectController) error {
 	locker.Lock()
 	defer locker.Unlock()
 
-	if _, ok := resourceToRCUD[name]; ok {
+	if _, ok := resourceToController[name]; ok {
 		return fmt.Errorf("resource %v has register to RCUD", name)
 	}
 
-	resourceToRCUD[name] = cud
+	resourceToController[name] = cud
 	return nil
-
 }
 
-func GetResourceCUD(name string) (RCUD, error) {
+func GetResourceController(name string) (ObjectController, error) {
 	locker.Lock()
 	defer locker.Unlock()
 
-	cud, ok := resourceToRCUD[name]
+	cud, ok := resourceToController[name]
 	if !ok {
 		return nil, fmt.Errorf("resource %v doesn't register ", name)
 	}
@@ -75,4 +77,36 @@ type ObjectMeta struct {
 	Template   string `json:"template"`
 	CreateTime int64  `json:"createtime"`
 	Comment    string `json:"comment"`
+	MemoryOnly bool   `json:"memoryonly"`
+}
+
+type Object interface {
+	Metadata() ObjectMeta
+}
+type Locker interface {
+	Lock()
+	Unlock()
+}
+
+type ObjectController interface {
+	Locker
+	NewObject(meta ObjectMeta) error
+	GetObjectWithoutLock(group, workspace, name string) (Object, error)
+	DeleteGroup(group string) error
+	DeleteWorkspace(groupName string, workspaceName string) error
+	AddGroup(group string) error
+	AddWorkspace(group, workspace string) error
+	AddObjectFromBytes(data []byte, force bool) error
+
+	CreateObject(group, workspace string, data []byte, opt CreateOption) error
+	DeleteObject(group, workspace, configmap string, opt DeleteOption) error
+	GetObject(group, workspace, configmap string) (Object, error)
+	UpdateObject(group, workspace, resource string, newdata []byte, opt UpdateOption) error
+	ListObject(group, workspace string) ([]Object, error)
+	ListGroup(group string) ([]Object, error)
+}
+
+//env
+
+type EnvVar struct {
 }

@@ -54,6 +54,7 @@ func (c *ResourceController) Run(stopCh chan struct{}) error {
 		c.podInformer.Informer().HasSynced,
 		c.endpointInformer.Informer().HasSynced,
 		c.serviceInformer.Informer().HasSynced,
+		c.secretInformer.Informer().HasSynced,
 		c.replicationcontrollerInformer.Informer().HasSynced,
 		c.configmapInformer.Informer().HasSynced,
 		c.serviceaccountInformer.Informer().HasSynced,
@@ -79,12 +80,6 @@ func (c *ResourceController) locateResourceGW(ns string) *Workspace {
 }
 
 func (c *ResourceController) generateEventFromObj(obj interface{}, action ActionType) (*Event, error) {
-	/*
-		switch e := obj.(type) {
-		case *corev1.Pod:
-			log.DebugPrint("kind:", e.Kind)
-		}
-	*/
 
 	runobj := obj.(runtime.Object)
 	accessor := meta.NewAccessor()
@@ -92,9 +87,9 @@ func (c *ResourceController) generateEventFromObj(obj interface{}, action Action
 	if err != nil {
 		return nil, fmt.Errorf("<cluster ResourceController> Get object Namespace fail :%v", err)
 	}
+
 	wg := c.locateResourceGW(ns)
 	if wg == nil {
-		//		log.DebugPrint("ignore workspace %v dont care", ns)
 		return nil, nil
 	}
 
@@ -144,7 +139,6 @@ func (c *ResourceController) resourceAdd(obj interface{}) {
 	}
 
 	e := *ep
-	log.DebugPrint(e)
 	switch obj.(type) {
 	case *corev1.Pod:
 		PodEventChan <- e

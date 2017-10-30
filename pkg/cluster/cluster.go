@@ -49,7 +49,7 @@ func (c *Cluster) StartInformers() error {
 	c.clientset = rclient
 
 	//每隔60分钟,触发一次Update事件
-	sharedInformerFactory := informers.NewSharedInformerFactory(rclient, time.Minute*60)
+	sharedInformerFactory := informers.NewSharedInformerFactory(rclient, 60*time.Second)
 	controller := NewResourceController(sharedInformerFactory, c.Workspaces)
 	err = controller.Run(c.informerStopChan)
 	if err != nil {

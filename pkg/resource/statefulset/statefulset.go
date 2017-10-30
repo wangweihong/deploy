@@ -3,6 +3,7 @@ package statefulset
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 	"ufleet-deploy/pkg/backend"
@@ -19,17 +20,8 @@ import (
 
 var (
 	rm         *StatefulSetManager
-	Controller StatefulSetController
+	Controller resource.ObjectController
 )
-
-type StatefulSetController interface {
-	Create(group, workspace string, data []byte, opt resource.CreateOption) error
-	Delete(group, workspace, statefulset string, opt resource.DeleteOption) error
-	Update(group, workspace, resource string, newdata []byte) error
-	Get(group, workspace, statefulset string) (StatefulSetInterface, error)
-	List(group, workspace string) ([]StatefulSetInterface, error)
-	ListGroup(group string) ([]StatefulSetInterface, error)
-}
 
 type StatefulSetInterface interface {
 	Info() *StatefulSet
@@ -62,7 +54,155 @@ type Runtime struct {
 //可以根据事件及时更新StatefulSet的信息
 type StatefulSet struct {
 	resource.ObjectMeta
-	memoryOnly bool
+}
+
+func GetStatefulSetInterface(obj resource.Object) (StatefulSetInterface, error) {
+	if obj == nil {
+		return nil, fmt.Errorf("resource object is nil")
+	}
+
+	ri, ok := obj.(*StatefulSet)
+	if !ok {
+		return nil, fmt.Errorf("resource object is not configmap type")
+	}
+
+	return ri, nil
+}
+
+func (p *StatefulSetManager) Lock() {
+	p.locker.Lock()
+}
+func (p *StatefulSetManager) Unlock() {
+	p.locker.Unlock()
+}
+
+//仅仅用于基于内存的对象的创建
+func (p *StatefulSetManager) NewObject(meta resource.ObjectMeta) error {
+
+	if strings.TrimSpace(meta.Group) == "" ||
+		strings.TrimSpace(meta.Workspace) == "" ||
+		strings.TrimSpace(meta.Name) == "" {
+		return fmt.Errorf("Invalid object data")
+	}
+
+	cp := StatefulSet{ObjectMeta: meta}
+	cp.MemoryOnly = true
+
+	err := p.fillObjectToManager(&cp, false)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (p *StatefulSetManager) fillObjectToManager(meta resource.Object, force bool) error {
+
+	cm, ok := meta.(*StatefulSet)
+	if !ok {
+		return fmt.Errorf("object is not correct type")
+	}
+
+	group, ok := rm.Groups[cm.Group]
+	if !ok {
+		return resource.ErrGroupNotFound
+	}
+
+	workspace, ok := group.Workspaces[cm.Workspace]
+	if !ok {
+		return resource.ErrWorkspaceNotFound
+	}
+	if !force {
+
+		_, ok = workspace.StatefulSets[cm.Name]
+		if ok {
+			return resource.ErrResourceExists
+		}
+
+	}
+	workspace.StatefulSets[cm.Name] = *cm
+	group.Workspaces[cm.Workspace] = workspace
+	p.Groups[cm.Group] = group
+	return nil
+
+}
+
+func (p *StatefulSetManager) DeleteGroup(groupName string) error {
+	_, ok := p.Groups[groupName]
+	if !ok {
+		return resource.ErrGroupNotFound
+	}
+
+	delete(p.Groups, groupName)
+	return nil
+}
+
+func (p *StatefulSetManager) AddGroup(groupName string) error {
+	p.Lock()
+	defer p.Unlock()
+	_, ok := p.Groups[groupName]
+	if ok {
+		return resource.ErrGroupExists
+	}
+	var group StatefulSetGroup
+	group.Workspaces = make(map[string]StatefulSetWorkspace)
+	p.Groups[groupName] = group
+	return nil
+}
+
+func (p *StatefulSetManager) AddObjectFromBytes(data []byte, force bool) error {
+	p.Lock()
+	defer p.Unlock()
+	var res StatefulSet
+	err := json.Unmarshal(data, &res)
+	if err != nil {
+		return err
+	}
+	err = p.fillObjectToManager(&res, force)
+	return err
+
+}
+
+func (p *StatefulSetManager) AddWorkspace(groupName string, workspaceName string) error {
+	p.Lock()
+	defer p.Unlock()
+	g, ok := p.Groups[groupName]
+	if !ok {
+		return resource.ErrGroupNotFound
+	}
+
+	_, ok = g.Workspaces[workspaceName]
+	if ok {
+		return resource.ErrWorkspaceExists
+	}
+
+	var ws StatefulSetWorkspace
+	ws.StatefulSets = make(map[string]StatefulSet)
+	g.Workspaces[workspaceName] = ws
+	p.Groups[groupName] = g
+	return nil
+
+}
+
+func (p *StatefulSetManager) DeleteWorkspace(groupName string, workspaceName string) error {
+	p.locker.Lock()
+	defer p.locker.Unlock()
+	group, ok := p.Groups[groupName]
+	if !ok {
+		return resource.ErrGroupNotFound
+	}
+
+	_, ok = group.Workspaces[workspaceName]
+	if !ok {
+		return resource.ErrWorkspaceNotFound
+	}
+	delete(group.Workspaces, workspaceName)
+	p.Groups[groupName] = group
+	return nil
+}
+
+func (p *StatefulSetManager) GetObjectWithoutLock(groupName, workspaceName, resourceName string) (resource.Object, error) {
+
+	return p.get(groupName, workspaceName, resourceName)
 }
 
 //注意这里没锁
@@ -86,13 +226,13 @@ func (p *StatefulSetManager) get(groupName, workspaceName, resourceName string) 
 	return &statefulset, nil
 }
 
-func (p *StatefulSetManager) Get(group, workspace, resourceName string) (StatefulSetInterface, error) {
+func (p *StatefulSetManager) GetObject(group, workspace, resourceName string) (resource.Object, error) {
 	p.locker.Lock()
 	defer p.locker.Unlock()
 	return p.get(group, workspace, resourceName)
 }
 
-func (p *StatefulSetManager) List(groupName, workspaceName string) ([]StatefulSetInterface, error) {
+func (p *StatefulSetManager) ListObject(groupName, workspaceName string) ([]resource.Object, error) {
 
 	p.locker.Lock()
 	defer p.locker.Unlock()
@@ -107,7 +247,7 @@ func (p *StatefulSetManager) List(groupName, workspaceName string) ([]StatefulSe
 		return nil, fmt.Errorf("%v:group/%v,workspace/%v", resource.ErrWorkspaceNotFound, groupName, workspaceName)
 	}
 
-	pis := make([]StatefulSetInterface, 0)
+	pis := make([]resource.Object, 0)
 
 	//不能够直接使用k,v来赋值,会出现值都是同一个的问题
 	for k := range workspace.StatefulSets {
@@ -118,7 +258,7 @@ func (p *StatefulSetManager) List(groupName, workspaceName string) ([]StatefulSe
 	return pis, nil
 }
 
-func (p *StatefulSetManager) ListGroup(groupName string) ([]StatefulSetInterface, error) {
+func (p *StatefulSetManager) ListGroup(groupName string) ([]resource.Object, error) {
 
 	p.locker.Lock()
 	defer p.locker.Unlock()
@@ -128,7 +268,7 @@ func (p *StatefulSetManager) ListGroup(groupName string) ([]StatefulSetInterface
 		return nil, fmt.Errorf("%v:%v", resource.ErrGroupNotFound, groupName)
 	}
 
-	pis := make([]StatefulSetInterface, 0)
+	pis := make([]resource.Object, 0)
 
 	//不能够直接使用k,v来赋值,会出现值都是同一个的问题
 	for _, v := range group.Workspaces {
@@ -140,7 +280,7 @@ func (p *StatefulSetManager) ListGroup(groupName string) ([]StatefulSetInterface
 
 	return pis, nil
 }
-func (p *StatefulSetManager) Create(groupName, workspaceName string, data []byte, opt resource.CreateOption) error {
+func (p *StatefulSetManager) CreateObject(groupName, workspaceName string, data []byte, opt resource.CreateOption) error {
 
 	p.locker.Lock()
 	defer p.locker.Unlock()
@@ -159,6 +299,7 @@ func (p *StatefulSetManager) Create(groupName, workspaceName string, data []byte
 	}
 
 	var obj appv1beta1.StatefulSet
+	obj.Annotations = make(map[string]string)
 	err = json.Unmarshal(exts[0].Raw, &obj)
 	if err != nil {
 		return log.DebugPrint(err)
@@ -168,7 +309,6 @@ func (p *StatefulSetManager) Create(groupName, workspaceName string, data []byte
 		return log.DebugPrint("must and  offer one resource json/yaml data")
 	}
 	obj.ResourceVersion = ""
-	obj.Annotations = make(map[string]string)
 	obj.Annotations[sign.SignFromUfleetKey] = sign.SignFromUfleetValue
 
 	var cp StatefulSet
@@ -177,6 +317,7 @@ func (p *StatefulSetManager) Create(groupName, workspaceName string, data []byte
 	cp.Workspace = workspaceName
 	cp.Group = groupName
 	cp.Template = string(data)
+	cp.App = resource.DefaultAppBelong
 	if opt.App != nil {
 		cp.App = *opt.App
 	}
@@ -218,9 +359,14 @@ func (p *StatefulSetManager) delete(groupName, workspaceName, resourceName strin
 	return nil
 }
 
-func (p *StatefulSetManager) Delete(group, workspace, resourceName string, opt resource.DeleteOption) error {
+func (p *StatefulSetManager) DeleteObject(group, workspace, resourceName string, opt resource.DeleteOption) error {
 	p.locker.Lock()
 	defer p.locker.Unlock()
+
+	if opt.MemoryOnly {
+		return p.delete(group, workspace, resourceName)
+	}
+
 	ph, err := cluster.NewStatefulSetHandler(group, workspace)
 	if err != nil {
 		return log.DebugPrint(err)
@@ -230,12 +376,14 @@ func (p *StatefulSetManager) Delete(group, workspace, resourceName string, opt r
 		return log.DebugPrint(err)
 	}
 
-	if res.memoryOnly {
+	if res.MemoryOnly {
 
 		//触发集群控制器来删除内存中的数据
 		err = ph.Delete(workspace, resourceName)
 		if err != nil {
-			return log.DebugPrint(err)
+			if !apierrors.IsNotFound(err) {
+				return log.DebugPrint(err)
+			}
 		}
 		//TODO:ufleet创建的数据
 		return nil
@@ -251,7 +399,7 @@ func (p *StatefulSetManager) Delete(group, workspace, resourceName string, opt r
 				return log.DebugPrint(err)
 			}
 		}
-		if !opt.DontCallApp && res.App != "" {
+		if !opt.DontCallApp && res.App != resource.DefaultAppBelong {
 			go func() {
 				var re resource.ResourceEvent
 				re.Group = group
@@ -267,11 +415,11 @@ func (p *StatefulSetManager) Delete(group, workspace, resourceName string, opt r
 		return nil
 	}
 }
-func (p *StatefulSetManager) Update(groupName, workspaceName string, resourceName string, data []byte) error {
+func (p *StatefulSetManager) UpdateObject(groupName, workspaceName string, resourceName string, data []byte, opt resource.UpdateOption) error {
 	p.locker.Lock()
 	defer p.locker.Unlock()
 
-	_, err := p.get(groupName, workspaceName, resourceName)
+	res, err := p.get(groupName, workspaceName, resourceName)
 	if err != nil {
 		return err
 	}
@@ -293,8 +441,29 @@ func (p *StatefulSetManager) Update(groupName, workspaceName string, resourceNam
 	if err != nil {
 		return log.DebugPrint(err)
 	}
+
+	if res.MemoryOnly {
+		err = ph.Update(workspaceName, &newr)
+		if err != nil {
+			return log.DebugPrint(err)
+		}
+		return nil
+	}
+
+	old := *res
+	res.Comment = opt.Comment
+	be := backend.NewBackendHandler()
+	err = be.UpdateResource(backendKind, res.Group, res.Workspace, res.Name, res)
+	if err != nil {
+		return log.DebugPrint(err)
+	}
+
 	err = ph.Update(workspaceName, &newr)
 	if err != nil {
+		err2 := be.UpdateResource(backendKind, res.Group, res.Workspace, res.Name, &old)
+		if err2 != nil {
+			log.ErrorPrint(err2)
+		}
 		return log.DebugPrint(err)
 	}
 
@@ -359,7 +528,11 @@ func (s *StatefulSet) Event() ([]corev1.Event, error) {
 	return e, nil
 }
 
-func InitStatefulSetController(be backend.BackendHandler) (StatefulSetController, error) {
+func (s *StatefulSet) Metadata() resource.ObjectMeta {
+	return s.ObjectMeta
+}
+
+func InitStatefulSetController(be backend.BackendHandler) (resource.ObjectController, error) {
 	rm = &StatefulSetManager{}
 	rm.Groups = make(map[string]StatefulSetGroup)
 	rm.locker = sync.Mutex{}
