@@ -609,3 +609,51 @@ func (this *PodController) GetPodContainerSpec() {
 
 	this.errReturn(err, 500)
 }
+
+// GetPodContainerEnv
+// @Title Pod
+// @Description   Pod Containers
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Param workspace path string true "工作区"
+// @Param pod path string true "容器组"
+// @Param container path string true "容器"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /:pod/group/:group/workspace/:workspace/container/:container/env [Get]
+func (this *PodController) GetPodContainerSpecEnv() {
+	err := this.checkRouteControllerAbility()
+	if err != nil {
+		this.abilityErrorReturn(err)
+		return
+	}
+
+	group := this.Ctx.Input.Param(":group")
+	workspace := this.Ctx.Input.Param(":workspace")
+	pod := this.Ctx.Input.Param(":pod")
+	container := this.Ctx.Input.Param(":container")
+
+	v, err := pk.Controller.GetObject(group, workspace, pod)
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+	pi, _ := pk.GetPodInterface(v)
+
+	stat, err := pi.GetStatus()
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+
+	for _, v := range stat.ContainerSpecs {
+		if v.Name == container {
+			this.normalReturn(v.Env)
+			return
+		}
+	}
+
+	err = fmt.Errorf("container not found")
+
+	this.errReturn(err, 500)
+}

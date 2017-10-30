@@ -101,3 +101,8 @@ type ObjectController interface {
 	ListObject(group, workspace string) ([]Object, error)
 	ListGroup(group string) ([]Object, error)
 }
+
+//env
+
+type EnvVar struct {
+}

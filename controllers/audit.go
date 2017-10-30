@@ -244,6 +244,18 @@ var (
 			object:  operateObjectDaemonSet,
 			operate: operateTypeRollback,
 		},
+		"UpdateDaemonSetContainerSpecEnv": audit{
+			object:  operateObjectDaemonSet,
+			operate: operateTypeUpdate,
+		},
+		"AddDaemonSetContainerSpecEnv": audit{
+			object:  operateObjectDaemonSet,
+			operate: operateTypeUpdate,
+		},
+		"DeleteDaemonSetContainerSpecEnv": audit{
+			object:  operateObjectDaemonSet,
+			operate: operateTypeUpdate,
+		},
 
 		//ReplicaSet
 		"CreateReplicaSet": audit{

@@ -1306,6 +1306,231 @@
                 }
             }
         },
+        "/daemonset/{pod}/group/{group}/workspace/{workspace}/container/{container}/env": {
+            "get": {
+                "tags": [
+                    "daemonset"
+                ],
+                "description": "DaemonSet Containers",
+                "operationId": "DaemonSetController.DaemonSet",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Token",
+                        "description": "'Token'",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "group",
+                        "description": "组名",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "workspace",
+                        "description": "工作区",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "pod",
+                        "description": "容器组",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "container",
+                        "description": "容器",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "{string} create success!"
+                    },
+                    "500": {}
+                }
+            },
+            "put": {
+                "tags": [
+                    "daemonset"
+                ],
+                "description": "更新DaemonSet Container env",
+                "operationId": "DaemonSetController.DaemonSet",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Token",
+                        "description": "'Token'",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "group",
+                        "description": "组名",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "workspace",
+                        "description": "工作区",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "pod",
+                        "description": "容器组",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "container",
+                        "description": "容器",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "body",
+                        "name": "body",
+                        "description": "更新内容",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "{string} create success!"
+                    },
+                    "500": {}
+                }
+            },
+            "post": {
+                "tags": [
+                    "daemonset"
+                ],
+                "description": "新增DaemonSet Container env",
+                "operationId": "DaemonSetController.DaemonSet",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Token",
+                        "description": "'Token'",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "group",
+                        "description": "组名",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "workspace",
+                        "description": "工作区",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "pod",
+                        "description": "容器组",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "container",
+                        "description": "容器",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "body",
+                        "name": "body",
+                        "description": "更新内容",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "{string} create success!"
+                    },
+                    "500": {}
+                }
+            }
+        },
+        "/daemonset/{pod}/group/{group}/workspace/{workspace}/container/{container}/env/{env}": {
+            "delete": {
+                "tags": [
+                    "daemonset"
+                ],
+                "description": "DaemonSet Containers",
+                "operationId": "DaemonSetController.DaemonSet",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Token",
+                        "description": "'Token'",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "group",
+                        "description": "组名",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "workspace",
+                        "description": "工作区",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "pod",
+                        "description": "容器组",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "container",
+                        "description": "容器",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "env",
+                        "description": "环境变量",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "{string} create success!"
+                    },
+                    "500": {}
+                }
+            }
+        },
         "/deployment/group/{group}": {
             "get": {
                 "tags": [
@@ -3369,6 +3594,58 @@
                         "in": "path",
                         "name": "pod",
                         "description": "容器组",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "{string} create success!"
+                    },
+                    "500": {}
+                }
+            }
+        },
+        "/pod/{pod}/group/{group}/workspace/{workspace}/container/{container}/env": {
+            "get": {
+                "tags": [
+                    "pod"
+                ],
+                "description": "Pod Containers",
+                "operationId": "PodController.Pod",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Token",
+                        "description": "'Token'",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "group",
+                        "description": "组名",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "workspace",
+                        "description": "工作区",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "pod",
+                        "description": "容器组",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "container",
+                        "description": "容器",
                         "required": true,
                         "type": "string"
                     }

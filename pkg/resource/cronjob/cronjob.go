@@ -361,6 +361,14 @@ func (p *CronJobManager) UpdateObject(groupName, workspaceName string, resourceN
 		return log.DebugPrint(err)
 	}
 
+	if res.MemoryOnly {
+		err = ph.Update(workspaceName, &newr)
+		if err != nil {
+			return log.DebugPrint(err)
+		}
+		return nil
+	}
+
 	old := *res
 	res.Comment = opt.Comment
 	be := backend.NewBackendHandler()
