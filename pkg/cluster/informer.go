@@ -54,6 +54,7 @@ func (c *ResourceController) Run(stopCh chan struct{}) error {
 		c.podInformer.Informer().HasSynced,
 		c.endpointInformer.Informer().HasSynced,
 		c.serviceInformer.Informer().HasSynced,
+		c.secretInformer.Informer().HasSynced,
 		c.replicationcontrollerInformer.Informer().HasSynced,
 		c.configmapInformer.Informer().HasSynced,
 		c.serviceaccountInformer.Informer().HasSynced,
@@ -86,19 +87,11 @@ func (c *ResourceController) generateEventFromObj(obj interface{}, action Action
 	if err != nil {
 		return nil, fmt.Errorf("<cluster ResourceController> Get object Namespace fail :%v", err)
 	}
-	/*
-		kind, err := accessor.Kind(runobj)
-		if err != nil {
-			return nil, fmt.Errorf("<cluster ResourceController> Get object Kind fail :%v", err)
-		}
-	*/
 
-	//	log.DebugPrint("00=======================================")
 	wg := c.locateResourceGW(ns)
 	if wg == nil {
 		return nil, nil
 	}
-	//	log.DebugPrint("=======================================")
 
 	name, err := accessor.Name(runobj)
 	if err != nil {
@@ -135,7 +128,6 @@ func (c *ResourceController) generateEventFromObj(obj interface{}, action Action
 //周期性resync时,会触发Update事件
 //调用者要tongue
 func (c *ResourceController) resourceAdd(obj interface{}) {
-
 	ep, err := c.generateEventFromObj(obj, ActionCreate)
 	if err != nil {
 		log.ErrorPrint(err)
@@ -161,7 +153,6 @@ func (c *ResourceController) resourceAdd(obj interface{}) {
 	case *corev1.ServiceAccount:
 		ServiceAccountEventChan <- e
 	case *corev1.Secret:
-		log.DebugPrint("-0------------------------->", e)
 		SecretEventChan <- e
 	case *extensionsv1beta1.Deployment:
 		DeploymentEventChan <- e

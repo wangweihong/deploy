@@ -111,7 +111,7 @@ func DebugPrint(data interface{}, a ...interface{}) error {
 			e = nil
 
 			for _, v := range a {
-				e = fmt.Errorf("%v%v", err, v)
+				e = fmt.Errorf("%v%v", e, v)
 			}
 		}
 		beego.Debug(debugPrintFunc(e.Error()))

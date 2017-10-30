@@ -10,6 +10,8 @@ import (
 	pk "ufleet-deploy/pkg/resource/secret"
 	"ufleet-deploy/pkg/user"
 
+	yaml "gopkg.in/yaml.v2"
+
 	corev1 "k8s.io/client-go/pkg/api/v1"
 )
 
@@ -307,7 +309,7 @@ func (this *SecretController) CreateSecretCustom() {
 		}
 
 		data := make(map[string]string)
-		err := json.Unmarshal([]byte(co.Data), &data)
+		err := yaml.Unmarshal([]byte(co.Data), &data)
 		if err != nil {
 			this.audit(token, "", true)
 			this.errReturn(err, 500)
