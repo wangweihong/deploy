@@ -321,6 +321,7 @@ func (p *ServiceManager) CreateObject(groupName, workspaceName string, data []by
 	cp.Workspace = workspaceName
 	cp.Group = groupName
 	cp.Template = string(data)
+	cp.App = resource.DefaultAppBelong
 	if opt.App != nil {
 		cp.App = *opt.App
 	}

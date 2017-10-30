@@ -323,6 +323,7 @@ func (p *PodManager) CreateObject(groupName, workspaceName string, data []byte, 
 	cp.Workspace = workspaceName
 	cp.Group = groupName
 	cp.Template = string(data)
+	cp.App = resource.DefaultAppBelong
 	if opt.App != nil {
 		cp.App = *opt.App
 	}
@@ -470,7 +471,7 @@ func (p *PodManager) DeleteObject(group, workspace, podName string, opt resource
 				return log.DebugPrint(err)
 			}
 		}
-		if !opt.DontCallApp && pod.App != "" {
+		if !opt.DontCallApp && pod.App != resource.DefaultAppBelong {
 			go func() {
 				var re resource.ResourceEvent
 				re.Group = group

@@ -5,6 +5,10 @@ import (
 	"sync"
 )
 
+const (
+	DefaultAppBelong = "standalone"
+)
+
 var (
 	resourceToController = make(map[string]ObjectController)
 	locker               = sync.Mutex{}

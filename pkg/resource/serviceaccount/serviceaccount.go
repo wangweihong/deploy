@@ -318,6 +318,7 @@ func (p *ServiceAccountManager) CreateObject(groupName, workspaceName string, da
 	cp.Comment = opt.Comment
 	cp.Group = groupName
 	cp.Template = string(data)
+	cp.App = resource.DefaultAppBelong
 	if opt.App != nil {
 		cp.App = *opt.App
 	}
@@ -397,7 +398,7 @@ func (p *ServiceAccountManager) DeleteObject(group, workspace, resourceName stri
 				return log.DebugPrint(err)
 			}
 		}
-		if !opt.DontCallApp && res.App != "" {
+		if !opt.DontCallApp && res.App != resource.DefaultAppBelong {
 			go func() {
 				var re resource.ResourceEvent
 				re.Group = group

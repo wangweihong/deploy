@@ -319,6 +319,7 @@ func (p *JobManager) CreateObject(groupName, workspaceName string, data []byte, 
 	cp.Workspace = workspaceName
 	cp.Template = string(data)
 	cp.User = opt.User
+	cp.App = resource.DefaultAppBelong
 	if opt.App != nil {
 		cp.App = *opt.App
 	}
@@ -399,7 +400,7 @@ func (p *JobManager) DeleteObject(group, workspace, resourceName string, opt res
 				return log.DebugPrint(err)
 			}
 		}
-		if !opt.DontCallApp && res.App != "" {
+		if !opt.DontCallApp && res.App != resource.DefaultAppBelong {
 			go func() {
 				var re resource.ResourceEvent
 				re.Group = group

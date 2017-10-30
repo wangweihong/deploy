@@ -317,6 +317,7 @@ func (p *EndpointManager) CreateObject(groupName, workspaceName string, data []b
 	cp.Workspace = workspaceName
 	cp.Group = groupName
 	cp.Template = string(data)
+	cp.App = resource.DefaultAppBelong
 	if opt.App != nil {
 		cp.App = *opt.App
 	}
@@ -398,7 +399,7 @@ func (p *EndpointManager) DeleteObject(group, workspace, resourceName string, op
 				return log.DebugPrint(err)
 			}
 		}
-		if !opt.DontCallApp && res.App != "" {
+		if !opt.DontCallApp && res.App != resource.DefaultAppBelong {
 			go func() {
 				var re resource.ResourceEvent
 				re.Group = group

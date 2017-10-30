@@ -307,6 +307,7 @@ func (p *DaemonSetManager) CreateObject(groupName, workspaceName string, data []
 	cp.Group = groupName
 	cp.Template = string(data)
 	cp.CreateTime = time.Now().Unix()
+	cp.App = resource.DefaultAppBelong
 	if opt.App != nil {
 		cp.App = *opt.App
 	}
@@ -387,7 +388,7 @@ func (p *DaemonSetManager) DeleteObject(group, workspace, resourceName string, o
 				return log.DebugPrint(err)
 			}
 		}
-		if !opt.DontCallApp && res.App != "" {
+		if !opt.DontCallApp && res.App != resource.DefaultAppBelong {
 			go func() {
 				var re resource.ResourceEvent
 				re.Group = group

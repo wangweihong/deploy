@@ -312,6 +312,7 @@ func (p *CronJobManager) CreateObject(groupName, workspaceName string, data []by
 	cp.Template = string(data)
 	cp.User = opt.User
 	cp.CreateTime = time.Now().Unix()
+	cp.App = resource.DefaultAppBelong
 	if opt.App != nil {
 		cp.App = *opt.App
 	}
@@ -447,7 +448,7 @@ func (p *CronJobManager) DeleteObject(group, workspace, resourceName string, opt
 				return log.DebugPrint(err)
 			}
 		}
-		if !opt.DontCallApp && res.App != "" {
+		if !opt.DontCallApp && res.App != resource.DefaultAppBelong {
 			go func() {
 				var re resource.ResourceEvent
 				re.Group = group
