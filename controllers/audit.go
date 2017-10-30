@@ -226,6 +226,18 @@ var (
 			object:  operateObjectDeployment,
 			operate: operateTypePauseOrResume,
 		},
+		"DeleteDeploymentContainerSpecEnv": audit{
+			object:  operateObjectDeployment,
+			operate: operateTypeUpdate,
+		},
+		"UpdateDeploymentContainerSpecEnv": audit{
+			object:  operateObjectDeployment,
+			operate: operateTypeUpdate,
+		},
+		"AddDeploymentContainerSpecEnv": audit{
+			object:  operateObjectDeployment,
+			operate: operateTypeUpdate,
+		},
 
 		//DaemonSet
 		"CreateDaemonSet": audit{

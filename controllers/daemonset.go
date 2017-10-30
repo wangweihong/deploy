@@ -431,7 +431,7 @@ func (this *DaemonSetController) RollBackDaemonSet() {
 // @Param container path string true "容器"
 // @Success 201 {string} create success!
 // @Failure 500
-// @router /:pod/group/:group/workspace/:workspace/container/:container/env [Get]
+// @router /:daemonset/group/:group/workspace/:workspace/container/:container/env [Get]
 func (this *DaemonSetController) GetDaemonSetContainerSpecEnv() {
 	err := this.checkRouteControllerAbility()
 	if err != nil {
@@ -441,10 +441,10 @@ func (this *DaemonSetController) GetDaemonSetContainerSpecEnv() {
 
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
-	pod := this.Ctx.Input.Param(":pod")
+	daemonset := this.Ctx.Input.Param(":daemonset")
 	container := this.Ctx.Input.Param(":container")
 
-	v, err := pk.Controller.GetObject(group, workspace, pod)
+	v, err := pk.Controller.GetObject(group, workspace, daemonset)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
@@ -475,12 +475,12 @@ func (this *DaemonSetController) GetDaemonSetContainerSpecEnv() {
 // @Param Token header string true 'Token'
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
-// @Param pod path string true "容器组"
+// @Param daemonset path string true "守护进程"
 // @Param container path string true "容器"
 // @Param body body string true "更新内容"
 // @Success 201 {string} create success!
 // @Failure 500
-// @router /:pod/group/:group/workspace/:workspace/container/:container/env [Post]
+// @router /:daemonset/group/:group/workspace/:workspace/container/:container/env [Post]
 func (this *DaemonSetController) AddDaemonSetContainerSpecEnv() {
 	token := this.Ctx.Request.Header.Get("token")
 	err := this.checkRouteControllerAbility()
@@ -507,10 +507,10 @@ func (this *DaemonSetController) AddDaemonSetContainerSpecEnv() {
 
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
-	pod := this.Ctx.Input.Param(":pod")
+	daemonset := this.Ctx.Input.Param(":daemonset")
 	container := this.Ctx.Input.Param(":container")
 
-	v, err := pk.Controller.GetObject(group, workspace, pod)
+	v, err := pk.Controller.GetObject(group, workspace, daemonset)
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
@@ -567,7 +567,7 @@ func (this *DaemonSetController) AddDaemonSetContainerSpecEnv() {
 
 	}
 
-	err = pk.Controller.UpdateObject(group, workspace, pod, byteContent, resource.UpdateOption{})
+	err = pk.Controller.UpdateObject(group, workspace, daemonset, byteContent, resource.UpdateOption{})
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
@@ -584,12 +584,12 @@ func (this *DaemonSetController) AddDaemonSetContainerSpecEnv() {
 // @Param Token header string true 'Token'
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
-// @Param pod path string true "容器组"
+// @Param daemonset path string true "守护进程"
 // @Param container path string true "容器"
 // @Param env path string true "环境变量"
 // @Success 201 {string} create success!
 // @Failure 500
-// @router /:pod/group/:group/workspace/:workspace/container/:container/env/:env [Delete]
+// @router /:daemonset/group/:group/workspace/:workspace/container/:container/env/:env [Delete]
 func (this *DaemonSetController) DeleteDaemonSetContainerSpecEnv() {
 	token := this.Ctx.Request.Header.Get("token")
 	err := this.checkRouteControllerAbility()
@@ -601,12 +601,12 @@ func (this *DaemonSetController) DeleteDaemonSetContainerSpecEnv() {
 
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
-	pod := this.Ctx.Input.Param(":pod")
+	daemonset := this.Ctx.Input.Param(":daemonset")
 	container := this.Ctx.Input.Param(":container")
 	env := this.Ctx.Input.Param(":env")
 	log.DebugPrint(env)
 
-	v, err := pk.Controller.GetObject(group, workspace, pod)
+	v, err := pk.Controller.GetObject(group, workspace, daemonset)
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
@@ -661,7 +661,7 @@ func (this *DaemonSetController) DeleteDaemonSetContainerSpecEnv() {
 
 	}
 
-	err = pk.Controller.UpdateObject(group, workspace, pod, byteContent, resource.UpdateOption{})
+	err = pk.Controller.UpdateObject(group, workspace, daemonset, byteContent, resource.UpdateOption{})
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
@@ -678,12 +678,12 @@ func (this *DaemonSetController) DeleteDaemonSetContainerSpecEnv() {
 // @Param Token header string true 'Token'
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
-// @Param pod path string true "容器组"
+// @Param daemonset path string true "守护进程"
 // @Param container path string true "容器"
 // @Param body body string true "更新内容"
 // @Success 201 {string} create success!
 // @Failure 500
-// @router /:pod/group/:group/workspace/:workspace/container/:container/env [Put]
+// @router /:daemonset/group/:group/workspace/:workspace/container/:container/env [Put]
 func (this *DaemonSetController) UpdateDaemonSetContainerSpecEnv() {
 	token := this.Ctx.Request.Header.Get("token")
 	err := this.checkRouteControllerAbility()
@@ -710,10 +710,10 @@ func (this *DaemonSetController) UpdateDaemonSetContainerSpecEnv() {
 
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
-	pod := this.Ctx.Input.Param(":pod")
+	daemonset := this.Ctx.Input.Param(":daemonset")
 	container := this.Ctx.Input.Param(":container")
 
-	v, err := pk.Controller.GetObject(group, workspace, pod)
+	v, err := pk.Controller.GetObject(group, workspace, daemonset)
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
@@ -754,7 +754,7 @@ func (this *DaemonSetController) UpdateDaemonSetContainerSpecEnv() {
 
 	}
 
-	err = pk.Controller.UpdateObject(group, workspace, pod, byteContent, resource.UpdateOption{})
+	err = pk.Controller.UpdateObject(group, workspace, daemonset, byteContent, resource.UpdateOption{})
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)

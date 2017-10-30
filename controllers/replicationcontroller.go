@@ -4,9 +4,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"ufleet-deploy/pkg/log"
 	"ufleet-deploy/pkg/resource"
 	pk "ufleet-deploy/pkg/resource/replicationcontroller"
 	"ufleet-deploy/pkg/user"
+
+	corev1 "k8s.io/client-go/pkg/api/v1"
 )
 
 type ReplicationControllerController struct {
@@ -420,4 +423,348 @@ func (this *ReplicationControllerController) GetReplicationControllerTemplate() 
 	}
 
 	this.normalReturn(t)
+}
+
+// GetReplicationControllerContainerEnv
+// @Title ReplicationController
+// @Description   ReplicationController Containers
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Param workspace path string true "工作区"
+// @Param replicationcontroller path string true "部署"
+// @Param container path string true "容器"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /:replicationcontroller/group/:group/workspace/:workspace/container/:container/env [Get]
+func (this *ReplicationControllerController) GetReplicationControllerContainerSpecEnv() {
+	err := this.checkRouteControllerAbility()
+	if err != nil {
+		this.abilityErrorReturn(err)
+		return
+	}
+
+	group := this.Ctx.Input.Param(":group")
+	workspace := this.Ctx.Input.Param(":workspace")
+	replicationcontroller := this.Ctx.Input.Param(":replicationcontroller")
+	container := this.Ctx.Input.Param(":container")
+
+	v, err := pk.Controller.GetObject(group, workspace, replicationcontroller)
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+	pi, _ := pk.GetReplicationControllerInterface(v)
+
+	stat := pi.GetStatus()
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+
+	for _, v := range stat.ContainerSpecs {
+		if v.Name == container {
+			this.normalReturn(v.Env)
+			return
+		}
+	}
+
+	err = fmt.Errorf("container not found")
+
+	this.errReturn(err, 500)
+}
+
+// ReplicationControllerContainerEnv
+// @Title ReplicationController
+// @Description   新增ReplicationController Container env
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Param workspace path string true "工作区"
+// @Param replicationcontroller path string true "部署"
+// @Param container path string true "容器"
+// @Param body body string true "更新内容"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /:replicationcontroller/group/:group/workspace/:workspace/container/:container/env [Post]
+func (this *ReplicationControllerController) AddReplicationControllerContainerSpecEnv() {
+	token := this.Ctx.Request.Header.Get("token")
+	err := this.checkRouteControllerAbility()
+	if err != nil {
+		this.abilityErrorReturn(err)
+		this.audit(token, "", true)
+		return
+	}
+
+	if this.Ctx.Input.RequestBody == nil {
+		err := fmt.Errorf("must commit groups name")
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+
+	var envVar corev1.EnvVar
+	err = json.Unmarshal(this.Ctx.Input.RequestBody, &envVar)
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+
+	group := this.Ctx.Input.Param(":group")
+	workspace := this.Ctx.Input.Param(":workspace")
+	replicationcontroller := this.Ctx.Input.Param(":replicationcontroller")
+	container := this.Ctx.Input.Param(":container")
+
+	v, err := pk.Controller.GetObject(group, workspace, replicationcontroller)
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+	pi, _ := pk.GetReplicationControllerInterface(v)
+
+	runtime, err := pi.GetRuntime()
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+
+	old := runtime.ReplicationController
+	var containerFound bool
+	var envFound bool
+	var containerIndex int
+	podSpec := old.Spec.Template.Spec
+
+	for k, v := range podSpec.Containers {
+		if v.Name == container {
+			containerFound = true
+			containerIndex = k
+
+			for _, j := range v.Env {
+				if j.Name == envVar.Name {
+					envFound = true
+					break
+				}
+			}
+			break
+		}
+	}
+
+	if !containerFound {
+		err = fmt.Errorf("container not found")
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+	}
+
+	if envFound {
+		err = fmt.Errorf("env has exist")
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+	}
+
+	podSpec.Containers[containerIndex].Env = append(podSpec.Containers[containerIndex].Env, envVar)
+
+	byteContent, err := json.Marshal(old)
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+
+	}
+
+	err = pk.Controller.UpdateObject(group, workspace, replicationcontroller, byteContent, resource.UpdateOption{})
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+	this.audit(token, "", false)
+	this.normalReturn("ok")
+
+}
+
+// DeleteReplicationControllerContainerEnv
+// @Title ReplicationController
+// @Description   ReplicationController Containers
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Param workspace path string true "工作区"
+// @Param replicationcontroller path string true "部署"
+// @Param container path string true "容器"
+// @Param env path string true "环境变量"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /:replicationcontroller/group/:group/workspace/:workspace/container/:container/env/:env [Delete]
+func (this *ReplicationControllerController) DeleteReplicationControllerContainerSpecEnv() {
+	token := this.Ctx.Request.Header.Get("token")
+	err := this.checkRouteControllerAbility()
+	if err != nil {
+		this.abilityErrorReturn(err)
+		this.audit(token, "", true)
+		return
+	}
+
+	group := this.Ctx.Input.Param(":group")
+	workspace := this.Ctx.Input.Param(":workspace")
+	replicationcontroller := this.Ctx.Input.Param(":replicationcontroller")
+	container := this.Ctx.Input.Param(":container")
+	env := this.Ctx.Input.Param(":env")
+	log.DebugPrint(env)
+
+	v, err := pk.Controller.GetObject(group, workspace, replicationcontroller)
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+	pi, _ := pk.GetReplicationControllerInterface(v)
+
+	runtime, err := pi.GetRuntime()
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+
+	old := runtime.ReplicationController
+	var containerFound bool
+	var envFound bool
+	podSpec := old.Spec.Template.Spec
+
+	for k, v := range podSpec.Containers {
+		if v.Name == container {
+			containerFound = true
+			for i, j := range v.Env {
+				log.DebugPrint(j.Name)
+				if j.Name == env {
+					podSpec.Containers[k].Env = append(podSpec.Containers[k].Env[:i], podSpec.Containers[k].Env[i+1:]...)
+					envFound = true
+					log.DebugPrint("found env", v.Name)
+					break
+				}
+			}
+			break
+		}
+	}
+
+	if !containerFound {
+		err = fmt.Errorf("container not found")
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+	}
+	if !envFound {
+		err = fmt.Errorf("env not found")
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+
+	}
+
+	byteContent, err := json.Marshal(old)
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+
+	}
+
+	err = pk.Controller.UpdateObject(group, workspace, replicationcontroller, byteContent, resource.UpdateOption{})
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+	this.audit(token, "", false)
+	this.normalReturn("ok")
+
+}
+
+// ReplicationControllerContainerEnv
+// @Title ReplicationController
+// @Description   更新ReplicationController Container env
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Param workspace path string true "工作区"
+// @Param replicationcontroller path string true "部署"
+// @Param container path string true "容器"
+// @Param body body string true "更新内容"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /:replicationcontroller/group/:group/workspace/:workspace/container/:container/env [Put]
+func (this *ReplicationControllerController) UpdateReplicationControllerContainerSpecEnv() {
+	token := this.Ctx.Request.Header.Get("token")
+	err := this.checkRouteControllerAbility()
+	if err != nil {
+		this.abilityErrorReturn(err)
+		this.audit(token, "", true)
+		return
+	}
+
+	if this.Ctx.Input.RequestBody == nil {
+		err := fmt.Errorf("must commit groups name")
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+
+	envVar := make([]corev1.EnvVar, 0)
+	err = json.Unmarshal(this.Ctx.Input.RequestBody, &envVar)
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+
+	group := this.Ctx.Input.Param(":group")
+	workspace := this.Ctx.Input.Param(":workspace")
+	replicationcontroller := this.Ctx.Input.Param(":replicationcontroller")
+	container := this.Ctx.Input.Param(":container")
+
+	v, err := pk.Controller.GetObject(group, workspace, replicationcontroller)
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+	pi, _ := pk.GetReplicationControllerInterface(v)
+
+	runtime, err := pi.GetRuntime()
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+
+	old := runtime.ReplicationController
+	var containerFound bool
+	podSpec := old.Spec.Template.Spec
+
+	for k, v := range podSpec.Containers {
+		if v.Name == container {
+			containerFound = true
+			podSpec.Containers[k].Env = envVar
+
+			break
+		}
+	}
+
+	if !containerFound {
+		err = fmt.Errorf("container not found")
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+	}
+
+	byteContent, err := json.Marshal(old)
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+
+	}
+
+	err = pk.Controller.UpdateObject(group, workspace, replicationcontroller, byteContent, resource.UpdateOption{})
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+	this.audit(token, "", false)
+	this.normalReturn("ok")
+
 }

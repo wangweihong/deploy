@@ -511,7 +511,7 @@ type Status struct {
 func (s *ServiceAccount) GetStatus() *Status {
 	js := Status{ObjectMeta: s.ObjectMeta}
 	js.Secrts = make([]string, 0)
-	js.ImagePullSecretsSecrts = make([]string, 0)
+	js.ImagePullSecrets = make([]string, 0)
 
 	runtime, err := s.GetRuntime()
 	if err != nil {
