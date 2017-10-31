@@ -430,7 +430,7 @@ func (this *ReplicaSetController) GetReplicaSetTemplate() {
 // @Param Token header string true 'Token'
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
-// @Param deployment path string true "部署"
+// @Param replicaset path string true "副本集"
 // @Param container path string true "容器"
 // @Success 201 {string} create success!
 // @Failure 500
@@ -478,7 +478,7 @@ func (this *ReplicaSetController) GetReplicaSetContainerSpecEnv() {
 // @Param Token header string true 'Token'
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
-// @Param replicaset path string true "部署"
+// @Param replicaset path string true "副本集"
 // @Param container path string true "容器"
 // @Param body body string true "更新内容"
 // @Success 201 {string} create success!
@@ -574,7 +574,7 @@ func (this *ReplicaSetController) AddReplicaSetContainerSpecEnv() {
 // @Param Token header string true 'Token'
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
-// @Param replicaset path string true "部署"
+// @Param replicaset path string true "副本集"
 // @Param container path string true "容器"
 // @Param env path string true "环境变量"
 // @Success 201 {string} create success!
@@ -668,7 +668,7 @@ func (this *ReplicaSetController) DeleteReplicaSetContainerSpecEnv() {
 // @Param Token header string true 'Token'
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
-// @Param replicaset path string true "部署"
+// @Param replicaset path string true "副本集"
 // @Param container path string true "容器"
 // @Param body body string true "更新内容"
 // @Success 201 {string} create success!

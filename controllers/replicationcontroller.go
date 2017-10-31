@@ -431,7 +431,7 @@ func (this *ReplicationControllerController) GetReplicationControllerTemplate() 
 // @Param Token header string true 'Token'
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
-// @Param replicationcontroller path string true "部署"
+// @Param replicationcontroller path string true "副本控制器"
 // @Param container path string true "容器"
 // @Success 201 {string} create success!
 // @Failure 500
@@ -479,7 +479,7 @@ func (this *ReplicationControllerController) GetReplicationControllerContainerSp
 // @Param Token header string true 'Token'
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
-// @Param replicationcontroller path string true "部署"
+// @Param replicationcontroller path string true "副本控制器"
 // @Param container path string true "容器"
 // @Param body body string true "更新内容"
 // @Success 201 {string} create success!
@@ -575,7 +575,7 @@ func (this *ReplicationControllerController) AddReplicationControllerContainerSp
 // @Param Token header string true 'Token'
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
-// @Param replicationcontroller path string true "部署"
+// @Param replicationcontroller path string true "副本控制器"
 // @Param container path string true "容器"
 // @Param env path string true "环境变量"
 // @Success 201 {string} create success!
@@ -669,7 +669,7 @@ func (this *ReplicationControllerController) DeleteReplicationControllerContaine
 // @Param Token header string true 'Token'
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
-// @Param replicationcontroller path string true "部署"
+// @Param replicationcontroller path string true "副本控制器"
 // @Param container path string true "容器"
 // @Param body body string true "更新内容"
 // @Success 201 {string} create success!

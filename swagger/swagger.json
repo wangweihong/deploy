@@ -4739,8 +4739,8 @@
                     },
                     {
                         "in": "path",
-                        "name": "deployment",
-                        "description": "部署",
+                        "name": "replicaset",
+                        "description": "副本集",
                         "required": true,
                         "type": "string"
                     },
@@ -4790,7 +4790,7 @@
                     {
                         "in": "path",
                         "name": "replicaset",
-                        "description": "部署",
+                        "description": "副本集",
                         "required": true,
                         "type": "string"
                     },
@@ -4847,7 +4847,7 @@
                     {
                         "in": "path",
                         "name": "replicaset",
-                        "description": "部署",
+                        "description": "副本集",
                         "required": true,
                         "type": "string"
                     },
@@ -4906,7 +4906,7 @@
                     {
                         "in": "path",
                         "name": "replicaset",
-                        "description": "部署",
+                        "description": "副本集",
                         "required": true,
                         "type": "string"
                     },
@@ -5390,7 +5390,7 @@
                     {
                         "in": "path",
                         "name": "replicationcontroller",
-                        "description": "部署",
+                        "description": "副本控制器",
                         "required": true,
                         "type": "string"
                     },
@@ -5440,7 +5440,7 @@
                     {
                         "in": "path",
                         "name": "replicationcontroller",
-                        "description": "部署",
+                        "description": "副本控制器",
                         "required": true,
                         "type": "string"
                     },
@@ -5497,7 +5497,7 @@
                     {
                         "in": "path",
                         "name": "replicationcontroller",
-                        "description": "部署",
+                        "description": "副本控制器",
                         "required": true,
                         "type": "string"
                     },
@@ -5556,7 +5556,7 @@
                     {
                         "in": "path",
                         "name": "replicationcontroller",
-                        "description": "部署",
+                        "description": "副本控制器",
                         "required": true,
                         "type": "string"
                     },
