@@ -305,7 +305,7 @@ func (p *EndpointManager) CreateObject(groupName, workspaceName string, data []b
 		return log.DebugPrint(err)
 	}
 
-	if obj.Kind != "Endpoint" {
+	if obj.Kind != resourceKind {
 		return log.DebugPrint("must and  offer one resource json/yaml data")
 	}
 	obj.ResourceVersion = ""
@@ -317,6 +317,7 @@ func (p *EndpointManager) CreateObject(groupName, workspaceName string, data []b
 	cp.Workspace = workspaceName
 	cp.Group = groupName
 	cp.Template = string(data)
+	cp.Kind = resourceKind
 	cp.App = resource.DefaultAppBelong
 	if opt.App != nil {
 		cp.App = *opt.App
@@ -507,6 +508,9 @@ type Status struct {
 	Reason string `json:"reason"`
 }
 
+func (s *Endpoint) ObjectStatus() resource.ObjectStatus {
+	return s.GetStatus()
+}
 func (s *Endpoint) GetStatus() *Status {
 	js := Status{ObjectMeta: s.ObjectMeta}
 	runtime, err := s.GetRuntime()

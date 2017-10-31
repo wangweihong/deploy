@@ -69,11 +69,13 @@ func GetResourceController(name string) (ObjectController, error) {
 }
 
 type ObjectMeta struct {
-	Name       string `json:"name"`
-	Workspace  string `json:"workspace"`
-	Group      string `json:"group"`
-	App        string `json:"app"`
-	User       string `json:"user"`
+	Name      string `json:"name"`
+	Workspace string `json:"workspace"`
+	Group     string `json:"group"`
+	App       string `json:"app"`
+	User      string `json:"user"`
+
+	Kind       string `json:"kind"`
 	Template   string `json:"template"`
 	CreateTime int64  `json:"createtime"`
 	Comment    string `json:"comment"`
@@ -82,7 +84,13 @@ type ObjectMeta struct {
 
 type Object interface {
 	Metadata() ObjectMeta
+	ObjectStatus() ObjectStatus
 }
+
+//所有Object的Status都应该嵌套这个
+type ObjectStatus interface {
+}
+
 type Locker interface {
 	Lock()
 	Unlock()
@@ -99,8 +107,8 @@ type ObjectController interface {
 	AddObjectFromBytes(data []byte, force bool) error
 
 	CreateObject(group, workspace string, data []byte, opt CreateOption) error
-	DeleteObject(group, workspace, configmap string, opt DeleteOption) error
-	GetObject(group, workspace, configmap string) (Object, error)
+	DeleteObject(group, workspace, resource string, opt DeleteOption) error
+	GetObject(group, workspace, resource string) (Object, error)
 	UpdateObject(group, workspace, resource string, newdata []byte, opt UpdateOption) error
 	ListObject(group, workspace string) ([]Object, error)
 	ListGroup(group string) ([]Object, error)

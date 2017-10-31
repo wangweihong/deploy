@@ -307,7 +307,7 @@ func (p *ReplicationControllerManager) CreateObject(groupName, workspaceName str
 		return log.DebugPrint(err)
 	}
 
-	if obj.Kind != "ReplicationController" {
+	if obj.Kind != resourceKind {
 		return log.DebugPrint("must and  offer one rc json/yaml data")
 	}
 	obj.ResourceVersion = ""
@@ -320,6 +320,7 @@ func (p *ReplicationControllerManager) CreateObject(groupName, workspaceName str
 	cp.Group = groupName
 	cp.Template = string(data)
 	cp.App = resource.DefaultAppBelong
+	cp.Comment = opt.Comment
 	if opt.App != nil {
 		cp.App = *opt.App
 	}
@@ -563,6 +564,9 @@ func K8sReplicationControllerToReplicationControllerStatus(replicationcontroller
 
 }
 
+func (j *ReplicationController) ObjectStatus() resource.ObjectStatus {
+	return j.GetStatus()
+}
 func (j *ReplicationController) GetStatus() *Status {
 	runtime, err := j.GetRuntime()
 	if err != nil {

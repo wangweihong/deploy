@@ -305,7 +305,7 @@ func (p *IngressManager) CreateObject(groupName, workspaceName string, data []by
 		return log.DebugPrint(err)
 	}
 
-	if obj.Kind != "Ingress" {
+	if obj.Kind != resourceKind {
 		return log.DebugPrint("must and  offer one resource json/yaml data")
 	}
 	obj.ResourceVersion = ""
@@ -317,6 +317,7 @@ func (p *IngressManager) CreateObject(groupName, workspaceName string, data []by
 	cp.Workspace = workspaceName
 	cp.Group = groupName
 	cp.Template = string(data)
+	cp.Kind = resourceKind
 	cp.App = resource.DefaultAppBelong
 	if opt.App != nil {
 		cp.App = *opt.App
@@ -531,6 +532,10 @@ type IngressRule struct {
 
 type IngressStatus struct {
 	LoadBalancer corev1.LoadBalancerStatus `json:"loadbalancer"`
+}
+
+func (s *Ingress) ObjectStatus() resource.ObjectStatus {
+	return s.GetStatus()
 }
 
 func (s *Ingress) GetStatus() *Status {

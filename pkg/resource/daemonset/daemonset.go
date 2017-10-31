@@ -29,6 +29,7 @@ type DaemonSetInterface interface {
 	Info() *DaemonSet
 	GetRuntime() (*Runtime, error)
 	GetStatus() *Status
+	ObjectStatus() resource.ObjectStatus
 	Event() ([]corev1.Event, error)
 	GetTemplate() (string, error)
 	GetRevisionsAndDescribe() (map[int64]string, error)
@@ -293,7 +294,7 @@ func (p *DaemonSetManager) CreateObject(groupName, workspaceName string, data []
 		return log.DebugPrint(err)
 	}
 
-	if obj.Kind != "DaemonSet" {
+	if obj.Kind != resourceKind {
 		return log.DebugPrint("must and  offer one resource json/yaml data")
 	}
 	obj.ResourceVersion = ""
@@ -307,6 +308,7 @@ func (p *DaemonSetManager) CreateObject(groupName, workspaceName string, data []
 	cp.Group = groupName
 	cp.Template = string(data)
 	cp.CreateTime = time.Now().Unix()
+	cp.Kind = resourceKind
 	cp.App = resource.DefaultAppBelong
 	if opt.App != nil {
 		cp.App = *opt.App
@@ -500,6 +502,11 @@ type Status struct {
 	PodStatus      []pk.Status        `json:"podstatus"`
 	ContainerSpecs []pk.ContainerSpec `json:"containerspec"`
 	extensionsv1beta1.DaemonSetStatus
+}
+
+func (j *DaemonSet) ObjectStatus() resource.ObjectStatus {
+	return j.GetStatus()
+
 }
 
 func (j *DaemonSet) GetStatus() *Status {

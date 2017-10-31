@@ -322,7 +322,7 @@ func (p *DeploymentManager) CreateObject(groupName, workspaceName string, data [
 		return log.DebugPrint(err)
 	}
 
-	if obj.Kind != "Deployment" {
+	if obj.Kind != resourceKind {
 		return log.DebugPrint("must and  offer one resource json/yaml data")
 	}
 	obj.ResourceVersion = ""
@@ -330,6 +330,7 @@ func (p *DeploymentManager) CreateObject(groupName, workspaceName string, data [
 
 	var cp Deployment
 	cp.CreateTime = time.Now().Unix()
+	cp.Kind = resourceKind
 	cp.Name = obj.Name
 	cp.Workspace = workspaceName
 	cp.Group = groupName
@@ -560,6 +561,10 @@ type Status struct {
 	ContainerSpecs          []pk.ContainerSpec `json:"containerspecs"`
 	ProgressDeadlineSeconds int                `json:"progressdeadlineseconds"`
 	extensionsv1beta1.DeploymentStatus
+}
+
+func (j *Deployment) ObjectStatus() resource.ObjectStatus {
+	return j.GetStatus()
 }
 
 func (j *Deployment) GetStatus() *Status {

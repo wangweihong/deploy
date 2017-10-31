@@ -29,7 +29,7 @@ var (
 type JobInterface interface {
 	Info() *Job
 	GetRuntime() (*Runtime, error)
-	GetStatus() (*Status, error)
+	GetStatus() *Status
 	GetTemplate() (string, error)
 	Event() ([]corev1.Event, error)
 	//	Runtime()
@@ -306,7 +306,7 @@ func (p *JobManager) CreateObject(groupName, workspaceName string, data []byte, 
 		return log.DebugPrint(err)
 	}
 
-	if obj.Kind != "Job" {
+	if obj.Kind != resourceKind {
 		return log.DebugPrint("must offer one  resource json/yaml data")
 	}
 	obj.ResourceVersion = ""
@@ -319,6 +319,7 @@ func (p *JobManager) CreateObject(groupName, workspaceName string, data []byte, 
 	cp.Workspace = workspaceName
 	cp.Template = string(data)
 	cp.User = opt.User
+	cp.Kind = resourceKind
 	cp.App = resource.DefaultAppBelong
 	if opt.App != nil {
 		cp.App = *opt.App
@@ -562,11 +563,24 @@ func K8sJobToJobStatus(job *batchv1.Job) *Status {
 	return &js
 
 }
+func (j *Job) ObjectStatus() resource.ObjectStatus {
 
-func (j *Job) GetStatus() (*Status, error) {
+	return j.GetStatus()
+}
+
+func (j *Job) GetStatus() *Status {
 	runtime, err := j.GetRuntime()
 	if err != nil {
-		return nil, err
+		js := Status{ObjectMeta: j.ObjectMeta}
+		js.Name = j.Name
+		js.Images = make([]string, 0)
+		js.PodStatus = make([]pk.Status, 0)
+		js.Labels = make(map[string]string)
+		js.Selector = make(map[string]string)
+
+		js.ContainerSpecs = make([]pk.ContainerSpec, 0)
+		js.Reason = err.Error()
+		return &js
 	}
 
 	js := K8sJobToJobStatus(runtime.Job)
@@ -589,7 +603,7 @@ func (j *Job) GetStatus() (*Status, error) {
 		js.PodStatus = append(js.PodStatus, *ps)
 	}
 
-	return js, nil
+	return js
 }
 
 func (j *Job) GetTemplate() (string, error) {

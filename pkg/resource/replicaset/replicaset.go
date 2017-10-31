@@ -308,7 +308,7 @@ func (p *ReplicaSetManager) CreateObject(groupName, workspaceName string, data [
 		return log.DebugPrint(err)
 	}
 
-	if obj.Kind != "ReplicaSet" {
+	if obj.Kind != resourceKind {
 		return log.DebugPrint("must and  offer one rc json/yaml data")
 	}
 	obj.ResourceVersion = ""
@@ -319,6 +319,8 @@ func (p *ReplicaSetManager) CreateObject(groupName, workspaceName string, data [
 	cp.Name = obj.Name
 	cp.Workspace = workspaceName
 	cp.Group = groupName
+	cp.Kind = resourceKind
+	cp.Comment = opt.Comment
 	cp.Template = string(data)
 	cp.App = resource.DefaultAppBelong
 	if opt.App != nil {
@@ -565,6 +567,9 @@ func K8sReplicaSetToReplicaSetStatus(replicaset *extensionsv1beta1.ReplicaSet) *
 
 }
 
+func (j *ReplicaSet) ObjectStatus() resource.ObjectStatus {
+	return j.GetStatus()
+}
 func (j *ReplicaSet) GetStatus() *Status {
 	runtime, err := j.GetRuntime()
 	if err != nil {

@@ -305,7 +305,7 @@ func (p *ServiceAccountManager) CreateObject(groupName, workspaceName string, da
 		return log.DebugPrint(err)
 	}
 
-	if obj.Kind != "ServiceAccount" {
+	if obj.Kind != resourceKind {
 		return log.DebugPrint("must and  offer one resource json/yaml data")
 	}
 	obj.ResourceVersion = ""
@@ -316,6 +316,7 @@ func (p *ServiceAccountManager) CreateObject(groupName, workspaceName string, da
 	cp.Name = obj.Name
 	cp.Workspace = workspaceName
 	cp.Comment = opt.Comment
+	cp.Kind = resourceKind
 	cp.Group = groupName
 	cp.Template = string(data)
 	cp.App = resource.DefaultAppBelong
@@ -507,6 +508,10 @@ type Status struct {
 	Secrts           []string `json:"secrets"`
 	ImagePullSecrets []string `json:"imagePullSecrets"`
 	Reason           string   `json:"reason"`
+}
+
+func (s *ServiceAccount) ObjectStatus() resource.ObjectStatus {
+	return s.GetStatus()
 }
 
 func (s *ServiceAccount) GetStatus() *Status {

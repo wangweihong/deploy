@@ -28,7 +28,7 @@ var (
 type PodInterface interface {
 	Info() *Pod
 	GetRuntime() (*Runtime, error)
-	GetStatus() (*Status, error)
+	GetStatus() *Status
 	GetTemplate() (string, error)
 	Log(c string) (string, error)
 	Stat(c string) ([]ContainerStat, error)
@@ -311,7 +311,7 @@ func (p *PodManager) CreateObject(groupName, workspaceName string, data []byte, 
 		return log.DebugPrint(err)
 	}
 
-	if obj.Kind != "Pod" {
+	if obj.Kind != resourceKind {
 		return log.DebugPrint("must and  offer one resource json/yaml data")
 	}
 	obj.ResourceVersion = ""
@@ -323,6 +323,8 @@ func (p *PodManager) CreateObject(groupName, workspaceName string, data []byte, 
 	cp.Workspace = workspaceName
 	cp.Group = groupName
 	cp.Template = string(data)
+	cp.Comment = opt.Comment
+	cp.Kind = resourceKind
 	cp.App = resource.DefaultAppBelong
 	if opt.App != nil {
 		cp.App = *opt.App
@@ -535,6 +537,7 @@ type Status struct {
 	Running           int               `json:"running"`
 	Total             int               `json:"total"`
 	ID                string            `json:"id"`
+	Reason            string            `json:"reason"`
 	Restarts          int               `json:"restarts"`
 	Labels            map[string]string `json:"labels"`
 	Annotations       map[string]string `json:"annotations"`
@@ -700,14 +703,23 @@ func V1PodToPodStatus(pod corev1.Pod) *Status {
 
 }
 
-func (p *Pod) GetStatus() (*Status, error) {
+func (p *Pod) ObjectStatus() resource.ObjectStatus {
+	return p.GetStatus()
+}
+
+func (p *Pod) GetStatus() *Status {
 	runtime, err := p.GetRuntime()
 	if err != nil {
-		return nil, err
+		var s Status
+		s.Name = p.Name
+		s.Containers = make([]string, 0)
+		s.Labels = make(map[string]string)
+		s.Reason = err.Error()
+		return &s
 	}
 	s := V1PodToPodStatus(*runtime.Pod)
 
-	return s, nil
+	return s
 }
 
 func (p *Pod) GetTemplate() (string, error) {

@@ -299,7 +299,7 @@ func (p *CronJobManager) CreateObject(groupName, workspaceName string, data []by
 		return log.DebugPrint(err)
 	}
 
-	if obj.Kind != "CronJob" {
+	if obj.Kind != resourceKind {
 		return log.DebugPrint("must offer one  cronjob resource json/yaml data")
 	}
 	obj.ResourceVersion = ""
@@ -308,6 +308,7 @@ func (p *CronJobManager) CreateObject(groupName, workspaceName string, data []by
 	var cp CronJob
 	cp.Name = obj.Name
 	cp.Group = groupName
+	cp.Kind = resourceKind
 	cp.Workspace = workspaceName
 	cp.Template = string(data)
 	cp.User = opt.User
@@ -576,6 +577,10 @@ type Status struct {
 	Reason string `json:"reason"`
 }
 
+func (p *CronJob) ObjectStatus() resource.ObjectStatus {
+	return p.GetStatus()
+}
+
 func (p *CronJob) GetStatus() *Status {
 	s := Status{ObjectMeta: p.ObjectMeta}
 
@@ -652,10 +657,7 @@ func (p *CronJob) GetStatus() *Status {
 			s.Reason = err.Error()
 			return &s
 		}
-		js, err := ji.GetStatus()
-		if err != nil {
-			return &s
-		}
+		js := ji.GetStatus()
 		s.JobStatus = append(s.JobStatus, *js)
 
 	}

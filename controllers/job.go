@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"ufleet-deploy/pkg/resource"
 	pk "ufleet-deploy/pkg/resource/job"
-	sk "ufleet-deploy/pkg/resource/pod"
 	"ufleet-deploy/pkg/user"
 )
 
@@ -42,20 +41,7 @@ func (this *JobController) ListGroupWorkspaceJobs() {
 
 	for _, j := range pis {
 		v, _ := pk.GetJobInterface(j)
-		js, err := v.GetStatus()
-		if err != nil {
-			js := &pk.Status{}
-			job := v.Info()
-			js.Name = job.Name
-			js.User = job.User
-			js.Workspace = job.Workspace
-			js.Group = job.Group
-			js.Reason = err.Error()
-			js.PodStatus = make([]sk.Status, 0)
-			jss = append(jss, *js)
-			continue
-		}
-
+		js := v.GetStatus()
 		jss = append(jss, *js)
 	}
 
@@ -90,17 +76,7 @@ func (this *JobController) GetJob() {
 	}
 	v, _ := pk.GetJobInterface(pi)
 
-	js, err := v.GetStatus()
-	if err != nil {
-		js = &pk.Status{}
-		job := v.Info()
-		js.Name = job.Name
-		js.User = job.User
-		js.Workspace = job.Workspace
-		js.Group = job.Group
-		js.Reason = err.Error()
-		js.PodStatus = make([]sk.Status, 0)
-	}
+	js := v.GetStatus()
 
 	this.normalReturn(js)
 }
@@ -147,19 +123,7 @@ func (this *JobController) ListGroupsJobs() {
 	jss := make([]pk.Status, 0)
 	for _, j := range pis {
 		v, _ := pk.GetJobInterface(j)
-		js, err := v.GetStatus()
-		if err != nil {
-			js := &pk.Status{}
-			job := v.Info()
-			js.Name = job.Name
-			js.User = job.User
-			js.Workspace = job.Workspace
-			js.Group = job.Group
-			js.Reason = err.Error()
-			js.PodStatus = make([]sk.Status, 0)
-			jss = append(jss, *js)
-			continue
-		}
+		js := v.GetStatus()
 
 		jss = append(jss, *js)
 	}
@@ -192,19 +156,7 @@ func (this *JobController) ListGroupJobs() {
 	jss := make([]pk.Status, 0)
 	for _, j := range pis {
 		v, _ := pk.GetJobInterface(j)
-		js, err := v.GetStatus()
-		if err != nil {
-			js := &pk.Status{}
-			job := v.Info()
-			js.Name = job.Name
-			js.User = job.User
-			js.Workspace = job.Workspace
-			js.Group = job.Group
-			js.Reason = err.Error()
-			js.PodStatus = make([]sk.Status, 0)
-			jss = append(jss, *js)
-			continue
-		}
+		js := v.GetStatus()
 
 		jss = append(jss, *js)
 	}

@@ -148,11 +148,12 @@ func (this *AppController) ListGroupApp() {
 		this.errReturn(err, 500)
 		return
 	}
-	infos := make([]app.App, 0)
+
+	statuses := make([]app.Status, 0)
 	for _, v := range ais {
-		infos = append(infos, v.Info())
+		statuses = append(statuses, v.GetStatus())
 	}
 
-	this.normalReturn(infos)
+	this.normalReturn(statuses)
 
 }

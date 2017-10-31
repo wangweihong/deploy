@@ -305,7 +305,7 @@ func (p *StatefulSetManager) CreateObject(groupName, workspaceName string, data 
 		return log.DebugPrint(err)
 	}
 
-	if obj.Kind != "StatefulSet" {
+	if obj.Kind != resourceKind {
 		return log.DebugPrint("must and  offer one resource json/yaml data")
 	}
 	obj.ResourceVersion = ""
@@ -315,6 +315,8 @@ func (p *StatefulSetManager) CreateObject(groupName, workspaceName string, data 
 	cp.CreateTime = time.Now().Unix()
 	cp.Name = obj.Name
 	cp.Workspace = workspaceName
+	cp.Comment = opt.Comment
+	cp.Kind = resourceKind
 	cp.Group = groupName
 	cp.Template = string(data)
 	cp.App = resource.DefaultAppBelong
@@ -507,6 +509,9 @@ type Status struct {
 	Reason string `json:"reason"`
 }
 
+func (s *StatefulSet) ObjectStatus() resource.ObjectStatus {
+	return s.GetStatus()
+}
 func (s *StatefulSet) GetStatus() *Status {
 	js := Status{ObjectMeta: s.ObjectMeta}
 	runtime, err := s.GetRuntime()

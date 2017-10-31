@@ -308,7 +308,7 @@ func (p *ServiceManager) CreateObject(groupName, workspaceName string, data []by
 		return log.DebugPrint(err)
 	}
 
-	if obj.Kind != "Service" {
+	if obj.Kind != resourceKind {
 		return log.DebugPrint("must and  offer one resource json/yaml data")
 	}
 
@@ -320,6 +320,8 @@ func (p *ServiceManager) CreateObject(groupName, workspaceName string, data []by
 	cp.Name = obj.Name
 	cp.Workspace = workspaceName
 	cp.Group = groupName
+	cp.Kind = resourceKind
+	cp.Comment = opt.Comment
 	cp.Template = string(data)
 	cp.App = resource.DefaultAppBelong
 	if opt.App != nil {
@@ -528,6 +530,9 @@ type Status struct {
 	Ingress     []corev1.LoadBalancerIngress `json:"ingress"`
 }
 
+func (s *Service) ObjectStatus() resource.ObjectStatus {
+	return s.GetStatus()
+}
 func (s *Service) GetStatus() *Status {
 	js := Status{ObjectMeta: s.ObjectMeta}
 	js.Containers = make([]string, 0)

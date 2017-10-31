@@ -29,6 +29,7 @@ type ConfigMapInterface interface {
 	GetRuntime() (*Runtime, error)
 	GetTemplate() (string, error)
 	GetStatus() *Status
+	//	ObjectStatus() resource.ObjectStatus
 	Event() ([]corev1.Event, error)
 	Metadata() resource.ObjectMeta
 }
@@ -234,7 +235,7 @@ func (p *ConfigMapManager) get(groupName, workspaceName, resourceName string) (*
 	return &configmap, nil
 }
 
-func (p *ConfigMapManager) Get(group, workspace, resourceName string) (ConfigMapInterface, error) {
+func (p *ConfigMapManager) Get(group, workspace, resourceName string) (*ConfigMap, error) {
 	p.locker.Lock()
 	defer p.locker.Unlock()
 	return p.get(group, workspace, resourceName)
@@ -313,7 +314,7 @@ func (p *ConfigMapManager) CreateObject(groupName, workspaceName string, data []
 		return log.DebugPrint(err)
 	}
 
-	if obj.Kind != "ConfigMap" {
+	if obj.Kind != resourceKind {
 		return log.DebugPrint("must and  offer one resource json/yaml data")
 	}
 
@@ -328,6 +329,7 @@ func (p *ConfigMapManager) CreateObject(groupName, workspaceName string, data []
 	cp.Workspace = workspaceName
 	cp.Group = groupName
 	cp.Template = string(data)
+	cp.Kind = resourceKind
 
 	cp.App = resource.DefaultAppBelong
 	if opt.App != nil {
@@ -535,6 +537,10 @@ type Status struct {
 	Reason     string            `json:"reason"`
 	Data       map[string]string `json:"data"`
 	DataString string            `json:"datastring"`
+}
+
+func (s *ConfigMap) ObjectStatus() resource.ObjectStatus {
+	return s.GetStatus()
 }
 
 func (s *ConfigMap) GetStatus() *Status {

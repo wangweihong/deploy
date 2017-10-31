@@ -9,6 +9,20 @@ import (
 	"ufleet-deploy/pkg/backend"
 	"ufleet-deploy/pkg/log"
 	"ufleet-deploy/pkg/resource"
+	"ufleet-deploy/pkg/resource/configmap"
+	"ufleet-deploy/pkg/resource/cronjob"
+	"ufleet-deploy/pkg/resource/daemonset"
+	"ufleet-deploy/pkg/resource/deployment"
+	"ufleet-deploy/pkg/resource/endpoint"
+	"ufleet-deploy/pkg/resource/ingress"
+	"ufleet-deploy/pkg/resource/job"
+	"ufleet-deploy/pkg/resource/pod"
+	"ufleet-deploy/pkg/resource/replicaset"
+	"ufleet-deploy/pkg/resource/replicationcontroller"
+	"ufleet-deploy/pkg/resource/secret"
+	"ufleet-deploy/pkg/resource/service"
+	"ufleet-deploy/pkg/resource/serviceaccount"
+	"ufleet-deploy/pkg/resource/statefulset"
 	"ufleet-deploy/pkg/resource/util"
 )
 
@@ -29,6 +43,7 @@ type AppInterface interface {
 	GetTemplates()
 	GetResources()
 	Info() App
+	GetStatus() Status
 }
 
 type AppMananger struct {
@@ -47,9 +62,9 @@ type AppWorkspace struct {
 type App struct {
 	Name       string              `json:"name"`
 	Group      string              `json:"group"`
+	Workspace  string              `json:"workspace"`
 	Comment    string              `json:"comment"`
 	User       string              `json:"user"`
-	Workspace  string              `json:"workspace"`
 	CreateTime int64               `json:"createtime"`
 	Resources  map[string]Resource `json:"resources"` //key: resourceKind_name
 }
@@ -118,7 +133,6 @@ func (sm *AppMananger) NewApp(groupName, workspaceName, appName string, desc []b
 	}
 
 	if len(desc) == 0 {
-		log.DebugPrint("empty")
 		return nil
 	} else {
 		sm.Locker.Lock()
@@ -148,7 +162,6 @@ func (sm *AppMananger) NewApp(groupName, workspaceName, appName string, desc []b
 			return log.DebugPrint(err)
 		}
 
-		log.DebugPrint(stack.Resources)
 		err = be.UpdateResource(backendKind, groupName, workspaceName, appName, stack)
 		if err != nil {
 			for _, v := range stack.Resources {
@@ -230,8 +243,8 @@ func (sm *AppMananger) List(groupName string, opt ListOption) ([]AppInterface, e
 		}
 	}
 	return sis, nil
-
 }
+
 func (sm *AppMananger) deleteApp(groupName, workspaceName, name string, opt DeleteOption) error {
 
 	si, err := sm.get(groupName, workspaceName, name)
@@ -270,6 +283,11 @@ func (sm *AppMananger) DeleteApp(groupName, workspaceName, name string, opt Dele
 
 func generateResourceKey(kind string, name string) string {
 	return kind + "_" + name
+}
+
+func getResourceKindName(key string) (string, string) {
+	s := strings.Split(key, "_")
+	return s[0], s[1]
 }
 
 func (s *App) GetTemplates() {
@@ -351,6 +369,68 @@ func (s *App) addResources(desc []byte, flush bool) error {
 
 func (s *App) Info() App {
 	return *s
+}
+
+type Status struct {
+	Name       string                  `json:"name"`
+	Group      string                  `json:"group"`
+	Workspace  string                  `json:"workspace"`
+	Comment    string                  `json:"comment"`
+	User       string                  `json:"user"`
+	CreateTime int64                   `json:"createtime"`
+	Reason     string                  `json:"reason"`
+	Statues    []resource.ObjectStatus `json:"resourcestatuses"`
+}
+
+func (app *App) GetStatus() Status {
+
+	var as Status
+	as.Statues = make([]resource.ObjectStatus, 0)
+	as.Name = app.Name
+	as.Group = app.Group
+	as.Workspace = app.Workspace
+	as.User = app.User
+	as.Comment = app.Comment
+	as.CreateTime = app.CreateTime
+
+	statuses := make([]resource.ObjectStatus, 0)
+	for _, v := range app.Resources {
+		rcud, err := resource.GetResourceController(v.Kind)
+		if err != nil {
+			as.Reason = err.Error()
+			return as
+		}
+
+		res, err := rcud.GetObject(app.Group, app.Workspace, v.Name)
+		if err != nil {
+			as.Reason = err.Error()
+			return as
+		}
+
+		os := res.ObjectStatus()
+		statuses = append(statuses, os)
+
+		switch os.(type) {
+		case *configmap.Status:
+
+		case *cronjob.Status:
+		case *daemonset.Status:
+		case *deployment.Status:
+		case *endpoint.Status:
+		case *ingress.Status:
+		case *job.Status:
+		case *pod.Status:
+		case *replicaset.Status:
+		case *replicationcontroller.Status:
+		case *secret.Status:
+		case *service.Status:
+		case *serviceaccount.Status:
+		case *statefulset.Status:
+		default:
+		}
+	}
+	as.Statues = append(as.Statues, statuses...)
+	return as
 }
 
 //更新etcd的数据

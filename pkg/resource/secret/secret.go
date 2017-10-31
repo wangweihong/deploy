@@ -308,7 +308,7 @@ func (p *SecretManager) CreateObject(groupName, workspaceName string, data []byt
 		return log.DebugPrint(err)
 	}
 
-	if obj.Kind != "Secret" {
+	if obj.Kind != resourceKind {
 		return log.DebugPrint("must and  offer one resource json/yaml data")
 	}
 	obj.ResourceVersion = ""
@@ -319,6 +319,7 @@ func (p *SecretManager) CreateObject(groupName, workspaceName string, data []byt
 	cp.Name = obj.Name
 	cp.Comment = opt.Comment
 	cp.Workspace = workspaceName
+	cp.Kind = resourceKind
 	cp.Group = groupName
 	cp.Template = string(data)
 	cp.App = resource.DefaultAppBelong
@@ -514,6 +515,9 @@ type Status struct {
 	StringData map[string]string `json:"stringdata"`
 }
 
+func (s *Secret) ObjectStatus() resource.ObjectStatus {
+	return s.GetStatus()
+}
 func (s *Secret) GetStatus() *Status {
 	runtime, err := s.GetRuntime()
 

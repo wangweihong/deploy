@@ -33,11 +33,7 @@ func GetPodState(pi pk.PodInterface) PodState {
 	ps.Workspace = pod.Workspace
 	ps.App = pod.App
 
-	status, err := pi.GetStatus()
-	if err != nil {
-		ps.Reason = err.Error()
-		return ps
-	}
+	status := pi.GetStatus()
 	ps.Status = *status
 	if ps.CreateTime == 0 {
 		ps.CreateTime = ps.Status.CreateTime
@@ -110,11 +106,7 @@ func (this *PodController) GetPod() {
 	}
 	pi, _ := pk.GetPodInterface(v)
 
-	s, err := pi.GetStatus()
-	if err != nil {
-		this.errReturn(err, 500)
-		return
-	}
+	s := pi.GetStatus()
 
 	this.normalReturn(s)
 }
@@ -592,9 +584,9 @@ func (this *PodController) GetPodContainerSpec() {
 	}
 	pi, _ := pk.GetPodInterface(v)
 
-	stat, err := pi.GetStatus()
-	if err != nil {
-		this.errReturn(err, 500)
+	stat := pi.GetStatus()
+	if stat.Reason != "" {
+		this.errReturn(fmt.Errorf(stat.Reason), 500)
 		return
 	}
 
@@ -640,9 +632,9 @@ func (this *PodController) GetPodContainerSpecEnv() {
 	}
 	pi, _ := pk.GetPodInterface(v)
 
-	stat, err := pi.GetStatus()
-	if err != nil {
-		this.errReturn(err, 500)
+	stat := pi.GetStatus()
+	if stat.Reason != "" {
+		this.errReturn(fmt.Errorf(stat.Reason), 500)
 		return
 	}
 
