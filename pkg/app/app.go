@@ -20,6 +20,7 @@ var (
 type AppController interface {
 	NewApp(group, workspace, app string, describe []byte, opt CreateOption) error
 	DeleteApp(group, workspace, app string, opt DeleteOption) error
+	UpdateApp(group, workspace, app string, opt UpdateOption) error
 	Get(group, workspaceName, name string) (AppInterface, error)
 	List(group string, opt ListOption) ([]AppInterface, error)
 }
@@ -27,8 +28,6 @@ type AppController interface {
 type AppInterface interface {
 	GetTemplates()
 	GetResources()
-	AddResources([]byte, bool) error
-	RemoveResource(kind string, name string, flush bool) error
 	Info() App
 }
 
@@ -48,6 +47,7 @@ type AppWorkspace struct {
 type App struct {
 	Name       string              `json:"name"`
 	Group      string              `json:"group"`
+	Comment    string              `json:"comment"`
 	User       string              `json:"user"`
 	Workspace  string              `json:"workspace"`
 	CreateTime int64               `json:"createtime"`
@@ -57,37 +57,6 @@ type App struct {
 type Resource struct {
 	Kind string `json:"kind"`
 	Name string `json:"name"`
-}
-
-func InitAppController(be backend.BackendHandler) (AppController, error) {
-	sm = &AppMananger{}
-	sm.Groups = make(map[string]AppGroup)
-	sm.Locker = &sync.Mutex{}
-
-	rs, err := be.GetResourceAllGroup(backendKind)
-	if err != nil {
-		return nil, err
-	}
-
-	for k, v := range rs {
-		var group AppGroup
-		group.Workspaces = make(map[string]AppWorkspace)
-		for i, j := range v.Workspaces {
-			var workspace AppWorkspace
-			workspace.Apps = make(map[string]App)
-			for m, n := range j.Resources {
-				var app App
-				err := json.Unmarshal([]byte(n), &app)
-				if err != nil {
-					return nil, fmt.Errorf("init app manager fail for unmarshal \"%v\" for %v", string(n), err)
-				}
-				workspace.Apps[m] = app
-			}
-			group.Workspaces[i] = workspace
-		}
-		sm.Groups[k] = group
-	}
-	return sm, nil
 }
 
 type ListOption struct {
@@ -100,6 +69,13 @@ type CreateOption struct {
 
 type DeleteOption struct {
 	WaitToComplete bool
+}
+
+type UpdateOption struct {
+	//	Type string //添加资源,删除资源,更改自身
+	Comment    *string
+	NewData    []byte
+	RemoveList []Resource //移除列表
 }
 
 type Locker interface {
@@ -123,11 +99,9 @@ func (sm *AppMananger) NewApp(groupName, workspaceName, appName string, desc []b
 	stack.Workspace = workspaceName
 	stack.User = opt.User
 	stack.CreateTime = time.Now().Unix()
-	//	stack.Templates = make([]string, 0)
 	stack.Resources = make(map[string]Resource)
 
 	be := backend.NewBackendHandler()
-	//	err = storer.Create(groupName, workspaceName, appName, stack)
 	err = be.CreateResource(backendKind, groupName, workspaceName, appName, stack)
 	if err != nil {
 		sm.Locker.Unlock()
@@ -149,14 +123,38 @@ func (sm *AppMananger) NewApp(groupName, workspaceName, appName string, desc []b
 	} else {
 		sm.Locker.Lock()
 		defer sm.Locker.Unlock()
+
+		log.DebugPrint("start to add resource")
 		//CleanApp:
 		//不能直接用deleteAPP,因为锁的原因新创建的资源还没有更新到内存中
-		err := stack.AddResources(desc, false)
+		err := stack.addResources(desc, false)
 		if err != nil {
 			for _, v := range stack.Resources {
 
 				//删除已创建好的资源
-				err2 := stack.RemoveResource(v.Kind, v.Name, false)
+				err2 := stack.removeResource(v.Kind, v.Name, false)
+				if err2 != nil {
+					if err2 != resource.ErrResourceNotFound {
+						log.ErrorPrint(err2)
+					}
+				}
+			}
+			//删应用
+			log.DebugPrint("start to delete resource")
+			err2 := be.DeleteResource(backendKind, groupName, workspaceName, stack.Name)
+			if err2 != nil && err2 != backend.BackendResourceNotFound {
+				log.ErrorPrint(err2)
+			}
+			return log.DebugPrint(err)
+		}
+
+		log.DebugPrint(stack.Resources)
+		err = be.UpdateResource(backendKind, groupName, workspaceName, appName, stack)
+		if err != nil {
+			for _, v := range stack.Resources {
+
+				//删除已创建好的资源
+				err2 := stack.removeResource(v.Kind, v.Name, false)
 				if err2 != nil {
 					log.DebugPrint(err2)
 				}
@@ -165,11 +163,16 @@ func (sm *AppMananger) NewApp(groupName, workspaceName, appName string, desc []b
 			log.DebugPrint("start to delete resource")
 			err2 := be.DeleteResource(backendKind, groupName, workspaceName, stack.Name)
 			if err2 != nil && err2 != backend.BackendResourceNotFound {
-				return log.DebugPrint(err2)
+				return log.ErrorPrint(err2)
 			}
+			return log.DebugPrint(err)
 		}
-		return err
 	}
+	return nil
+
+}
+func (sm *AppMananger) UpdateApp(groupName, workspaceName, appName string, opt UpdateOption) error {
+	return nil
 }
 
 func (sm *AppMananger) get(groupName, workspaceName, name string) (*App, error) {
@@ -233,20 +236,21 @@ func (sm *AppMananger) deleteApp(groupName, workspaceName, name string, opt Dele
 
 	si, err := sm.get(groupName, workspaceName, name)
 	if err != nil {
-		return err
+		return log.DebugPrint(err)
 	}
 	be := backend.NewBackendHandler()
 	app := si.Info()
 
 	for _, v := range app.Resources {
 
-		err := si.RemoveResource(v.Kind, v.Name, false)
+		log.DebugPrint(v.Name)
+		err := si.removeResource(v.Kind, v.Name, false)
 		if err != nil {
 			err2 := be.UpdateResource(backendKind, groupName, workspaceName, v.Name, app)
 			if err2 != nil {
-				log.DebugPrint("store to app backend fail for %v", err)
+				log.ErrorPrint("store to app backend fail for %v", err)
 			}
-			return err
+			return log.DebugPrint(err)
 		}
 	}
 	//删应用
@@ -272,7 +276,7 @@ func (s *App) GetTemplates() {
 }
 
 func (s *App) GetResources() {}
-func (s *App) AddResources(desc []byte, flush bool) error {
+func (s *App) addResources(desc []byte, flush bool) error {
 	appName := s.Name
 	groupName := s.Group
 	workspaceName := s.Workspace
@@ -300,6 +304,7 @@ func (s *App) AddResources(desc []byte, flush bool) error {
 			err = log.ErrorPrint("create app "+appName+" fail for %v", err)
 			return err
 		} else {
+
 			if strings.TrimSpace(tmp.Kind) == "" || strings.TrimSpace(tmp.MetaData.Name) == "" {
 				err = log.ErrorPrint("create app " + appName + " fail for resource kind or name not set")
 				return err
@@ -308,7 +313,7 @@ func (s *App) AddResources(desc []byte, flush bool) error {
 			res.Name = tmp.MetaData.Name
 			res.Kind = tmp.Kind
 		}
-		key := generateResourceKey("Pod", res.Name)
+		key := generateResourceKey(res.Kind, res.Name)
 
 		if _, ok := s.Resources[key]; ok {
 			err = log.ErrorPrint("duplicate resource")
@@ -351,16 +356,16 @@ func (s *App) Info() App {
 //更新etcd的数据
 //如果flush==true,则说明是一个删除应用触发的删除资源操作,
 //不需要刷新到etcd,触发eventWatcher
-func (s *App) RemoveResource(kind string, name string, flush bool) error {
+func (s *App) removeResource(kind string, name string, flush bool) error {
 	key := generateResourceKey(kind, name)
 	_, ok := s.Resources[key]
 	if !ok {
-		return ErrResourceNotFound
+		return log.DebugPrint("resource %v(%v) doesn't exist in app %v", name, kind, s.Name)
 	}
 
 	rcud, err := resource.GetResourceController(kind)
 	if err != nil {
-		return err
+		return log.DebugPrint(err)
 	}
 
 	opt := resource.DeleteOption{}
@@ -369,7 +374,7 @@ func (s *App) RemoveResource(kind string, name string, flush bool) error {
 	}
 	err = rcud.DeleteObject(s.Group, s.Workspace, name, opt)
 	if err != nil && !resource.IsErrorNotFound(err) {
-		return err
+		return log.DebugPrint(err)
 	}
 	if flush {
 		delete(s.Resources, key)
@@ -383,4 +388,35 @@ func (s *App) RemoveResource(kind string, name string, flush bool) error {
 	}
 	return nil
 
+}
+
+func InitAppController(be backend.BackendHandler) (AppController, error) {
+	sm = &AppMananger{}
+	sm.Groups = make(map[string]AppGroup)
+	sm.Locker = &sync.Mutex{}
+
+	rs, err := be.GetResourceAllGroup(backendKind)
+	if err != nil {
+		return nil, err
+	}
+
+	for k, v := range rs {
+		var group AppGroup
+		group.Workspaces = make(map[string]AppWorkspace)
+		for i, j := range v.Workspaces {
+			var workspace AppWorkspace
+			workspace.Apps = make(map[string]App)
+			for m, n := range j.Resources {
+				var app App
+				err := json.Unmarshal([]byte(n), &app)
+				if err != nil {
+					return nil, fmt.Errorf("init app manager fail for unmarshal \"%v\" for %v", string(n), err)
+				}
+				workspace.Apps[m] = app
+			}
+			group.Workspaces[i] = workspace
+		}
+		sm.Groups[k] = group
+	}
+	return sm, nil
 }

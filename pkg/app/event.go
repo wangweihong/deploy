@@ -135,13 +135,15 @@ func rehandler(e resource.ResourceEvent) {
 	sm.Locker.Lock()
 	defer sm.Locker.Unlock()
 
+	log.DebugPrint("app:recieve resource delete event", e)
 	app, err := sm.get(e.Group, e.Workspace, e.App)
 	if err != nil {
 		log.ErrorPrint(err)
 		return
 	}
 
-	err = app.RemoveResource(e.Kind, e.Resource, true)
+	log.DebugPrint("start to delete resource", e.Kind, e.Resource)
+	err = app.removeResource(e.Kind, e.Resource, true)
 	if err != nil {
 		log.ErrorPrint(err)
 		return

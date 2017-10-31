@@ -9,9 +9,9 @@ import (
 )
 
 var (
-	BackendResourceNotFound      = fmt.Errorf("not found")
-	BackendResourceAlreadyExists = fmt.Errorf("already exists")
-	BackendResourceInvalid       = fmt.Errorf("invalid kind")
+	BackendResourceNotFound      = fmt.Errorf("backend resource not found")
+	BackendResourceAlreadyExists = fmt.Errorf("backend resource already exists")
+	BackendResourceInvalid       = fmt.Errorf("backend resource invalid kind")
 )
 
 type ResourceGroup struct {
