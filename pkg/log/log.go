@@ -57,16 +57,18 @@ func ErrorPrint(data interface{}, a ...interface{}) error {
 		var e error
 		str := fmt.Sprintf(err, a...)
 
-		e = fmt.Errorf(str)
-
 		//检测是否格式化出错
 		//https://golang.org/pkg/fmt/
 		if strings.Contains(e.Error(), "%!") {
-			e = nil
+			tmp := err
 
 			for _, v := range a {
-				e = fmt.Errorf("%v%v", err, v)
+				tmp = fmt.Sprintf("%v %v", tmp, v)
 			}
+			e = fmt.Errorf(tmp)
+
+		} else {
+			e = fmt.Errorf(str)
 		}
 		beego.Error(debugPrintFunc(e.Error()))
 		return e
@@ -103,16 +105,21 @@ func DebugPrint(data interface{}, a ...interface{}) error {
 		var e error
 		str := fmt.Sprintf(err, a...)
 
-		e = fmt.Errorf(str)
-
 		//检测是否格式化出错
 		//https://golang.org/pkg/fmt/
-		if strings.Contains(e.Error(), "%!") {
-			e = nil
+		//说明格式化出错
+		if strings.Contains(str, "%!") {
+
+			tmp := err
 
 			for _, v := range a {
-				e = fmt.Errorf("%v%v", e, v)
+				tmp = fmt.Sprintf("%v %v", tmp, v)
 			}
+			e = fmt.Errorf(tmp)
+
+		} else {
+			e = fmt.Errorf(str)
+
 		}
 		beego.Debug(debugPrintFunc(e.Error()))
 		return e
