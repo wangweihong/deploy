@@ -138,6 +138,30 @@ var (
 			object:  operateObjectReplicationController,
 			operate: operateTypeDelete,
 		},
+		"UpdateReplicationControllerContainerSpecEnv": audit{
+			object:  operateObjectReplicationController,
+			operate: operateTypeUpdate,
+		},
+		"AddReplicationControllerContainerSpecEnv": audit{
+			object:  operateObjectReplicationController,
+			operate: operateTypeUpdate,
+		},
+		"DeleteReplicationControllerContainerSpecEnv": audit{
+			object:  operateObjectReplicationController,
+			operate: operateTypeUpdate,
+		},
+		"UpdateReplicationControllerContainerSpecVolume": audit{
+			object:  operateObjectReplicationController,
+			operate: operateTypeUpdate,
+		},
+		"AddReplicationControllerContainerSpecVolume": audit{
+			object:  operateObjectReplicationController,
+			operate: operateTypeUpdate,
+		},
+		"DeleteReplicationControllerContainerSpecVolume": audit{
+			object:  operateObjectReplicationController,
+			operate: operateTypeUpdate,
+		},
 
 		//Secret
 		"CreateSecret": audit{
@@ -238,6 +262,18 @@ var (
 			object:  operateObjectDeployment,
 			operate: operateTypeUpdate,
 		},
+		"UpdateDeploymentContainerSpecVolume": audit{
+			object:  operateObjectDeployment,
+			operate: operateTypeUpdate,
+		},
+		"AddDeploymentContainerSpecVolume": audit{
+			object:  operateObjectDeployment,
+			operate: operateTypeUpdate,
+		},
+		"DeleteDeploymentContainerSpecVolume": audit{
+			object:  operateObjectDeployment,
+			operate: operateTypeUpdate,
+		},
 
 		//DaemonSet
 		"CreateDaemonSet": audit{
@@ -268,6 +304,18 @@ var (
 			object:  operateObjectDaemonSet,
 			operate: operateTypeUpdate,
 		},
+		"UpdateDaemonSetContainerSpecVolume": audit{
+			object:  operateObjectDaemonSet,
+			operate: operateTypeUpdate,
+		},
+		"AddDaemonSetContainerSpecVolume": audit{
+			object:  operateObjectDaemonSet,
+			operate: operateTypeUpdate,
+		},
+		"DeleteDaemonSetContainerSpecVolume": audit{
+			object:  operateObjectDaemonSet,
+			operate: operateTypeUpdate,
+		},
 
 		//ReplicaSet
 		"CreateReplicaSet": audit{
@@ -281,6 +329,30 @@ var (
 		"DeleteReplicaSet": audit{
 			object:  operateObjectReplicaSet,
 			operate: operateTypeDelete,
+		},
+		"UpdateReplicaSetContainerSpecEnv": audit{
+			object:  operateObjectReplicaSet,
+			operate: operateTypeUpdate,
+		},
+		"AddReplicaSetContainerSpecEnv": audit{
+			object:  operateObjectReplicaSet,
+			operate: operateTypeUpdate,
+		},
+		"DeleteReplicaSetContainerSpecEnv": audit{
+			object:  operateObjectReplicaSet,
+			operate: operateTypeUpdate,
+		},
+		"UpdateReplicaSetContainerSpecVolume": audit{
+			object:  operateObjectReplicaSet,
+			operate: operateTypeUpdate,
+		},
+		"AddReplicaSetContainerSpecVolume": audit{
+			object:  operateObjectReplicaSet,
+			operate: operateTypeUpdate,
+		},
+		"DeleteReplicaSetContainerSpecVolume": audit{
+			object:  operateObjectReplicaSet,
+			operate: operateTypeUpdate,
 		},
 
 		//Ingress

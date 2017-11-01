@@ -272,6 +272,34 @@ func init() {
 			AllowHTTPMethods: []string{"Put"},
 			Params: nil})
 
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:DaemonSetController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:DaemonSetController"],
+		beego.ControllerComments{
+			Method: "GetDaemonSetContainerSpecVolume",
+			Router: `/:daemonset/group/:group/workspace/:workspace/container/:container/volume`,
+			AllowHTTPMethods: []string{"Get"},
+			Params: nil})
+
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:DaemonSetController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:DaemonSetController"],
+		beego.ControllerComments{
+			Method: "AddDaemonSetContainerSpecVolume",
+			Router: `/:daemonset/group/:group/workspace/:workspace/container/:container/volume`,
+			AllowHTTPMethods: []string{"Post"},
+			Params: nil})
+
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:DaemonSetController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:DaemonSetController"],
+		beego.ControllerComments{
+			Method: "DeleteDaemonSetContainerSpecVolume",
+			Router: `/:daemonset/group/:group/workspace/:workspace/container/:container/volume/:volume`,
+			AllowHTTPMethods: []string{"Delete"},
+			Params: nil})
+
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:DaemonSetController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:DaemonSetController"],
+		beego.ControllerComments{
+			Method: "UpdateDaemonSetContainerSpecVolume",
+			Router: `/:daemonset/group/:group/workspace/:workspace/container/:container/volume`,
+			AllowHTTPMethods: []string{"Put"},
+			Params: nil})
+
 	beego.GlobalControllerRouter["ufleet-deploy/controllers:DeploymentController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:DeploymentController"],
 		beego.ControllerComments{
 			Method: "ListGroupWorkspaceDeployments",
@@ -409,6 +437,34 @@ func init() {
 		beego.ControllerComments{
 			Method: "UpdateDeploymentContainerSpecEnv",
 			Router: `/:deployment/group/:group/workspace/:workspace/container/:container/env`,
+			AllowHTTPMethods: []string{"Put"},
+			Params: nil})
+
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:DeploymentController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:DeploymentController"],
+		beego.ControllerComments{
+			Method: "GetDeploymentContainerSpecVolume",
+			Router: `/:deployment/group/:group/workspace/:workspace/container/:container/volume`,
+			AllowHTTPMethods: []string{"Get"},
+			Params: nil})
+
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:DeploymentController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:DeploymentController"],
+		beego.ControllerComments{
+			Method: "AddDeploymentContainerSpecVolume",
+			Router: `/:deployment/group/:group/workspace/:workspace/container/:container/volume`,
+			AllowHTTPMethods: []string{"Post"},
+			Params: nil})
+
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:DeploymentController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:DeploymentController"],
+		beego.ControllerComments{
+			Method: "DeleteDeploymentContainerSpecVolume",
+			Router: `/:deployment/group/:group/workspace/:workspace/container/:container/volume/:volume`,
+			AllowHTTPMethods: []string{"Delete"},
+			Params: nil})
+
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:DeploymentController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:DeploymentController"],
+		beego.ControllerComments{
+			Method: "UpdateDeploymentContainerSpecVolume",
+			Router: `/:deployment/group/:group/workspace/:workspace/container/:container/volume`,
 			AllowHTTPMethods: []string{"Put"},
 			Params: nil})
 
@@ -811,6 +867,34 @@ func init() {
 			AllowHTTPMethods: []string{"Put"},
 			Params: nil})
 
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:ReplicaSetController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:ReplicaSetController"],
+		beego.ControllerComments{
+			Method: "GetReplicaSetContainerSpecVolume",
+			Router: `/:replicaset/group/:group/workspace/:workspace/container/:container/volume`,
+			AllowHTTPMethods: []string{"Get"},
+			Params: nil})
+
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:ReplicaSetController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:ReplicaSetController"],
+		beego.ControllerComments{
+			Method: "AddReplicaSetContainerSpecVolume",
+			Router: `/:replicaset/group/:group/workspace/:workspace/container/:container/volume`,
+			AllowHTTPMethods: []string{"Post"},
+			Params: nil})
+
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:ReplicaSetController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:ReplicaSetController"],
+		beego.ControllerComments{
+			Method: "DeleteReplicaSetContainerSpecVolume",
+			Router: `/:replicaset/group/:group/workspace/:workspace/container/:container/volume/:volume`,
+			AllowHTTPMethods: []string{"Delete"},
+			Params: nil})
+
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:ReplicaSetController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:ReplicaSetController"],
+		beego.ControllerComments{
+			Method: "UpdateReplicaSetContainerSpecVolume",
+			Router: `/:replicaset/group/:group/workspace/:workspace/container/:container/volume`,
+			AllowHTTPMethods: []string{"Put"},
+			Params: nil})
+
 	beego.GlobalControllerRouter["ufleet-deploy/controllers:ReplicationControllerController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:ReplicationControllerController"],
 		beego.ControllerComments{
 			Method: "ListGroupWorkspaceReplicationControllers",
@@ -906,6 +990,34 @@ func init() {
 		beego.ControllerComments{
 			Method: "UpdateReplicationControllerContainerSpecEnv",
 			Router: `/:replicationcontroller/group/:group/workspace/:workspace/container/:container/env`,
+			AllowHTTPMethods: []string{"Put"},
+			Params: nil})
+
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:ReplicationControllerController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:ReplicationControllerController"],
+		beego.ControllerComments{
+			Method: "GetReplicationControllerContainerSpecVolume",
+			Router: `/:replicationcontroller/group/:group/workspace/:workspace/container/:container/volume`,
+			AllowHTTPMethods: []string{"Get"},
+			Params: nil})
+
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:ReplicationControllerController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:ReplicationControllerController"],
+		beego.ControllerComments{
+			Method: "AddReplicationControllerContainerSpecVolume",
+			Router: `/:replicationcontroller/group/:group/workspace/:workspace/container/:container/volume`,
+			AllowHTTPMethods: []string{"Post"},
+			Params: nil})
+
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:ReplicationControllerController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:ReplicationControllerController"],
+		beego.ControllerComments{
+			Method: "DeleteReplicationControllerContainerSpecVolume",
+			Router: `/:replicationcontroller/group/:group/workspace/:workspace/container/:container/volume/:volume`,
+			AllowHTTPMethods: []string{"Delete"},
+			Params: nil})
+
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:ReplicationControllerController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:ReplicationControllerController"],
+		beego.ControllerComments{
+			Method: "UpdateReplicationControllerContainerSpecVolume",
+			Router: `/:replicationcontroller/group/:group/workspace/:workspace/container/:container/volume`,
 			AllowHTTPMethods: []string{"Put"},
 			Params: nil})
 

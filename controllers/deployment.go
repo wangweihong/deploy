@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
-	"ufleet-deploy/pkg/log"
 	"ufleet-deploy/pkg/resource"
 	pk "ufleet-deploy/pkg/resource/deployment"
 	"ufleet-deploy/pkg/user"
@@ -824,8 +823,8 @@ func (this *DeploymentController) AddDeploymentContainerSpecEnv() {
 		return
 	}
 
-	envVars := make([]corev1.EnvVar, 0)
-	err = json.Unmarshal(this.Ctx.Input.RequestBody, &envVars)
+	envVar := make([]corev1.EnvVar, 0)
+	err = json.Unmarshal(this.Ctx.Input.RequestBody, &envVar)
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
@@ -853,25 +852,15 @@ func (this *DeploymentController) AddDeploymentContainerSpecEnv() {
 	}
 
 	old := runtime.Deployment
-	var containerFound bool
-	var containerIndex int
 	podSpec := old.Spec.Template.Spec
 
-	for k, v := range podSpec.Containers {
-		if v.Name == container {
-			containerFound = true
-			containerIndex = k
-			break
-		}
-	}
-
-	if !containerFound {
-		err = fmt.Errorf("container not found")
+	newPodSpec, err := addPodSpecEnv(podSpec, container, envVar)
+	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
+		return
 	}
-
-	podSpec.Containers[containerIndex].Env = append(podSpec.Containers[containerIndex].Env, envVars...)
+	old.Spec.Template.Spec = newPodSpec
 
 	byteContent, err := json.Marshal(old)
 	if err != nil {
@@ -917,7 +906,6 @@ func (this *DeploymentController) DeleteDeploymentContainerSpecEnv() {
 	deployment := this.Ctx.Input.Param(":deployment")
 	container := this.Ctx.Input.Param(":container")
 	env := this.Ctx.Input.Param(":env")
-	log.DebugPrint(env)
 
 	v, err := pk.Controller.GetObject(group, workspace, deployment)
 	if err != nil {
@@ -935,37 +923,15 @@ func (this *DeploymentController) DeleteDeploymentContainerSpecEnv() {
 	}
 
 	old := runtime.Deployment
-	var containerFound bool
-	var envFound bool
 	podSpec := old.Spec.Template.Spec
 
-	for k, v := range podSpec.Containers {
-		if v.Name == container {
-			containerFound = true
-			for i, j := range v.Env {
-				log.DebugPrint(j.Name)
-				if j.Name == env {
-					podSpec.Containers[k].Env = append(podSpec.Containers[k].Env[:i], podSpec.Containers[k].Env[i+1:]...)
-					envFound = true
-					log.DebugPrint("found env", v.Name)
-					break
-				}
-			}
-			break
-		}
-	}
-
-	if !containerFound {
-		err = fmt.Errorf("container not found")
+	newPodSpec, err := deletePodSpecEnv(podSpec, container, env)
+	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
+		return
 	}
-	if !envFound {
-		err = fmt.Errorf("env not found")
-		this.audit(token, "", true)
-		this.errReturn(err, 500)
-
-	}
+	old.Spec.Template.Spec = newPodSpec
 
 	byteContent, err := json.Marshal(old)
 	if err != nil {
@@ -1042,23 +1008,301 @@ func (this *DeploymentController) UpdateDeploymentContainerSpecEnv() {
 	}
 
 	old := runtime.Deployment
-	var containerFound bool
 	podSpec := old.Spec.Template.Spec
+	newPodSpec, err := updatePodSpecEnv(podSpec, container, envVar)
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+	old.Spec.Template.Spec = newPodSpec
 
-	for k, v := range podSpec.Containers {
+	byteContent, err := json.Marshal(old)
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+
+	}
+
+	err = pk.Controller.UpdateObject(group, workspace, deployment, byteContent, resource.UpdateOption{})
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+	this.audit(token, "", false)
+	this.normalReturn("ok")
+
+}
+
+// GetDeploymentContainerVolume
+// @Title Deployment
+// @Description   Deployment Containers
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Param workspace path string true "工作区"
+// @Param deployment path string true "部署"
+// @Param container path string true "容器"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /:deployment/group/:group/workspace/:workspace/container/:container/volume [Get]
+func (this *DeploymentController) GetDeploymentContainerSpecVolume() {
+	err := this.checkRouteControllerAbility()
+	if err != nil {
+		this.abilityErrorReturn(err)
+		return
+	}
+
+	group := this.Ctx.Input.Param(":group")
+	workspace := this.Ctx.Input.Param(":workspace")
+	deployment := this.Ctx.Input.Param(":deployment")
+	container := this.Ctx.Input.Param(":container")
+
+	v, err := pk.Controller.GetObject(group, workspace, deployment)
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+	pi, _ := pk.GetDeploymentInterface(v)
+
+	stat := pi.GetStatus()
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+
+	for _, v := range stat.ContainerSpecs {
 		if v.Name == container {
-			containerFound = true
-			podSpec.Containers[k].Env = envVar
-
-			break
+			this.normalReturn(v.VolumeMounts)
+			return
 		}
 	}
 
-	if !containerFound {
-		err = fmt.Errorf("container not found")
+	err = fmt.Errorf("container not found")
+
+	this.errReturn(err, 500)
+}
+
+// DeploymentContainerVolume
+// @Title Deployment
+// @Description   新增Deployment Container volume
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Param workspace path string true "工作区"
+// @Param deployment path string true "部署"
+// @Param container path string true "容器"
+// @Param body body string true "更新内容"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /:deployment/group/:group/workspace/:workspace/container/:container/volume [Post]
+func (this *DeploymentController) AddDeploymentContainerSpecVolume() {
+	token := this.Ctx.Request.Header.Get("token")
+	err := this.checkRouteControllerAbility()
+	if err != nil {
+		this.abilityErrorReturn(err)
+		this.audit(token, "", true)
+		return
+	}
+
+	if this.Ctx.Input.RequestBody == nil {
+		err := fmt.Errorf("must commit groups name")
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+
+	volumeVar := make([]corev1.VolumeMount, 0)
+	err = json.Unmarshal(this.Ctx.Input.RequestBody, &volumeVar)
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+
+	group := this.Ctx.Input.Param(":group")
+	workspace := this.Ctx.Input.Param(":workspace")
+	deployment := this.Ctx.Input.Param(":deployment")
+	container := this.Ctx.Input.Param(":container")
+
+	v, err := pk.Controller.GetObject(group, workspace, deployment)
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+	pi, _ := pk.GetDeploymentInterface(v)
+
+	runtime, err := pi.GetRuntime()
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+
+	old := runtime.Deployment
+	podSpec := old.Spec.Template.Spec
+
+	newPodSpec, err := addPodSpecVolume(podSpec, container, volumeVar)
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+	old.Spec.Template.Spec = newPodSpec
+
+	byteContent, err := json.Marshal(old)
+	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
 	}
+
+	err = pk.Controller.UpdateObject(group, workspace, deployment, byteContent, resource.UpdateOption{})
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+	this.audit(token, "", false)
+	this.normalReturn("ok")
+
+}
+
+// DeleteDeploymentContainerVolume
+// @Title Deployment
+// @Description   Deployment Containers
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Param workspace path string true "工作区"
+// @Param deployment path string true "部署"
+// @Param container path string true "容器"
+// @Param volume path string true "卷挂载"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /:deployment/group/:group/workspace/:workspace/container/:container/volume/:volume [Delete]
+func (this *DeploymentController) DeleteDeploymentContainerSpecVolume() {
+	token := this.Ctx.Request.Header.Get("token")
+	err := this.checkRouteControllerAbility()
+	if err != nil {
+		this.abilityErrorReturn(err)
+		this.audit(token, "", true)
+		return
+	}
+
+	group := this.Ctx.Input.Param(":group")
+	workspace := this.Ctx.Input.Param(":workspace")
+	deployment := this.Ctx.Input.Param(":deployment")
+	container := this.Ctx.Input.Param(":container")
+	volume := this.Ctx.Input.Param(":volume")
+
+	v, err := pk.Controller.GetObject(group, workspace, deployment)
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+	pi, _ := pk.GetDeploymentInterface(v)
+
+	runtime, err := pi.GetRuntime()
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+
+	old := runtime.Deployment
+	podSpec := old.Spec.Template.Spec
+
+	newPodSpec, err := deletePodSpecVolume(podSpec, container, volume)
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+	old.Spec.Template.Spec = newPodSpec
+
+	byteContent, err := json.Marshal(old)
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+
+	}
+
+	err = pk.Controller.UpdateObject(group, workspace, deployment, byteContent, resource.UpdateOption{})
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+	this.audit(token, "", false)
+	this.normalReturn("ok")
+
+}
+
+// DeploymentContainerVolume
+// @Title Deployment
+// @Description   更新Deployment Container volume
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Param workspace path string true "工作区"
+// @Param deployment path string true "部署"
+// @Param container path string true "容器"
+// @Param body body string true "更新内容"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /:deployment/group/:group/workspace/:workspace/container/:container/volume [Put]
+func (this *DeploymentController) UpdateDeploymentContainerSpecVolume() {
+	token := this.Ctx.Request.Header.Get("token")
+	err := this.checkRouteControllerAbility()
+	if err != nil {
+		this.abilityErrorReturn(err)
+		this.audit(token, "", true)
+		return
+	}
+
+	if this.Ctx.Input.RequestBody == nil {
+		err := fmt.Errorf("must commit groups name")
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+
+	volumeVar := make([]corev1.VolumeMount, 0)
+	err = json.Unmarshal(this.Ctx.Input.RequestBody, &volumeVar)
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+
+	group := this.Ctx.Input.Param(":group")
+	workspace := this.Ctx.Input.Param(":workspace")
+	deployment := this.Ctx.Input.Param(":deployment")
+	container := this.Ctx.Input.Param(":container")
+
+	v, err := pk.Controller.GetObject(group, workspace, deployment)
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+	pi, _ := pk.GetDeploymentInterface(v)
+
+	runtime, err := pi.GetRuntime()
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+
+	old := runtime.Deployment
+	podSpec := old.Spec.Template.Spec
+	newPodSpec, err := updatePodSpecVolume(podSpec, container, volumeVar)
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+	old.Spec.Template.Spec = newPodSpec
 
 	byteContent, err := json.Marshal(old)
 	if err != nil {
