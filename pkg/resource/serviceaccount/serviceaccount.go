@@ -574,7 +574,6 @@ func InitServiceAccountController(be backend.BackendHandler) (resource.ObjectCon
 		}
 		rm.Groups[k] = group
 	}
-	log.DebugPrint(rm)
 	return rm, nil
 
 }

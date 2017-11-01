@@ -8,23 +8,23 @@ const (
 
 //用于避免和各资源的回环引用
 var (
-	PodEventChan                   = make(chan Event)
-	ServiceEventChan               = make(chan Event)
-	EndpointEventChan              = make(chan Event)
-	ConfigMapEventChan             = make(chan Event)
-	ReplicationControllerEventChan = make(chan Event)
-	ServiceAccountEventChan        = make(chan Event)
-	SecretEventChan                = make(chan Event)
+	PodEventChan                   = make(chan Event, 32)
+	ServiceEventChan               = make(chan Event, 32)
+	EndpointEventChan              = make(chan Event, 32)
+	ConfigMapEventChan             = make(chan Event, 32)
+	ReplicationControllerEventChan = make(chan Event, 32)
+	ServiceAccountEventChan        = make(chan Event, 32)
+	SecretEventChan                = make(chan Event, 32)
 
-	DeploymentEventChan = make(chan Event)
-	ReplicaSetEventChan = make(chan Event)
-	RelicaSetEventChan  = make(chan Event)
-	DaemonSetEventChan  = make(chan Event)
-	IngressEventChan    = make(chan Event)
+	DeploymentEventChan = make(chan Event, 32)
+	ReplicaSetEventChan = make(chan Event, 32)
+	RelicaSetEventChan  = make(chan Event, 32)
+	DaemonSetEventChan  = make(chan Event, 32)
+	IngressEventChan    = make(chan Event, 32)
 
-	StatefulSetEventChan = make(chan Event)
-	CronJobEventChan     = make(chan Event)
-	JobEventChan         = make(chan Event)
+	StatefulSetEventChan = make(chan Event, 32)
+	CronJobEventChan     = make(chan Event, 32)
+	JobEventChan         = make(chan Event, 32)
 )
 
 type ActionType string

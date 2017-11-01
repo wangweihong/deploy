@@ -126,12 +126,7 @@ func (c *ResourceController) generateEventFromObj(obj interface{}, action Action
 
 //在一开始resync时,会触发create事件
 //周期性resync时,会触发Update事件
-//调用者要tongue
 func (c *ResourceController) resourceAdd(obj interface{}) {
-	if r, ok := obj.(*corev1.Secret); ok {
-		log.DebugPrint("--------------> Secret CREATE", r.Namespace, r.Name)
-	}
-
 	ep, err := c.generateEventFromObj(obj, ActionCreate)
 	if err != nil {
 		log.ErrorPrint(err)

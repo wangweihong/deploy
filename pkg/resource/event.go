@@ -21,10 +21,10 @@ func HandleEventWatchFromK8sCluster(echan chan cluster.Event, kind string, oc Ob
 
 	for {
 		pe := <-echan
-		log.DebugPrint("%v: recieve cluster event : %v", kind, pe)
 		if pe.FromUfleet {
-			log.DebugPrint("%v:  event %v from ufleet,ignore ", kind, pe)
-			return
+			//				log.DebugPrint("%v:  event %v from ufleet,ignore ", kind, pe)
+			//注意:这里一定不能用return!!!!!!!
+			continue
 		}
 
 		go func(e cluster.Event) {
