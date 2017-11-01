@@ -59,7 +59,7 @@ func ErrorPrint(data interface{}, a ...interface{}) error {
 
 		//检测是否格式化出错
 		//https://golang.org/pkg/fmt/
-		if strings.Contains(e.Error(), "%!") {
+		if strings.Contains(str, "%!") {
 			tmp := err
 
 			for _, v := range a {
