@@ -231,15 +231,17 @@ func (sm *AppMananger) List(groupName string, opt ListOption) ([]AppInterface, e
 			return nil, ErrWorkspaceNotFound
 		}
 
-		for _, v := range workspace.Apps {
-			sis = append(sis, &v)
+		for k := range workspace.Apps {
+			t := workspace.Apps[k]
+			sis = append(sis, &t)
 		}
 		return sis, nil
 	}
 
 	for _, v := range group.Workspaces {
-		for _, j := range v.Apps {
-			sis = append(sis, &j)
+		for j := range v.Apps {
+			t := v.Apps[j]
+			sis = append(sis, &t)
 		}
 	}
 	return sis, nil
