@@ -34,6 +34,20 @@ func init() {
 			AllowHTTPMethods: []string{"Get"},
 			Params: nil})
 
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:AppController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:AppController"],
+		beego.ControllerComments{
+			Method: "AppAddResource",
+			Router: `/:app/group/:group/workspace/:workspace/resources`,
+			AllowHTTPMethods: []string{"Put"},
+			Params: nil})
+
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:AppController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:AppController"],
+		beego.ControllerComments{
+			Method: "AppRemoveResource",
+			Router: `/:app/group/:group/workspace/:workspace/kind/:kind/resource/:resource`,
+			AllowHTTPMethods: []string{"Delete"},
+			Params: nil})
+
 	beego.GlobalControllerRouter["ufleet-deploy/controllers:ConfigMapController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:ConfigMapController"],
 		beego.ControllerComments{
 			Method: "ListGroupWorkspaceConfigMaps",

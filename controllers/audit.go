@@ -66,13 +66,13 @@ var (
 			object:  operateObjectApp,
 			operate: operateTypeDelete,
 		},
-		"AddService": audit{
+		"AppRemoveResource": audit{
 			object:  operateObjectApp,
-			operate: operateTypeAddService,
+			operate: operateTypeUpdate,
 		},
-		"AddServiceWithoutWorkspace": audit{
+		"AppAddResource": audit{
 			object:  operateObjectApp,
-			operate: operateTypeAddService,
+			operate: operateTypeUpdate,
 		},
 
 		//Pod

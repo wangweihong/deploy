@@ -34,12 +34,14 @@ func (this *AppController) NewApp() {
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
 
-	if this.Ctx.Input.RequestBody == nil {
-		err := fmt.Errorf("must commit resource json/yaml data")
-		this.audit(token, "", true)
-		this.errReturn(err, 500)
-		return
-	}
+	/*
+		if this.Ctx.Input.RequestBody == nil {
+			err := fmt.Errorf("must commit resource json/yaml data")
+			this.audit(token, "", true)
+			this.errReturn(err, 500)
+			return
+		}
+	*/
 
 	ui := user.NewUserClient(token)
 	who, err := ui.GetUserName()
@@ -155,5 +157,85 @@ func (this *AppController) ListGroupApp() {
 	}
 
 	this.normalReturn(statuses)
+
+}
+
+// App
+// @Title 应用
+// @Description  应用添加资源
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Param workspace path string true "工作区"
+// @Param app path string true "栈名"
+// @Param body body string true "资源描述"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /:app/group/:group/workspace/:workspace/resources [Put]
+func (this *AppController) AppAddResource() {
+	token := this.Ctx.Request.Header.Get("token")
+	err := this.checkRouteControllerAbility()
+	if err != nil {
+		this.abilityErrorReturn(err)
+		return
+	}
+
+	appName := this.Ctx.Input.Param(":app")
+	group := this.Ctx.Input.Param(":group")
+	workspace := this.Ctx.Input.Param(":workspace")
+
+	if this.Ctx.Input.RequestBody == nil {
+		err := fmt.Errorf("must commit resource json/yaml data")
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+
+	err = app.Controller.AddAppResource(group, workspace, appName, this.Ctx.Input.RequestBody, app.UpdateOption{})
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+
+	this.audit(token, "", false)
+	this.normalReturn("ok")
+
+}
+
+// App
+// @Title 应用
+// @Description  应用删除资源
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Param workspace path string true "工作区"
+// @Param app path string true "栈名"
+// @Param kind path string true "资源类型"
+// @Param resource path string true "资源名"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /:app/group/:group/workspace/:workspace/kind/:kind/resource/:resource [Delete]
+func (this *AppController) AppRemoveResource() {
+	token := this.Ctx.Request.Header.Get("token")
+	err := this.checkRouteControllerAbility()
+	if err != nil {
+		this.audit(token, "", true)
+		this.abilityErrorReturn(err)
+		return
+	}
+
+	appName := this.Ctx.Input.Param(":app")
+	group := this.Ctx.Input.Param(":group")
+	workspace := this.Ctx.Input.Param(":workspace")
+	kind := this.Ctx.Input.Param(":kind")
+	resource := this.Ctx.Input.Param(":resource")
+
+	err = app.Controller.RemoveAppResource(group, workspace, appName, kind, resource)
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+
+	this.audit(token, "", false)
+	this.normalReturn("ok")
 
 }

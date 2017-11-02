@@ -37,6 +37,8 @@ type AppController interface {
 	UpdateApp(group, workspace, app string, opt UpdateOption) error
 	Get(group, workspaceName, name string) (AppInterface, error)
 	List(group string, opt ListOption) ([]AppInterface, error)
+	AddAppResource(group, workspace, app string, describe []byte, opt UpdateOption) error
+	RemoveAppResource(group, workspace, app string, kind string, resource string) error
 }
 
 type AppInterface interface {
@@ -207,6 +209,39 @@ func (sm *AppMananger) get(groupName, workspaceName, name string) (*App, error) 
 
 }
 
+func (sm *AppMananger) AddAppResource(groupName, workspaceName, appName string, describe []byte, opt UpdateOption) error {
+	sm.Locker.Lock()
+	defer sm.Locker.Unlock()
+
+	app, err := sm.get(groupName, workspaceName, appName)
+	if err != nil {
+		return err
+	}
+
+	err = app.addResources(describe, true)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (sm *AppMananger) RemoveAppResource(groupName, workspaceName, appName string, kind string, resource string) error {
+	sm.Locker.Lock()
+	defer sm.Locker.Unlock()
+	app, err := sm.get(groupName, workspaceName, appName)
+	if err != nil {
+		return err
+	}
+	err = app.removeResource(kind, resource, true)
+	if err != nil {
+		return err
+	}
+
+	return nil
+
+}
+
 func (sm *AppMananger) Get(groupName, workspaceName, name string) (AppInterface, error) {
 	sm.Locker.Lock()
 	defer sm.Locker.Unlock()
@@ -296,6 +331,8 @@ func (s *App) GetTemplates() {
 }
 
 func (s *App) GetResources() {}
+
+//TODO: 失败时,清掉已经创建的资源
 func (s *App) addResources(desc []byte, flush bool) error {
 	appName := s.Name
 	groupName := s.Group
@@ -309,8 +346,15 @@ func (s *App) addResources(desc []byte, flush bool) error {
 		return log.DebugPrint("must  offer  resource json/yaml data")
 	}
 
-	var err error
-	for _, v := range exts {
+	var e error
+	var alreadCreateIndex int
+	resControllers := make([]struct {
+		Controller resource.ObjectController
+		Name       string
+		Key        string
+	}, 0)
+
+	for k := range exts {
 		tmp := struct {
 			Kind     string `json:"kind"`
 			MetaData struct {
@@ -319,54 +363,81 @@ func (s *App) addResources(desc []byte, flush bool) error {
 		}{}
 		var res Resource
 
-		err = json.Unmarshal(v.Raw, &tmp)
-		if err != nil {
-			err = log.ErrorPrint("create app "+appName+" fail for %v", err)
-			return err
-		} else {
+		e = json.Unmarshal(exts[k].Raw, &tmp)
+		if e != nil {
+			e = log.ErrorPrint("create app "+appName+" fail for %v", e)
+			alreadCreateIndex = k - 1
 
-			if strings.TrimSpace(tmp.Kind) == "" || strings.TrimSpace(tmp.MetaData.Name) == "" {
-				err = log.ErrorPrint("create app " + appName + " fail for resource kind or name not set")
-				return err
-			}
-
-			res.Name = tmp.MetaData.Name
-			res.Kind = tmp.Kind
+			goto Clean
 		}
+
+		if strings.TrimSpace(tmp.Kind) == "" || strings.TrimSpace(tmp.MetaData.Name) == "" {
+			e = log.ErrorPrint("create app " + appName + " fail for resource kind or name not set")
+			alreadCreateIndex = k - 1
+			goto Clean
+		}
+
+		res.Name = tmp.MetaData.Name
+		res.Kind = tmp.Kind
+
 		key := generateResourceKey(res.Kind, res.Name)
 
 		if _, ok := s.Resources[key]; ok {
-			err = log.ErrorPrint("duplicate resource")
-			return err
+			e = log.ErrorPrint(" resource %v has exist in app", key)
+			alreadCreateIndex = k - 1
+			goto Clean
 		}
 
 		var rcud resource.ObjectController
-		rcud, err = resource.GetResourceController(res.Kind)
-		if err != nil {
-			return log.DebugPrint(err)
+		rcud, e = resource.GetResourceController(res.Kind)
+		if e != nil {
+			alreadCreateIndex = k - 1
+			goto Clean
 		}
+
+		rc := struct {
+			Controller resource.ObjectController
+			Name       string
+			Key        string
+		}{}
+		rc.Controller = rcud
+		rc.Name = res.Name
+		rc.Key = key
+		resControllers = append(resControllers, rc)
 
 		opt := resource.CreateOption{}
 		opt.App = &appName
-		err = rcud.CreateObject(groupName, workspaceName, v.Raw, opt)
-		if err != nil {
-			return log.DebugPrint(err)
+		e = rcud.CreateObject(groupName, workspaceName, exts[k].Raw, opt)
+		if e != nil {
+			alreadCreateIndex = k - 1
+			goto Clean
 		}
 		s.Resources[key] = res
-
-		if flush {
-			err = be.UpdateResource(backendKind, groupName, workspaceName, appName, s)
-			if err != nil {
-				err2 := rcud.DeleteObject(groupName, workspaceName, res.Name, resource.DeleteOption{})
-				if err2 != nil {
-					log.ErrorPrint(err2)
-				}
-				return log.DebugPrint(err)
-			}
-		}
+		alreadCreateIndex = k
 
 	}
+
+	if flush {
+		e = be.UpdateResource(backendKind, groupName, workspaceName, appName, s)
+		if e != nil {
+			goto Clean
+		}
+	}
 	return nil
+Clean:
+	if alreadCreateIndex == -1 {
+		return e
+	}
+
+	for i := 0; i < alreadCreateIndex+1; i++ {
+		err := resControllers[i].Controller.DeleteObject(groupName, workspaceName, resControllers[i].Name, resource.DeleteOption{})
+		if err != nil {
+			log.ErrorPrint(err)
+		}
+		delete(s.Resources, resControllers[i].Key)
+
+	}
+	return e
 }
 
 func (s *App) Info() App {
@@ -381,6 +452,7 @@ type Status struct {
 	User       string                  `json:"user"`
 	CreateTime int64                   `json:"createtime"`
 	Reason     string                  `json:"reason"`
+	Resources  map[string]Resource     `json:"resources"`
 	Statues    []resource.ObjectStatus `json:"resourcestatuses"`
 }
 
@@ -394,6 +466,10 @@ func (app *App) GetStatus() Status {
 	as.User = app.User
 	as.Comment = app.Comment
 	as.CreateTime = app.CreateTime
+	as.Resources = make(map[string]Resource)
+	if app.Resources != nil {
+		as.Resources = app.Resources
+	}
 
 	statuses := make([]resource.ObjectStatus, 0)
 	for _, v := range app.Resources {
@@ -442,7 +518,8 @@ func (s *App) removeResource(kind string, name string, flush bool) error {
 	key := generateResourceKey(kind, name)
 	_, ok := s.Resources[key]
 	if !ok {
-		return log.DebugPrint("resource %v(%v) doesn't exist in app %v", name, kind, s.Name)
+		log.DebugPrint("resource %v doesn't exist in app %v", key, name)
+		return ErrResourceNotFoundInApp
 	}
 
 	rcud, err := resource.GetResourceController(kind)
