@@ -22,6 +22,13 @@ func init() {
 
 	beego.GlobalControllerRouter["ufleet-deploy/controllers:AppController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:AppController"],
 		beego.ControllerComments{
+			Method: "UpdateApp",
+			Router: `/:app/group/:group/workspace/:workspace`,
+			AllowHTTPMethods: []string{"Put"},
+			Params: nil})
+
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:AppController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:AppController"],
+		beego.ControllerComments{
 			Method: "GetApp",
 			Router: `/:app/group/:group/workspace/:workspace`,
 			AllowHTTPMethods: []string{"Get"},

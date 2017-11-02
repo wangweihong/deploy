@@ -34,7 +34,7 @@ var (
 type AppController interface {
 	NewApp(group, workspace, app string, describe []byte, opt CreateOption) error
 	DeleteApp(group, workspace, app string, opt DeleteOption) error
-	UpdateApp(group, workspace, app string, opt UpdateOption) error
+	UpdateApp(group, workspace, app string, describe []byte, opt UpdateOption) error
 	Get(group, workspaceName, name string) (AppInterface, error)
 	List(group string, opt ListOption) ([]AppInterface, error)
 	ListGroupsApps() []AppInterface
@@ -204,8 +204,80 @@ func (sm *AppMananger) ListGroupsApps() []AppInterface {
 	return ais
 }
 
-func (sm *AppMananger) UpdateApp(groupName, workspaceName, appName string, opt UpdateOption) error {
+func (sm *AppMananger) UpdateApp(groupName, workspaceName, appName string, desc []byte, opt UpdateOption) error {
+	sm.Locker.Lock()
+	defer sm.Locker.Unlock()
+
+	stack, err := sm.get(groupName, workspaceName, appName)
+	if err != nil {
+		return log.DebugPrint(err)
+	}
+	be := backend.NewBackendHandler()
+
+	ts, err := stack.GetTemplates()
+	if err != nil {
+		return log.DebugPrint(err)
+	}
+
+	oldt := fmt.Sprintf("")
+	for _, v := range ts {
+		oldt = fmt.Sprintf("%v\n---\n%v", oldt, v)
+	}
+	//删除旧的
+
+	log.DebugPrint("start to remove old resources")
+	var e error
+	for _, v := range stack.Resources {
+		e = stack.removeResource(v.Kind, v.Name, false)
+		if e != nil {
+			log.DebugPrint(e)
+			goto Resume
+		}
+		delete(stack.Resources, generateResourceKey(v.Kind, v.Name))
+	}
+
+	log.DebugPrint("start to create new resources")
+	//需要睡眠等待旧资源真正被删除
+	//TODO:需要更好的方法
+	time.Sleep(3 * time.Second)
+
+	//添加新的
+	e = stack.addResources(desc, false)
+	if e != nil {
+		log.DebugPrint(e)
+		goto Resume
+	}
+
+	e = be.UpdateResource(backendKind, groupName, workspaceName, appName, stack)
+	if e != nil {
+		log.DebugPrint(e)
+		for _, v := range stack.Resources {
+
+			//删除已创建好的资源
+			err2 := stack.removeResource(v.Kind, v.Name, false)
+			if err2 != nil {
+				log.DebugPrint(err2)
+			}
+		}
+
+		time.Sleep(3 * time.Second)
+		goto Resume
+	}
 	return nil
+
+Resume:
+
+	err = stack.addResources([]byte(oldt), false)
+	if err != nil {
+		log.ErrorPrint("resume APP failed for ", err)
+	}
+
+	err = be.UpdateResource(backendKind, groupName, workspaceName, appName, stack)
+	if err != nil {
+		log.ErrorPrint("resume APP failed for ", err)
+	}
+	return e
+
 }
 
 func (sm *AppMananger) get(groupName, workspaceName, name string) (*App, error) {
@@ -348,14 +420,13 @@ func getResourceKindName(key string) (string, string) {
 func (s *App) GetTemplates() ([]string, error) {
 	templates := make([]string, 0)
 	for _, res := range s.Resources {
-		rcud, e := resource.GetResourceController(res.Kind)
-		if e != nil {
-			return nil, log.ErrorPrint(e)
+		rcud, err := resource.GetResourceController(res.Kind)
+		if err != nil {
+			return nil, log.ErrorPrint(err)
 		}
 		t, err := rcud.GetObjectTemplate(s.Group, s.Workspace, res.Name)
 		if err != nil {
-			return nil, log.ErrorPrint(e)
-
+			return nil, log.ErrorPrint(err)
 		}
 
 		templates = append(templates, t)

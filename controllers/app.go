@@ -34,15 +34,6 @@ func (this *AppController) NewApp() {
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
 
-	/*
-		if this.Ctx.Input.RequestBody == nil {
-			err := fmt.Errorf("must commit resource json/yaml data")
-			this.audit(token, "", true)
-			this.errReturn(err, 500)
-			return
-		}
-	*/
-
 	ui := user.NewUserClient(token)
 	who, err := ui.GetUserName()
 	if err != nil {
@@ -61,7 +52,6 @@ func (this *AppController) NewApp() {
 	}
 	this.audit(token, appName, false)
 	this.normalReturn("ok")
-
 }
 
 // deleteApps
@@ -95,6 +85,47 @@ func (this *AppController) DeleteApp() {
 	}
 	this.audit(token, appName, false)
 	this.normalReturn("ok")
+}
+
+// App
+// @Title 应用
+// @Description  更新应用
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Param workspace path string true "工作区"
+// @Param app path string true "栈名"
+// @Param body body string true "资源描述"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /:app/group/:group/workspace/:workspace [Put]
+func (this *AppController) UpdateApp() {
+	token := this.Ctx.Request.Header.Get("token")
+	err := this.checkRouteControllerAbility()
+	if err != nil {
+		this.abilityErrorReturn(err)
+		return
+	}
+
+	appName := this.Ctx.Input.Param(":app")
+	group := this.Ctx.Input.Param(":group")
+	workspace := this.Ctx.Input.Param(":workspace")
+
+	if this.Ctx.Input.RequestBody == nil {
+		err := fmt.Errorf("must commit resource json/yaml data")
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+
+	err = app.Controller.UpdateApp(group, workspace, appName, this.Ctx.Input.RequestBody, app.UpdateOption{})
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+
+	this.audit(token, "", false)
+	this.normalReturn("ok")
+
 }
 
 // GetApp
@@ -162,7 +193,6 @@ func (this *AppController) GetAppTemplate() {
 	s := fmt.Sprintf("")
 	for _, v := range t {
 		s = fmt.Sprintf("%v\n---\n%v", s, v)
-
 	}
 
 	this.normalReturn(s)
