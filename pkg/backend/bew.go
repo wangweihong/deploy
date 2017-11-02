@@ -149,6 +149,7 @@ func watchBackendEvent() error {
 	}
 
 	go func() {
+		defer log.ErrorPrint("Backend Event Watcher has EXIST !")
 		for {
 			we := <-wechan
 			if we.Err != nil {

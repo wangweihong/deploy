@@ -714,7 +714,5 @@ func InitReplicaSetController(be backend.BackendHandler) (resource.ObjectControl
 		}
 		rm.Groups[k] = group
 	}
-	log.DebugPrint(rm)
 	return rm, nil
-
 }

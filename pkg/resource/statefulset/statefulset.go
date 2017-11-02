@@ -565,7 +565,5 @@ func InitStatefulSetController(be backend.BackendHandler) (resource.ObjectContro
 		}
 		rm.Groups[k] = group
 	}
-	log.DebugPrint(rm)
 	return rm, nil
-
 }

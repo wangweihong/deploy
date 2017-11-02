@@ -711,7 +711,5 @@ func InitReplicationControllerController(be backend.BackendHandler) (resource.Ob
 		}
 		rm.Groups[k] = group
 	}
-	log.DebugPrint(rm)
 	return rm, nil
-
 }

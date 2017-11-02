@@ -562,7 +562,5 @@ func InitEndpointController(be backend.BackendHandler) (resource.ObjectControlle
 		}
 		rm.Groups[k] = group
 	}
-	log.DebugPrint(rm)
 	return rm, nil
-
 }

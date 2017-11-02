@@ -627,7 +627,5 @@ func InitIngressController(be backend.BackendHandler) (resource.ObjectController
 		}
 		rm.Groups[k] = group
 	}
-	log.DebugPrint(rm)
 	return rm, nil
-
 }
