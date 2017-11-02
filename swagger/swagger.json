@@ -90,13 +90,6 @@
                         "description": "'Token'",
                         "required": true,
                         "type": "string"
-                    },
-                    {
-                        "in": "path",
-                        "name": "group",
-                        "description": "组名",
-                        "required": true,
-                        "type": "string"
                     }
                 ],
                 "responses": {

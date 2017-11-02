@@ -228,7 +228,6 @@ func (this *AppController) GetAppGroupCounts() {
 // @Title 应用
 // @Description   获取所有组应用统计
 // @Param Token header string true 'Token'
-// @Param group path string true "组名"
 // @Success 201 {string} create success!
 // @Failure 500
 // @router /groups/counts [Get]
