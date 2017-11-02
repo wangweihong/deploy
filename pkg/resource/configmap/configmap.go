@@ -562,7 +562,6 @@ func (s *ConfigMap) GetStatus() *Status {
 	if err != nil {
 		js.Reason = err.Error()
 		return &js
-
 	}
 	js.DataString = string(bc)
 	js.Data = runtime.Data

@@ -13,6 +13,8 @@ import (
 	"ufleet-deploy/pkg/resource/util"
 	"ufleet-deploy/pkg/sign"
 
+	yaml "gopkg.in/yaml.v2"
+
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	corev1 "k8s.io/client-go/pkg/api/v1"
 )
@@ -512,6 +514,7 @@ type Status struct {
 	Type       string            `json:"type"`
 	Data       map[string][]byte `json:"data"`
 	StringData map[string]string `json:"stringdata"`
+	DataString string            `json:"datastring"`
 }
 
 func (s *Secret) ObjectStatus() resource.ObjectStatus {
@@ -535,6 +538,13 @@ func (s *Secret) GetStatus() *Status {
 	js.Type = string(runtime.Type)
 	js.StringData = runtime.StringData
 	js.Data = runtime.Data
+
+	bc, err := yaml.Marshal(runtime.Data)
+	if err != nil {
+		js.Reason = err.Error()
+		return &js
+	}
+	js.DataString = string(bc)
 	return &js
 }
 

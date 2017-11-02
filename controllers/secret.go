@@ -257,36 +257,77 @@ func (this *SecretController) CreateSecretCustom() {
 	cm.APIVersion = "v1"
 	switch corev1.SecretType(co.Type) {
 	case corev1.SecretTypeDockercfg:
-		reg, err := ui.GetRegistry(group, co.Registry)
-		if err != nil {
-			this.audit(token, "", true)
-			this.errReturn(err, 500)
-			return
-		}
-
-		account := make(map[string]DockerRegistryAccount)
-		ra := DockerRegistryAccount{
-			User:     reg.User,
-			Password: reg.Password,
-			Email:    reg.Email,
-		}
-
-		originAuthString := reg.User + ":" + reg.Password
-		ra.Auth = base64.StdEncoding.EncodeToString([]byte(originAuthString))
-
-		account[reg.Address] = ra
-
-		dockercfg, err := json.Marshal(account)
-		if err != nil {
-			this.audit(token, "", true)
-			this.errReturn(err, 500)
-			return
-
-		}
-
-		cm.Data = make(map[string][]byte)
-		cm.Data[corev1.DockerConfigKey] = []byte(dockercfg)
 		cm.Type = corev1.SecretTypeDockercfg
+
+		if co.Data == "" {
+			reg, err := ui.GetRegistry(group, co.Registry)
+			if err != nil {
+				this.audit(token, "", true)
+				this.errReturn(err, 500)
+				return
+			}
+
+			account := make(map[string]DockerRegistryAccount)
+			ra := DockerRegistryAccount{
+				User:     reg.User,
+				Password: reg.Password,
+				Email:    reg.Email,
+			}
+
+			originAuthString := reg.User + ":" + reg.Password
+			ra.Auth = base64.StdEncoding.EncodeToString([]byte(originAuthString))
+
+			account[reg.Address] = ra
+
+			dockercfg, err := json.Marshal(account)
+			if err != nil {
+				this.audit(token, "", true)
+				this.errReturn(err, 500)
+				return
+
+			}
+
+			cm.Data = make(map[string][]byte)
+			cm.Data[corev1.DockerConfigKey] = []byte(dockercfg)
+
+		} else {
+			/*
+					调用示例:
+
+					{
+					"name":"haha2",
+					"type":"kubernetes.io/dockercfg",
+					"data": ".dockercfg: eyIxOTIuMTY4LjE0LjEwMDo1MDAyIjp7InVzZXJuYW1lIjoiYWRtaW4iLCJwYXNzd29yZCI6IjEyMzQ1NiIsImVtYWlsIjoiZW1hbEAxMjMuY29tIiwiYXV0aCI6IllXUnRhVzQ2TVRJek5EVTIifX0="
+				}
+			*/
+
+			//直接通过map[string][]byte无法进行解析.在这里就会报错
+			data := make(map[string]string)
+			err := yaml.Unmarshal([]byte(co.Data), &data)
+			if err != nil {
+				this.audit(token, "", true)
+				this.errReturn(err, 500)
+				return
+			}
+
+			cm.Data = make(map[string][]byte)
+			//不能直接通过cm.Data[k]= []byte(v),在创建时会报
+			//Error:Secret "werr" is invalid: data[.dockercfg]: Invalid value: "<secret contents redacted>": invalid character 'e' looking for beginning of value
+			//即使里面的值为打印后为"eyIxOTIuMTY4LjE0LjEwMDo1MDAyIjp7InVzZXJuYW1lIjoiYWRtaW4iLCJwYXNzd29yZCI6IjEyMzQ1NiIsImVtYWlsIjoiZW1hbEAxMjMuY29tIiwiYXV0aCI6IllXUnRhVzQ2TVRJek5EVTIifX0="
+			for k, v := range data {
+				//base64加密过需要解码
+
+				d, err := base64.StdEncoding.DecodeString(v)
+				if err != nil {
+					this.audit(token, "", true)
+					this.errReturn(err, 500)
+					return
+				}
+
+				cm.Data[k] = d
+			}
+
+		}
 
 	case corev1.SecretTypeServiceAccountToken:
 		if strings.TrimSpace(co.ServiceAccount) == "" {
