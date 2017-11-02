@@ -232,6 +232,17 @@ func (p *IngressManager) GetObject(group, workspace, resourceName string) (resou
 	return p.get(group, workspace, resourceName)
 }
 
+func (p *IngressManager) GetObjectTemplate(group, workspace, resourceName string) (string, error) {
+	p.locker.Lock()
+	defer p.locker.Unlock()
+
+	s, err := p.get(group, workspace, resourceName)
+	if err != nil {
+		return "", err
+	}
+	return s.GetTemplate()
+}
+
 func (p *IngressManager) ListObject(groupName, workspaceName string) ([]resource.Object, error) {
 
 	p.locker.Lock()

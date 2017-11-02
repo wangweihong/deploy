@@ -356,6 +356,51 @@
                 }
             }
         },
+        "/app/{app}/group/{group}/workspace/{workspace}/template": {
+            "get": {
+                "tags": [
+                    "app"
+                ],
+                "description": "获取指定应用",
+                "operationId": "AppController.应用",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Token",
+                        "description": "'Token'",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "group",
+                        "description": "组名",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "workspace",
+                        "description": "工作区",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "app",
+                        "description": "栈名",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "{string} create success!"
+                    },
+                    "500": {}
+                }
+            }
+        },
         "/configmap/group/{group}": {
             "get": {
                 "tags": [

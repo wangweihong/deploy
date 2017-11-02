@@ -220,6 +220,17 @@ func (p *CronJobManager) GetObject(group, workspace, resourceName string) (resou
 	return p.get(group, workspace, resourceName)
 }
 
+func (p *CronJobManager) GetObjectTemplate(group, workspace, resourceName string) (string, error) {
+	p.locker.Lock()
+	defer p.locker.Unlock()
+
+	s, err := p.get(group, workspace, resourceName)
+	if err != nil {
+		return "", err
+	}
+	return s.GetTemplate()
+}
+
 func (p *CronJobManager) GetObjectWithoutLock(groupName, workspaceName, resourceName string) (resource.Object, error) {
 
 	return p.get(groupName, workspaceName, resourceName)

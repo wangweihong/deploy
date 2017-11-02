@@ -232,6 +232,17 @@ func (p *StatefulSetManager) GetObject(group, workspace, resourceName string) (r
 	return p.get(group, workspace, resourceName)
 }
 
+func (p *StatefulSetManager) GetObjectTemplate(group, workspace, resourceName string) (string, error) {
+	p.locker.Lock()
+	defer p.locker.Unlock()
+
+	s, err := p.get(group, workspace, resourceName)
+	if err != nil {
+		return "", err
+	}
+	return s.GetTemplate()
+}
+
 func (p *StatefulSetManager) ListObject(groupName, workspaceName string) ([]resource.Object, error) {
 
 	p.locker.Lock()

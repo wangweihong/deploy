@@ -231,6 +231,17 @@ func (p *EndpointManager) GetObject(group, workspace, resourceName string) (reso
 	return p.get(group, workspace, resourceName)
 }
 
+func (p *EndpointManager) GetObjectTemplate(group, workspace, resourceName string) (string, error) {
+	p.locker.Lock()
+	defer p.locker.Unlock()
+
+	s, err := p.get(group, workspace, resourceName)
+	if err != nil {
+		return "", err
+	}
+	return s.GetTemplate()
+}
+
 func (p *EndpointManager) ListObject(groupName, workspaceName string) ([]resource.Object, error) {
 
 	p.locker.Lock()

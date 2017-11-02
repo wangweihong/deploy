@@ -226,6 +226,7 @@ func (p *DeploymentManager) GetObjectWithoutLock(groupName, workspaceName, resou
 	return p.get(groupName, workspaceName, resourceName)
 	//注意这里没锁
 }
+
 func (p *DeploymentManager) get(groupName, workspaceName, resourceName string) (*Deployment, error) {
 
 	group, ok := p.Groups[groupName]
@@ -250,6 +251,17 @@ func (p *DeploymentManager) GetObject(group, workspace, resourceName string) (re
 	p.locker.Lock()
 	defer p.locker.Unlock()
 	return p.get(group, workspace, resourceName)
+}
+
+func (p *DeploymentManager) GetObjectTemplate(group, workspace, resourceName string) (string, error) {
+	p.locker.Lock()
+	defer p.locker.Unlock()
+
+	s, err := p.get(group, workspace, resourceName)
+	if err != nil {
+		return "", err
+	}
+	return s.GetTemplate()
 }
 
 func (p *DeploymentManager) ListObject(groupName, workspaceName string) ([]resource.Object, error) {

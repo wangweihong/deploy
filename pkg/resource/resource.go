@@ -106,6 +106,7 @@ type ObjectController interface {
 	AddWorkspace(group, workspace string) error
 	AddObjectFromBytes(data []byte, force bool) error
 
+	GetObjectTemplate(group, workspace, resourceName string) (string, error)
 	CreateObject(group, workspace string, data []byte, opt CreateOption) error
 	DeleteObject(group, workspace, resource string, opt DeleteOption) error
 	GetObject(group, workspace, resource string) (Object, error)

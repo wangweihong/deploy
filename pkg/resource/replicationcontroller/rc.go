@@ -236,6 +236,17 @@ func (p *ReplicationControllerManager) GetObject(group, workspace, replicationco
 	return p.get(group, workspace, replicationcontrollerName)
 }
 
+func (p *ReplicationControllerManager) GetObjectTemplate(group, workspace, resourceName string) (string, error) {
+	p.locker.Lock()
+	defer p.locker.Unlock()
+
+	s, err := p.get(group, workspace, resourceName)
+	if err != nil {
+		return "", err
+	}
+	return s.GetTemplate()
+}
+
 func (p *ReplicationControllerManager) ListGroup(groupName string) ([]resource.Object, error) {
 	p.locker.Lock()
 	defer p.locker.Unlock()

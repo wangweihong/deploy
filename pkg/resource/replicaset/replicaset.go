@@ -236,6 +236,16 @@ func (p *ReplicaSetManager) GetObject(group, workspace, replicasetName string) (
 	defer p.locker.Unlock()
 	return p.get(group, workspace, replicasetName)
 }
+func (p *ReplicaSetManager) GetObjectTemplate(group, workspace, resourceName string) (string, error) {
+	p.locker.Lock()
+	defer p.locker.Unlock()
+
+	s, err := p.get(group, workspace, resourceName)
+	if err != nil {
+		return "", err
+	}
+	return s.GetTemplate()
+}
 
 func (p *ReplicaSetManager) ListGroup(groupName string) ([]resource.Object, error) {
 	p.locker.Lock()

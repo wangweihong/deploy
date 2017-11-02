@@ -237,6 +237,17 @@ func (p *JobManager) GetObject(group, workspace, resourceName string) (resource.
 	return p.get(group, workspace, resourceName)
 }
 
+func (p *JobManager) GetObjectTemplate(group, workspace, resourceName string) (string, error) {
+	p.locker.Lock()
+	defer p.locker.Unlock()
+
+	s, err := p.get(group, workspace, resourceName)
+	if err != nil {
+		return "", err
+	}
+	return s.GetTemplate()
+}
+
 func (p *JobManager) ListGroup(groupName string) ([]resource.Object, error) {
 	p.locker.Lock()
 	defer p.locker.Unlock()

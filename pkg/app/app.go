@@ -43,7 +43,7 @@ type AppController interface {
 }
 
 type AppInterface interface {
-	GetTemplates()
+	GetTemplates() ([]string, error)
 	GetResources()
 	Info() App
 	GetStatus() Status
@@ -345,7 +345,22 @@ func getResourceKindName(key string) (string, string) {
 	return s[0], s[1]
 }
 
-func (s *App) GetTemplates() {
+func (s *App) GetTemplates() ([]string, error) {
+	templates := make([]string, 0)
+	for _, res := range s.Resources {
+		rcud, e := resource.GetResourceController(res.Kind)
+		if e != nil {
+			return nil, log.ErrorPrint(e)
+		}
+		t, err := rcud.GetObjectTemplate(s.Group, s.Workspace, res.Name)
+		if err != nil {
+			return nil, log.ErrorPrint(e)
+
+		}
+
+		templates = append(templates, t)
+	}
+	return templates, nil
 }
 
 func (s *App) GetResources() {}

@@ -214,6 +214,17 @@ func (p *ConfigMapManager) GetObject(group, workspace, resourceName string) (res
 	return p.Get(group, workspace, resourceName)
 }
 
+func (p *ConfigMapManager) GetObjectTemplate(group, workspace, resourceName string) (string, error) {
+	p.locker.Lock()
+	defer p.locker.Unlock()
+
+	s, err := p.get(group, workspace, resourceName)
+	if err != nil {
+		return "", err
+	}
+	return s.GetTemplate()
+}
+
 //注意这里没锁
 func (p *ConfigMapManager) get(groupName, workspaceName, resourceName string) (*ConfigMap, error) {
 
