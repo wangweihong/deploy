@@ -37,6 +37,7 @@ type AppController interface {
 	UpdateApp(group, workspace, app string, opt UpdateOption) error
 	Get(group, workspaceName, name string) (AppInterface, error)
 	List(group string, opt ListOption) ([]AppInterface, error)
+	ListGroupsApps() []AppInterface
 	AddAppResource(group, workspace, app string, describe []byte, opt UpdateOption) error
 	RemoveAppResource(group, workspace, app string, kind string, resource string) error
 }
@@ -186,6 +187,23 @@ func (sm *AppMananger) NewApp(groupName, workspaceName, appName string, desc []b
 	return nil
 
 }
+
+func (sm *AppMananger) ListGroupsApps() []AppInterface {
+	sm.Locker.Lock()
+	defer sm.Locker.Unlock()
+
+	ais := make([]AppInterface, 0)
+	for _, v := range sm.Groups {
+		for _, w := range v.Workspaces {
+			for i := range w.Apps {
+				t := w.Apps[i]
+				ais = append(ais, &t)
+			}
+		}
+	}
+	return ais
+}
+
 func (sm *AppMananger) UpdateApp(groupName, workspaceName, appName string, opt UpdateOption) error {
 	return nil
 }

@@ -125,7 +125,52 @@ func (this *AppController) GetApp() {
 	}
 
 	this.normalReturn(ai.Info())
+}
 
+// GetApp
+// @Title 应用
+// @Description   获取指定组应用统计
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /group/:group/counts [Get]
+func (this *AppController) GetAppGroupCounts() {
+	err := this.checkRouteControllerAbility()
+	if err != nil {
+		this.abilityErrorReturn(err)
+		return
+	}
+
+	group := this.Ctx.Input.Param(":group")
+
+	ais, err := app.Controller.List(group, app.ListOption{})
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+
+	this.normalReturn(len(ais))
+}
+
+// GetApp
+// @Title 应用
+// @Description   获取所有组应用统计
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /groups/counts [Get]
+func (this *AppController) GetAppGroupsCounts() {
+	err := this.checkRouteControllerAbility()
+	if err != nil {
+		this.abilityErrorReturn(err)
+		return
+	}
+
+	ais := app.Controller.ListGroupsApps()
+
+	this.normalReturn(len(ais))
 }
 
 // ListGroupApp

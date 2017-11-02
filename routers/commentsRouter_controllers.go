@@ -29,6 +29,20 @@ func init() {
 
 	beego.GlobalControllerRouter["ufleet-deploy/controllers:AppController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:AppController"],
 		beego.ControllerComments{
+			Method: "GetAppGroupCounts",
+			Router: `/group/:group/counts`,
+			AllowHTTPMethods: []string{"Get"},
+			Params: nil})
+
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:AppController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:AppController"],
+		beego.ControllerComments{
+			Method: "GetAppGroupsCounts",
+			Router: `/groups/counts`,
+			AllowHTTPMethods: []string{"Get"},
+			Params: nil})
+
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:AppController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:AppController"],
+		beego.ControllerComments{
 			Method: "ListGroupApp",
 			Router: `/group/:group`,
 			AllowHTTPMethods: []string{"Get"},

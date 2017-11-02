@@ -45,6 +45,68 @@
                 }
             }
         },
+        "/app/group/{group}/counts": {
+            "get": {
+                "tags": [
+                    "app"
+                ],
+                "description": "获取指定组应用统计",
+                "operationId": "AppController.应用",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Token",
+                        "description": "'Token'",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "group",
+                        "description": "组名",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "{string} create success!"
+                    },
+                    "500": {}
+                }
+            }
+        },
+        "/app/groups/counts": {
+            "get": {
+                "tags": [
+                    "app"
+                ],
+                "description": "获取所有组应用统计",
+                "operationId": "AppController.应用",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Token",
+                        "description": "'Token'",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "group",
+                        "description": "组名",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "{string} create success!"
+                    },
+                    "500": {}
+                }
+            }
+        },
         "/app/{app}/group/{group}/workspace/{workspace}": {
             "get": {
                 "tags": [
