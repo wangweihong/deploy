@@ -6,7 +6,7 @@ import (
 	"strings"
 	"sync"
 	"time"
-	"ufleet-deploy/deploy/kv"
+	"ufleet-deploy/pkg/kv"
 
 	"github.com/astaxie/beego"
 )

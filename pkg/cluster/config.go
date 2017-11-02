@@ -3,7 +3,6 @@ package cluster
 import (
 	"encoding/json"
 	"fmt"
-	"ufleet-deploy/deploy/uerr"
 	"ufleet-deploy/pkg/log"
 	"ufleet-deploy/util/request"
 
@@ -101,7 +100,7 @@ func ClusterConfigToK8sClientConfig(c ClusterConfig) (*rest.Config, error) {
 		rconfig.Host = c.ApiServer
 
 	default:
-		return nil, uerr.PrintAndReturnError(fmt.Errorf("auth config %v can't get active authentication way:%v", c, c.Auth_way))
+		return nil, log.DebugPrint(fmt.Errorf("auth config %v can't get active authentication way:%v", c, c.Auth_way))
 
 	}
 	return &rconfig, nil
