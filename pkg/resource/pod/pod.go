@@ -539,7 +539,7 @@ type ContainerStatus struct {
 }
 
 type Status struct {
-	Name string `json:"name"`
+	resource.ObjectMeta
 	//TODO:修正pod的状态
 	Phase             string            `json:"phase"`
 	IP                string            `json:"ip"`
@@ -721,14 +721,23 @@ func (p *Pod) ObjectStatus() resource.ObjectStatus {
 func (p *Pod) GetStatus() *Status {
 	runtime, err := p.GetRuntime()
 	if err != nil {
-		var s Status
-		s.Name = p.Name
+		s := Status{ObjectMeta: p.ObjectMeta}
 		s.Containers = make([]string, 0)
 		s.Labels = make(map[string]string)
 		s.Reason = err.Error()
 		return &s
 	}
 	s := V1PodToPodStatus(*runtime.Pod)
+	s.Name = p.Name
+	s.App = p.App
+	s.ObjectMeta.Comment = p.Comment
+	s.ObjectMeta.CreateTime = p.CreateTime
+	s.ObjectMeta.MemoryOnly = p.MemoryOnly
+	s.ObjectMeta.User = p.User
+	s.ObjectMeta.Template = p.Template
+	s.ObjectMeta.Kind = p.Kind
+	s.ObjectMeta.Group = p.Group
+	s.ObjectMeta.Workspace = p.Workspace
 
 	return s
 }
