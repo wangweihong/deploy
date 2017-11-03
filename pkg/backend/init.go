@@ -11,6 +11,10 @@ func Init() {
 		panic(err.Error())
 	}
 
+	err = initResourcesKey()
+	if err != nil {
+		panic(err.Error())
+	}
 	log.DebugPrint("tune resources group according to external group")
 
 	for _, v := range resources {

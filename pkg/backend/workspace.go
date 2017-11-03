@@ -53,7 +53,9 @@ func TuneResourcesWorkspaceAccordingToExternalWorkspace(be BackendHandler, kind 
 
 	//不管存不存在,直接创建
 	rGroups, err := be.GetResourceAllGroup(kind)
-	if err != nil {
+	//这时候,可能resource key还没有
+	if err != nil && err != BackendResourceNotFound {
+		//	if err != nil {
 		return log.DebugPrint(err)
 	}
 

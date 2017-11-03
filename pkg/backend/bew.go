@@ -223,3 +223,15 @@ func initRootKey() error {
 	}
 	return nil
 }
+
+func initResourcesKey() error {
+	for _, v := range resources {
+		key := etcdUfleetKey + "/" + v
+		_, err := kv.Store.CreateDirNode(key)
+		if err != nil && err != kv.ErrKeyAlreadyExists {
+			return err
+		}
+
+	}
+	return nil
+}
