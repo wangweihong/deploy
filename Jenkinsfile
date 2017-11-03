@@ -17,7 +17,7 @@ node("master") {
 	} 
 	// 编译镜像并push到仓库
 	stage('Image Build And Push'){
-	def imageTag = "v1.4.0.${BUILD_NUMBER}"
+	def imageTag = "v1.7.0.${BUILD_NUMBER}"
 	def dockerfile = readFile 'Dockerfile'
 	dockerfile = dockerfile.replaceFirst(/# ENV MODULE_VERSION #MODULE_VERSION#/, "ENV MODULE_VERSION ${imageTag}")
 	writeFile file: 'Dockerfile', text: dockerfile
