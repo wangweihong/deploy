@@ -7,6 +7,7 @@ import (
 	pk "ufleet-deploy/pkg/resource/pod"
 	"ufleet-deploy/pkg/user"
 	//	"ufleet-deploy/util/user"
+	corev1 "k8s.io/client-go/pkg/api/v1"
 )
 
 type PodController struct {
@@ -22,6 +23,31 @@ type PodState struct {
 	Reason     string    `json:"reason"`
 	Message    string    `json:"message"`
 	Status     pk.Status `json:"status"`
+}
+
+func getPodsCount(pis []resource.Object) *Count {
+	c := &Count{}
+	for _, v := range pis {
+		c.Total += 1
+		pi, _ := v.(pk.PodInterface)
+		s := pi.GetStatus()
+		switch corev1.PodPhase(s.Phase) {
+		case corev1.PodPending:
+			c.Pending += 1
+		case corev1.PodFailed:
+			c.Failed += 1
+		case corev1.PodSucceeded:
+			c.Succeeded += 1
+		case corev1.PodRunning:
+			c.Running += 1
+		case corev1.PodUnknown:
+			c.Unknown += 1
+		default:
+			c.Unknown += 1
+		}
+	}
+	return c
+
 }
 
 func GetPodState(pi pk.PodInterface) PodState {
@@ -40,7 +66,15 @@ func GetPodState(pi pk.PodInterface) PodState {
 	}
 
 	return ps
+}
 
+type Count struct {
+	Total     int `json:"total"`
+	Pending   int `json:"pending"`
+	Running   int `json:"running"`
+	Succeeded int `json:"successed"`
+	Failed    int `json:"failed"`
+	Unknown   int `json:"unknown"`
 }
 
 // ListPods
@@ -100,7 +134,8 @@ func (this *PodController) GetGroupPodCount() {
 		return
 	}
 
-	this.normalReturn(len(pis))
+	c := getPodsCount(pis)
+	this.normalReturn(c)
 }
 
 // GetPod
@@ -232,21 +267,26 @@ func (this *PodController) GetAllGroupPodsCount() {
 		return
 	}
 
-	pis := pk.Controller.ListGroups()
-
-	var ps int
-	for _, v := range pis {
-		pis, err := pk.Controller.ListGroupObject(v)
+	cs := &Count{}
+	groups := pk.Controller.ListGroups()
+	for _, v := range groups {
+		v, err := pk.Controller.ListGroupObject(v)
 		if err != nil {
 			this.errReturn(err, 500)
 			return
-
 		}
 
-		ps += len(pis)
+		c := getPodsCount(v)
+		cs.Total += c.Total
+		cs.Failed += c.Failed
+		cs.Pending += c.Pending
+		cs.Running += c.Running
+		cs.Succeeded += c.Succeeded
+		cs.Unknown += c.Unknown
+
 	}
 
-	this.normalReturn(ps)
+	this.normalReturn(cs)
 }
 
 // CreatePod
