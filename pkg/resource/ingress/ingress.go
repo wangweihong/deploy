@@ -149,6 +149,16 @@ func (p *IngressManager) AddGroup(groupName string) error {
 	return nil
 }
 
+func (p *IngressManager) ListGroups() []string {
+	p.Lock()
+	defer p.Unlock()
+	gs := make([]string, 0)
+	for k, _ := range p.Groups {
+		gs = append(gs, k)
+	}
+	return nil
+}
+
 func (p *IngressManager) AddObjectFromBytes(data []byte, force bool) error {
 	p.Lock()
 	defer p.Unlock()
@@ -243,7 +253,7 @@ func (p *IngressManager) GetObjectTemplate(group, workspace, resourceName string
 	return s.GetTemplate()
 }
 
-func (p *IngressManager) ListObject(groupName, workspaceName string) ([]resource.Object, error) {
+func (p *IngressManager) ListGroupWorkspaceObject(groupName, workspaceName string) ([]resource.Object, error) {
 
 	p.locker.Lock()
 	defer p.locker.Unlock()
@@ -268,7 +278,7 @@ func (p *IngressManager) ListObject(groupName, workspaceName string) ([]resource
 
 	return pis, nil
 }
-func (p *IngressManager) ListGroup(groupName string) ([]resource.Object, error) {
+func (p *IngressManager) ListGroupObject(groupName string) ([]resource.Object, error) {
 
 	p.locker.Lock()
 	defer p.locker.Unlock()

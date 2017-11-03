@@ -148,6 +148,16 @@ func (p *EndpointManager) AddGroup(groupName string) error {
 	return nil
 }
 
+func (p *EndpointManager) ListGroups() []string {
+	p.Lock()
+	defer p.Unlock()
+	gs := make([]string, 0)
+	for k, _ := range p.Groups {
+		gs = append(gs, k)
+	}
+	return nil
+}
+
 func (p *EndpointManager) AddObjectFromBytes(data []byte, force bool) error {
 	p.Lock()
 	defer p.Unlock()
@@ -242,7 +252,7 @@ func (p *EndpointManager) GetObjectTemplate(group, workspace, resourceName strin
 	return s.GetTemplate()
 }
 
-func (p *EndpointManager) ListObject(groupName, workspaceName string) ([]resource.Object, error) {
+func (p *EndpointManager) ListGroupWorkspaceObject(groupName, workspaceName string) ([]resource.Object, error) {
 
 	p.locker.Lock()
 	defer p.locker.Unlock()
@@ -268,7 +278,7 @@ func (p *EndpointManager) ListObject(groupName, workspaceName string) ([]resourc
 	return pis, nil
 }
 
-func (p *EndpointManager) ListGroup(groupName string) ([]resource.Object, error) {
+func (p *EndpointManager) ListGroupObject(groupName string) ([]resource.Object, error) {
 
 	p.locker.Lock()
 	defer p.locker.Unlock()

@@ -131,6 +131,20 @@ func (p *PodManager) fillObjectToManager(meta resource.Object, force bool) error
 
 }
 
+func (p *PodManager) ListGroups() []string {
+
+	p.locker.Lock()
+	defer p.locker.Unlock()
+
+	pis := make([]string, 0)
+
+	for k, _ := range p.Groups {
+		pis = append(pis, k)
+	}
+
+	return pis
+}
+
 func (p *PodManager) DeleteGroup(groupName string) error {
 	_, ok := p.Groups[groupName]
 	if !ok {
@@ -248,7 +262,7 @@ func (p *PodManager) GetObjectTemplate(group, workspace, resourceName string) (s
 	return s.GetTemplate()
 }
 
-func (p *PodManager) ListObject(groupName, workspaceName string) ([]resource.Object, error) {
+func (p *PodManager) ListGroupWorkspaceObject(groupName, workspaceName string) ([]resource.Object, error) {
 
 	p.locker.Lock()
 	defer p.locker.Unlock()
@@ -274,7 +288,7 @@ func (p *PodManager) ListObject(groupName, workspaceName string) ([]resource.Obj
 	return pis, nil
 }
 
-func (p *PodManager) ListGroup(groupName string) ([]resource.Object, error) {
+func (p *PodManager) ListGroupObject(groupName string) ([]resource.Object, error) {
 
 	p.locker.Lock()
 	defer p.locker.Unlock()

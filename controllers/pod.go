@@ -62,7 +62,7 @@ func (this *PodController) ListPods() {
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
 
-	pis, err := pk.Controller.ListObject(group, workspace)
+	pis, err := pk.Controller.ListGroupWorkspaceObject(group, workspace)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
@@ -75,6 +75,32 @@ func (this *PodController) ListPods() {
 	}
 
 	this.normalReturn(pss)
+}
+
+// GetGroupPodCounts
+// @Title Pod
+// @Description  统计组Pod
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /group/:group/count [Get]
+func (this *PodController) GetGroupPodCount() {
+	err := this.checkRouteControllerAbility()
+	if err != nil {
+		this.abilityErrorReturn(err)
+		return
+	}
+
+	group := this.Ctx.Input.Param(":group")
+
+	pis, err := pk.Controller.ListGroupObject(group)
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+
+	this.normalReturn(len(pis))
 }
 
 // GetPod
@@ -143,7 +169,7 @@ func (this *PodController) ListGroupsPods() {
 	pis := make([]resource.Object, 0)
 
 	for _, v := range groups {
-		tmp, err := pk.Controller.ListGroup(v)
+		tmp, err := pk.Controller.ListGroupObject(v)
 		if err != nil {
 			this.errReturn(err, 500)
 			return
@@ -177,7 +203,7 @@ func (this *PodController) ListGroupPods() {
 
 	group := this.Ctx.Input.Param(":group")
 
-	pis, err := pk.Controller.ListGroup(group)
+	pis, err := pk.Controller.ListGroupObject(group)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
@@ -190,6 +216,37 @@ func (this *PodController) ListGroupPods() {
 	}
 
 	this.normalReturn(pss)
+}
+
+// ListGroupPods
+// @Title Pod
+// @Description   Pod
+// @Param Token header string true 'Token'
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /allgroup/count [Get]
+func (this *PodController) GetAllGroupPodsCount() {
+	err := this.checkRouteControllerAbility()
+	if err != nil {
+		this.abilityErrorReturn(err)
+		return
+	}
+
+	pis := pk.Controller.ListGroups()
+
+	var ps int
+	for _, v := range pis {
+		pis, err := pk.Controller.ListGroupObject(v)
+		if err != nil {
+			this.errReturn(err, 500)
+			return
+
+		}
+
+		ps += len(pis)
+	}
+
+	this.normalReturn(ps)
 }
 
 // CreatePod

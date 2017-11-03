@@ -141,6 +141,15 @@ func (p *CronJobManager) AddGroup(groupName string) error {
 	p.Groups[groupName] = group
 	return nil
 }
+func (p *CronJobManager) ListGroups() []string {
+	p.Lock()
+	defer p.Unlock()
+	gs := make([]string, 0)
+	for k, _ := range p.Groups {
+		gs = append(gs, k)
+	}
+	return nil
+}
 
 func (p *CronJobManager) AddObjectFromBytes(data []byte, force bool) error {
 	p.Lock()
@@ -236,7 +245,7 @@ func (p *CronJobManager) GetObjectWithoutLock(groupName, workspaceName, resource
 	return p.get(groupName, workspaceName, resourceName)
 }
 
-func (p *CronJobManager) ListObject(groupName, workspaceName string) ([]resource.Object, error) {
+func (p *CronJobManager) ListGroupWorkspaceObject(groupName, workspaceName string) ([]resource.Object, error) {
 
 	p.locker.Lock()
 	defer p.locker.Unlock()
@@ -262,7 +271,7 @@ func (p *CronJobManager) ListObject(groupName, workspaceName string) ([]resource
 	return pis, nil
 }
 
-func (p *CronJobManager) ListGroup(groupName string) ([]resource.Object, error) {
+func (p *CronJobManager) ListGroupObject(groupName string) ([]resource.Object, error) {
 
 	p.locker.Lock()
 	defer p.locker.Unlock()

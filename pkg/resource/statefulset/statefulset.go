@@ -149,6 +149,16 @@ func (p *StatefulSetManager) AddGroup(groupName string) error {
 	return nil
 }
 
+func (p *StatefulSetManager) ListGroups() []string {
+	p.Lock()
+	defer p.Unlock()
+	gs := make([]string, 0)
+	for k, _ := range p.Groups {
+		gs = append(gs, k)
+	}
+	return nil
+}
+
 func (p *StatefulSetManager) AddObjectFromBytes(data []byte, force bool) error {
 	p.Lock()
 	defer p.Unlock()
@@ -243,7 +253,7 @@ func (p *StatefulSetManager) GetObjectTemplate(group, workspace, resourceName st
 	return s.GetTemplate()
 }
 
-func (p *StatefulSetManager) ListObject(groupName, workspaceName string) ([]resource.Object, error) {
+func (p *StatefulSetManager) ListGroupWorkspaceObject(groupName, workspaceName string) ([]resource.Object, error) {
 
 	p.locker.Lock()
 	defer p.locker.Unlock()
@@ -269,7 +279,7 @@ func (p *StatefulSetManager) ListObject(groupName, workspaceName string) ([]reso
 	return pis, nil
 }
 
-func (p *StatefulSetManager) ListGroup(groupName string) ([]resource.Object, error) {
+func (p *StatefulSetManager) ListGroupObject(groupName string) ([]resource.Object, error) {
 
 	p.locker.Lock()
 	defer p.locker.Unlock()

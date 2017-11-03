@@ -4430,12 +4430,67 @@
                 }
             }
         },
+        "/pod/allgroup/count": {
+            "get": {
+                "tags": [
+                    "pod"
+                ],
+                "description": "Pod",
+                "operationId": "PodController.Pod",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Token",
+                        "description": "'Token'",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "{string} create success!"
+                    },
+                    "500": {}
+                }
+            }
+        },
         "/pod/group/{group}": {
             "get": {
                 "tags": [
                     "pod"
                 ],
                 "description": "Pod",
+                "operationId": "PodController.Pod",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Token",
+                        "description": "'Token'",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "group",
+                        "description": "组名",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "{string} create success!"
+                    },
+                    "500": {}
+                }
+            }
+        },
+        "/pod/group/{group}/count": {
+            "get": {
+                "tags": [
+                    "pod"
+                ],
+                "description": "统计组Pod",
                 "operationId": "PodController.Pod",
                 "parameters": [
                     {

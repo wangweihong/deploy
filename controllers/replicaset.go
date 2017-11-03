@@ -35,7 +35,7 @@ func (this *ReplicaSetController) ListGroupWorkspaceReplicaSets() {
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
 
-	pis, err := pk.Controller.ListObject(group, workspace)
+	pis, err := pk.Controller.ListGroupWorkspaceObject(group, workspace)
 	if err != nil {
 		this.errReturn(err, 500)
 		return
@@ -118,7 +118,7 @@ func (this *ReplicaSetController) ListGroupsReplicaSets() {
 
 	pis := make([]resource.Object, 0)
 	for _, v := range groups {
-		tmp, err := pk.Controller.ListGroup(v)
+		tmp, err := pk.Controller.ListGroupObject(v)
 		if err != nil {
 			this.errReturn(err, 500)
 			return
@@ -153,7 +153,7 @@ func (this *ReplicaSetController) ListGroupReplicaSets() {
 	}
 
 	group := this.Ctx.Input.Param(":group")
-	pis, err := pk.Controller.ListGroup(group)
+	pis, err := pk.Controller.ListGroupObject(group)
 	if err != nil {
 		this.errReturn(err, 500)
 		return

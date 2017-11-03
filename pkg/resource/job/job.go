@@ -154,6 +154,16 @@ func (p *JobManager) AddGroup(groupName string) error {
 	return nil
 }
 
+func (p *JobManager) ListGroups() []string {
+	p.Lock()
+	defer p.Unlock()
+	gs := make([]string, 0)
+	for k, _ := range p.Groups {
+		gs = append(gs, k)
+	}
+	return nil
+}
+
 func (p *JobManager) AddObjectFromBytes(data []byte, force bool) error {
 	p.Lock()
 	defer p.Unlock()
@@ -248,7 +258,7 @@ func (p *JobManager) GetObjectTemplate(group, workspace, resourceName string) (s
 	return s.GetTemplate()
 }
 
-func (p *JobManager) ListGroup(groupName string) ([]resource.Object, error) {
+func (p *JobManager) ListGroupObject(groupName string) ([]resource.Object, error) {
 	p.locker.Lock()
 	defer p.locker.Unlock()
 
@@ -267,7 +277,7 @@ func (p *JobManager) ListGroup(groupName string) ([]resource.Object, error) {
 	return pis, nil
 }
 
-func (p *JobManager) ListObject(groupName, workspaceName string) ([]resource.Object, error) {
+func (p *JobManager) ListGroupWorkspaceObject(groupName, workspaceName string) ([]resource.Object, error) {
 
 	p.locker.Lock()
 	defer p.locker.Unlock()

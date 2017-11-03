@@ -103,6 +103,7 @@ type ObjectController interface {
 	DeleteGroup(group string) error
 	DeleteWorkspace(groupName string, workspaceName string) error
 	AddGroup(group string) error
+	ListGroups() []string
 	AddWorkspace(group, workspace string) error
 	AddObjectFromBytes(data []byte, force bool) error
 
@@ -111,8 +112,8 @@ type ObjectController interface {
 	DeleteObject(group, workspace, resource string, opt DeleteOption) error
 	GetObject(group, workspace, resource string) (Object, error)
 	UpdateObject(group, workspace, resource string, newdata []byte, opt UpdateOption) error
-	ListObject(group, workspace string) ([]Object, error)
-	ListGroup(group string) ([]Object, error)
+	ListGroupWorkspaceObject(group, workspace string) ([]Object, error)
+	ListGroupObject(group string) ([]Object, error)
 }
 
 //env

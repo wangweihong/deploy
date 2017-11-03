@@ -151,6 +151,16 @@ func (p *SecretManager) AddGroup(groupName string) error {
 	return nil
 }
 
+func (p *SecretManager) ListGroups() []string {
+	p.Lock()
+	defer p.Unlock()
+	gs := make([]string, 0)
+	for k, _ := range p.Groups {
+		gs = append(gs, k)
+	}
+	return nil
+}
+
 func (p *SecretManager) AddObjectFromBytes(data []byte, force bool) error {
 	p.Lock()
 	defer p.Unlock()
@@ -244,7 +254,7 @@ func (p *SecretManager) GetObjectTemplate(group, workspace, resourceName string)
 	}
 	return s.GetTemplate()
 }
-func (p *SecretManager) ListObject(groupName, workspaceName string) ([]resource.Object, error) {
+func (p *SecretManager) ListGroupWorkspaceObject(groupName, workspaceName string) ([]resource.Object, error) {
 
 	p.locker.Lock()
 	defer p.locker.Unlock()
@@ -270,7 +280,7 @@ func (p *SecretManager) ListObject(groupName, workspaceName string) ([]resource.
 	return pis, nil
 }
 
-func (p *SecretManager) ListGroup(groupName string) ([]resource.Object, error) {
+func (p *SecretManager) ListGroupObject(groupName string) ([]resource.Object, error) {
 
 	p.locker.Lock()
 	defer p.locker.Unlock()

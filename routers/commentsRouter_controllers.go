@@ -701,6 +701,13 @@ func init() {
 
 	beego.GlobalControllerRouter["ufleet-deploy/controllers:PodController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:PodController"],
 		beego.ControllerComments{
+			Method: "GetGroupPodCount",
+			Router: `/group/:group/count`,
+			AllowHTTPMethods: []string{"Get"},
+			Params: nil})
+
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:PodController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:PodController"],
+		beego.ControllerComments{
 			Method: "GetPod",
 			Router: `/:pod/group/:group/workspace/:workspace`,
 			AllowHTTPMethods: []string{"Get"},
@@ -717,6 +724,13 @@ func init() {
 		beego.ControllerComments{
 			Method: "ListGroupPods",
 			Router: `/group/:group`,
+			AllowHTTPMethods: []string{"Get"},
+			Params: nil})
+
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:PodController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:PodController"],
+		beego.ControllerComments{
+			Method: "GetAllGroupPodsCount",
+			Router: `/allgroup/count`,
 			AllowHTTPMethods: []string{"Get"},
 			Params: nil})
 

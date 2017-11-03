@@ -153,6 +153,16 @@ func (p *ReplicationControllerManager) AddGroup(groupName string) error {
 	return nil
 }
 
+func (p *ReplicationControllerManager) ListGroups() []string {
+	p.Lock()
+	defer p.Unlock()
+	gs := make([]string, 0)
+	for k, _ := range p.Groups {
+		gs = append(gs, k)
+	}
+	return nil
+}
+
 func (p *ReplicationControllerManager) AddObjectFromBytes(data []byte, force bool) error {
 	p.Lock()
 	defer p.Unlock()
@@ -247,7 +257,7 @@ func (p *ReplicationControllerManager) GetObjectTemplate(group, workspace, resou
 	return s.GetTemplate()
 }
 
-func (p *ReplicationControllerManager) ListGroup(groupName string) ([]resource.Object, error) {
+func (p *ReplicationControllerManager) ListGroupObject(groupName string) ([]resource.Object, error) {
 	p.locker.Lock()
 	defer p.locker.Unlock()
 
@@ -266,7 +276,7 @@ func (p *ReplicationControllerManager) ListGroup(groupName string) ([]resource.O
 	return pis, nil
 }
 
-func (p *ReplicationControllerManager) ListObject(groupName, workspaceName string) ([]resource.Object, error) {
+func (p *ReplicationControllerManager) ListGroupWorkspaceObject(groupName, workspaceName string) ([]resource.Object, error) {
 
 	p.locker.Lock()
 	defer p.locker.Unlock()

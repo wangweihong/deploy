@@ -142,6 +142,16 @@ func (p *DaemonSetManager) AddGroup(groupName string) error {
 	return nil
 }
 
+func (p *DaemonSetManager) ListGroups() []string {
+	p.Lock()
+	defer p.Unlock()
+	gs := make([]string, 0)
+	for k, _ := range p.Groups {
+		gs = append(gs, k)
+	}
+	return nil
+}
+
 func (p *DaemonSetManager) AddObjectFromBytes(data []byte, force bool) error {
 	p.Lock()
 	defer p.Unlock()
@@ -235,7 +245,7 @@ func (p *DaemonSetManager) GetObjectTemplate(group, workspace, resourceName stri
 	return s.GetTemplate()
 }
 
-func (p *DaemonSetManager) ListObject(groupName, workspaceName string) ([]resource.Object, error) {
+func (p *DaemonSetManager) ListGroupWorkspaceObject(groupName, workspaceName string) ([]resource.Object, error) {
 
 	p.locker.Lock()
 	defer p.locker.Unlock()
@@ -261,7 +271,7 @@ func (p *DaemonSetManager) ListObject(groupName, workspaceName string) ([]resour
 	return pis, nil
 }
 
-func (p *DaemonSetManager) ListGroup(groupName string) ([]resource.Object, error) {
+func (p *DaemonSetManager) ListGroupObject(groupName string) ([]resource.Object, error) {
 	p.locker.Lock()
 	defer p.locker.Unlock()
 

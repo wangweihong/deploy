@@ -150,6 +150,16 @@ func (p *ServiceManager) AddGroup(groupName string) error {
 	return nil
 }
 
+func (p *ServiceManager) ListGroups() []string {
+	p.Lock()
+	defer p.Unlock()
+	gs := make([]string, 0)
+	for k, _ := range p.Groups {
+		gs = append(gs, k)
+	}
+	return nil
+}
+
 func (p *ServiceManager) AddObjectFromBytes(data []byte, force bool) error {
 	p.Lock()
 	defer p.Unlock()
@@ -243,7 +253,7 @@ func (p *ServiceManager) GetObjectTemplate(group, workspace, resourceName string
 	return s.GetTemplate()
 }
 
-func (p *ServiceManager) ListObject(groupName, workspaceName string) ([]resource.Object, error) {
+func (p *ServiceManager) ListGroupWorkspaceObject(groupName, workspaceName string) ([]resource.Object, error) {
 
 	p.locker.Lock()
 	defer p.locker.Unlock()
@@ -270,7 +280,7 @@ func (p *ServiceManager) ListObject(groupName, workspaceName string) ([]resource
 	return pis, nil
 }
 
-func (p *ServiceManager) ListGroup(groupName string) ([]resource.Object, error) {
+func (p *ServiceManager) ListGroupObject(groupName string) ([]resource.Object, error) {
 
 	p.locker.Lock()
 	defer p.locker.Unlock()
