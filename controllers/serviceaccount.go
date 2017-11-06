@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"ufleet-deploy/models"
-	"ufleet-deploy/pkg/log"
 	"ufleet-deploy/pkg/resource"
 	pk "ufleet-deploy/pkg/resource/serviceaccount"
 	"ufleet-deploy/pkg/user"
@@ -108,7 +107,6 @@ func (this *ServiceAccountController) ListGroupsServiceAccounts() {
 // @Failure 500
 // @router /group/:group [Get]
 func (this *ServiceAccountController) ListGroupServiceAccounts() {
-	log.DebugPrint("------------------------------")
 	aerr := this.checkRouteControllerAbility()
 	if aerr != nil {
 		this.abilityErrorReturn(aerr)

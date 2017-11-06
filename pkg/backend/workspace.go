@@ -96,9 +96,14 @@ func GetExternalWorkspaceList() (map[string][]string, error) {
 	gws := make(map[string][]string)
 
 	resp, err := kv.Store.GetNode(externalWorkspaceKey)
-	if err != nil {
+	if err != nil || err != kv.ErrKeyNotFound {
 		return nil, err
 	}
+
+	if err == kv.ErrKeyNotFound {
+		return gws, nil
+	}
+
 	for _, v := range resp.Node.Nodes {
 		var w Workspace
 		err := json.Unmarshal([]byte(v.Value), &w)
@@ -161,7 +166,7 @@ func watchWorkspaceChange() error {
 		for {
 			we := <-wechan
 			if we.Err != nil {
-				log.ErrorPrint(we.Err)
+				log.ErrorPrint("watch workspace change for ", we.Err)
 				time.Sleep(1 * time.Second)
 				continue
 			}
@@ -187,7 +192,7 @@ func watchWorkspaceChange() error {
 			var w Workspace
 			err := json.Unmarshal([]byte(value), &w)
 			if err != nil {
-				beego.Error(err)
+				beego.Error("cannot unmarshal value '%v' for ", value, err)
 				continue
 			}
 			var event WorkspaceEvent
