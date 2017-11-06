@@ -96,8 +96,8 @@ func GetExternalWorkspaceList() (map[string][]string, error) {
 	gws := make(map[string][]string)
 
 	resp, err := kv.Store.GetNode(externalWorkspaceKey)
-	if err != nil || err != kv.ErrKeyNotFound {
-		return nil, err
+	if err != nil && err != kv.ErrKeyNotFound {
+		return nil, log.DebugPrint(err)
 	}
 
 	if err == kv.ErrKeyNotFound {
@@ -108,7 +108,7 @@ func GetExternalWorkspaceList() (map[string][]string, error) {
 		var w Workspace
 		err := json.Unmarshal([]byte(v.Value), &w)
 		if err != nil {
-			return nil, err
+			return nil, log.DebugPrint(err)
 		}
 		ws, ok := gws[w.Group]
 		if ok {

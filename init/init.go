@@ -36,6 +36,7 @@ func init() {
 	initKV()
 	log.DebugPrint("init backend controller")
 	backend.Init()
+
 	log.DebugPrint("init app controller")
 	app.Init()
 	log.DebugPrint("init pod controller")

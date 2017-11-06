@@ -24,9 +24,9 @@ func HandleEventWatchFromK8sCluster(echan chan cluster.Event, kind string, oc Ob
 
 	for {
 		pe := <-echan
+		//注意:这里一定不能用return!!!!!!!
 		if pe.FromUfleet {
-			//				log.DebugPrint("%v:  event %v from ufleet,ignore ", kind, pe)
-			//注意:这里一定不能用return!!!!!!!
+			//	log.DebugPrint("%v:  event %v from ufleet,ignore ", kind, pe)
 			continue
 		}
 
@@ -69,6 +69,24 @@ func HandleEventWatchFromK8sCluster(echan chan cluster.Event, kind string, oc Ob
 
 				return
 			case cluster.ActionUpdate:
+				oc.Lock()
+				defer oc.Unlock()
+				//不管有没有是否已经存在,强制写入
+
+				var p ObjectMeta
+				p.Name = e.Name
+				p.MemoryOnly = true
+				p.Workspace = e.Workspace
+				p.Group = e.Group
+				p.User = clusterConfigMapCreater
+
+				err := oc.NewObject(p)
+				if err != nil {
+					log.ErrorPrint("'%v':'%v' event handler create fail for %v", e, kind, err)
+					return
+				}
+
+				return
 			}
 		}(pe)
 

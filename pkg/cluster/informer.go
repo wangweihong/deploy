@@ -74,6 +74,9 @@ func (c *ResourceController) Run(stopCh chan struct{}) error {
 func (c *ResourceController) locateResourceGW(ns string) *Workspace {
 	wg, ok := c.Workspaces[ns]
 	if !ok {
+		if ns == "ws1" || ns == "ws2" || ns == "ws3" {
+			log.DebugPrint("ns %v not found in informers '%v'", ns, c.Workspaces)
+		}
 		return nil
 	}
 	return &wg
@@ -127,6 +130,11 @@ func (c *ResourceController) generateEventFromObj(obj interface{}, action Action
 //在一开始resync时,会触发create事件
 //周期性resync时,会触发Update事件
 func (c *ResourceController) resourceAdd(obj interface{}) {
+	/*
+		if o, ok := obj.(*corev1.Secret); ok {
+			log.DebugPrint("resourceAdd %v %v", o.Name, o.Namespace)
+		}
+	*/
 	ep, err := c.generateEventFromObj(obj, ActionCreate)
 	if err != nil {
 		log.ErrorPrint(err)
