@@ -13,11 +13,11 @@ import (
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	//	k8sapi "k8s.io/kubernetes/pkg/api"
 
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/kubernetes/pkg/controller"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	corev1 "k8s.io/client-go/pkg/api/v1"
 	appv1beta1 "k8s.io/client-go/pkg/apis/apps/v1beta1"
 	batchv1 "k8s.io/client-go/pkg/apis/batch/v1"
@@ -50,6 +50,7 @@ type PodHandler interface {
 	Log(namespace, podName string, containerName string, opt LogOption) (string, error)
 	Event(namespace, resourceName string) ([]corev1.Event, error)
 	Update(namespace string, pod *corev1.Pod) error
+	List(namespace string) ([]*corev1.Pod, error)
 }
 
 func NewPodHandler(group, workspace string) (PodHandler, error) {
@@ -129,6 +130,10 @@ func (h *podHandler) Event(namespace, podName string) ([]corev1.Event, error) {
 	return events.Items, nil
 }
 
+func (h *podHandler) List(namespace string) ([]*corev1.Pod, error) {
+	return h.informerController.podInformer.Lister().Pods(namespace).List(labels.Everything())
+}
+
 /* ----------------- Service ----------------------*/
 
 type ServiceHandler interface {
@@ -137,6 +142,7 @@ type ServiceHandler interface {
 	Create(namespace string, service *corev1.Service) error
 	Update(namespace string, service *corev1.Service) error
 	GetPods(namespace, name string) ([]*corev1.Pod, error)
+	List(namespace string) ([]*corev1.Service, error)
 }
 
 func NewServiceHandler(group, workspace string) (ServiceHandler, error) {
@@ -183,7 +189,10 @@ func (h *serviceHandler) GetPods(namespace, name string) ([]*corev1.Pod, error) 
 		return nil, err
 	}
 	return pods, nil
+}
 
+func (h *serviceHandler) List(namespace string) ([]*corev1.Service, error) {
+	return h.informerController.serviceInformer.Lister().Services(namespace).List(labels.Everything())
 }
 
 /* ------------------------ Configmap ----------------------------*/
@@ -193,6 +202,7 @@ type ConfigMapHandler interface {
 	Create(namespace string, cm *corev1.ConfigMap) error
 	Delete(namespace string, name string) error
 	Update(namespace string, service *corev1.ConfigMap) error
+	List(namespace string) ([]*corev1.ConfigMap, error)
 }
 
 func NewConfigMapHandler(group, workspace string) (ConfigMapHandler, error) {
@@ -225,6 +235,9 @@ func (h *configmapHandler) Update(namespace string, resource *corev1.ConfigMap) 
 func (h *configmapHandler) Delete(namespace, configmapName string) error {
 	return h.clientset.CoreV1().ConfigMaps(namespace).Delete(configmapName, nil)
 }
+func (h *configmapHandler) List(namespace string) ([]*corev1.ConfigMap, error) {
+	return h.informerController.configmapInformer.Lister().ConfigMaps(namespace).List(labels.Everything())
+}
 
 /* ------------------------ ReplicationController---------------------------*/
 
@@ -236,6 +249,7 @@ type ReplicationControllerHandler interface {
 	Update(namespace string, resource *corev1.ReplicationController) error
 	Scale(namespace, name string, num int32) error
 	Event(namespace, resourceName string) ([]corev1.Event, error)
+	List(namespace string) ([]*corev1.ReplicationController, error)
 }
 
 func NewReplicationControllerHandler(group, workspace string) (ReplicationControllerHandler, error) {
@@ -349,6 +363,10 @@ func (h *replicationcontrollerHandler) Scale(namespace, replicationcontrollerNam
 	return nil
 }
 
+func (h *replicationcontrollerHandler) List(namespace string) ([]*corev1.ReplicationController, error) {
+	return h.informerController.replicationcontrollerInformer.Lister().ReplicationControllers(namespace).List(labels.Everything())
+}
+
 /* ------------------------ ServiceAccount ----------------------------*/
 
 type ServiceAccountHandler interface {
@@ -356,6 +374,7 @@ type ServiceAccountHandler interface {
 	Create(namespace string, sa *corev1.ServiceAccount) error
 	Delete(namespace string, name string) error
 	Update(namespace string, resource *corev1.ServiceAccount) error
+	List(namespace string) ([]*corev1.ServiceAccount, error)
 }
 
 func NewServiceAccountHandler(group, workspace string) (ServiceAccountHandler, error) {
@@ -389,6 +408,10 @@ func (h *serviceaccountHandler) Delete(namespace, serviceaccountName string) err
 	return h.clientset.CoreV1().ServiceAccounts(namespace).Delete(serviceaccountName, nil)
 }
 
+func (h *serviceaccountHandler) List(namespace string) ([]*corev1.ServiceAccount, error) {
+	return h.informerController.serviceaccountInformer.Lister().ServiceAccounts(namespace).List(labels.Everything())
+}
+
 /* ------------------------ Secret ----------------------------*/
 
 type SecretHandler interface {
@@ -396,6 +419,7 @@ type SecretHandler interface {
 	Create(namespace string, secret *corev1.Secret) error
 	Delete(namespace string, name string) error
 	Update(namespace string, resource *corev1.Secret) error
+	List(namespace string) ([]*corev1.Secret, error)
 }
 
 func NewSecretHandler(group, workspace string) (SecretHandler, error) {
@@ -429,6 +453,10 @@ func (h *secretHandler) Update(namespace string, resource *corev1.Secret) error 
 	return err
 }
 
+func (h *secretHandler) List(namespace string) ([]*corev1.Secret, error) {
+	return h.informerController.secretInformer.Lister().Secrets(namespace).List(labels.Everything())
+}
+
 /* ------------------------ Endpoint ----------------------------*/
 
 type EndpointHandler interface {
@@ -436,6 +464,7 @@ type EndpointHandler interface {
 	Create(namespace string, ep *corev1.Endpoints) error
 	Delete(namespace string, name string) error
 	Update(namespace string, resource *corev1.Endpoints) error
+	List(namespace string) ([]*corev1.Endpoints, error)
 }
 
 func NewEndpointHandler(group, workspace string) (EndpointHandler, error) {
@@ -468,11 +497,15 @@ func (h *endpointHandler) Update(namespace string, resource *corev1.Endpoints) e
 	_, err := h.clientset.CoreV1().Endpoints(namespace).Update(resource)
 	return err
 }
+func (h *endpointHandler) List(namespace string) ([]*corev1.Endpoints, error) {
+	return h.informerController.endpointInformer.Lister().Endpoints(namespace).List(labels.Everything())
+}
 
 /* ------------------------ Deployment ----------------------------*/
 
 type DeploymentHandler interface {
 	Get(namespace string, name string) (*extensionsv1beta1.Deployment, error)
+	List(namespace string) ([]*extensionsv1beta1.Deployment, error)
 	Create(namespace string, d *extensionsv1beta1.Deployment) error
 	Delete(namespace string, name string) error
 	Update(namespace string, resource *extensionsv1beta1.Deployment) error
@@ -502,6 +535,9 @@ type deploymentHandler struct {
 
 func (h *deploymentHandler) Get(namespace, name string) (*extensionsv1beta1.Deployment, error) {
 	return h.informerController.deploymentInformer.Lister().Deployments(namespace).Get(name)
+}
+func (h *deploymentHandler) List(namespace string) ([]*extensionsv1beta1.Deployment, error) {
+	return h.informerController.deploymentInformer.Lister().Deployments(namespace).List(labels.Everything())
 }
 
 func (h *deploymentHandler) Create(namespace string, deployment *extensionsv1beta1.Deployment) error {
@@ -819,6 +855,7 @@ func (h *deploymentHandler) GetRevisionsAndReplicas(namespace, name string) (map
 
 type ReplicaSetHandler interface {
 	Get(namespace string, name string) (*extensionsv1beta1.ReplicaSet, error)
+	List(namespace string) ([]*extensionsv1beta1.ReplicaSet, error)
 	Create(namespace string, cm *extensionsv1beta1.ReplicaSet) error
 	Delete(namespace string, name string) error
 	GetPods(namespace, name string) ([]*corev1.Pod, error)
@@ -842,6 +879,9 @@ type replicasetHandler struct {
 
 func (h *replicasetHandler) Get(namespace, name string) (*extensionsv1beta1.ReplicaSet, error) {
 	return h.informerController.replicasetInformer.Lister().ReplicaSets(namespace).Get(name)
+}
+func (h *replicasetHandler) List(namespace string) ([]*extensionsv1beta1.ReplicaSet, error) {
+	return h.informerController.replicasetInformer.Lister().ReplicaSets(namespace).List(labels.Everything())
 }
 
 func (h *replicasetHandler) Create(namespace string, replicaset *extensionsv1beta1.ReplicaSet) error {
@@ -943,6 +983,7 @@ func (h *replicasetHandler) Scale(namespace, replicasetName string, num int32) e
 
 type DaemonSetHandler interface {
 	Get(namespace string, name string) (*extensionsv1beta1.DaemonSet, error)
+	List(namespace string) ([]*extensionsv1beta1.DaemonSet, error)
 	Create(namespace string, ds *extensionsv1beta1.DaemonSet) error
 	Delete(namespace string, name string) error
 	Update(namespace string, resource *extensionsv1beta1.DaemonSet) error
@@ -968,6 +1009,9 @@ type daemonsetHandler struct {
 
 func (h *daemonsetHandler) Get(namespace, name string) (*extensionsv1beta1.DaemonSet, error) {
 	return h.informerController.daemonsetInformer.Lister().DaemonSets(namespace).Get(name)
+}
+func (h *daemonsetHandler) List(namespace string) ([]*extensionsv1beta1.DaemonSet, error) {
+	return h.informerController.daemonsetInformer.Lister().DaemonSets(namespace).List(labels.Everything())
 }
 
 func (h *daemonsetHandler) Create(namespace string, daemonset *extensionsv1beta1.DaemonSet) error {
@@ -1203,6 +1247,7 @@ func getPatch(ds *extensionsv1beta1.DaemonSet) ([]byte, error) {
 
 type IngressHandler interface {
 	Get(namespace string, name string) (*extensionsv1beta1.Ingress, error)
+	List(namespace string) ([]*extensionsv1beta1.Ingress, error)
 	Create(namespace string, ing *extensionsv1beta1.Ingress) error
 	Delete(namespace string, name string) error
 	Update(namespace string, resource *extensionsv1beta1.Ingress) error
@@ -1224,6 +1269,9 @@ type ingressHandler struct {
 func (h *ingressHandler) Get(namespace, name string) (*extensionsv1beta1.Ingress, error) {
 	return h.informerController.ingressInformer.Lister().Ingresses(namespace).Get(name)
 }
+func (h *ingressHandler) List(namespace string) ([]*extensionsv1beta1.Ingress, error) {
+	return h.informerController.ingressInformer.Lister().Ingresses(namespace).List(labels.Everything())
+}
 
 func (h *ingressHandler) Create(namespace string, ingress *extensionsv1beta1.Ingress) error {
 	_, err := h.clientset.ExtensionsV1beta1().Ingresses(namespace).Create(ingress)
@@ -1243,6 +1291,7 @@ func (h *ingressHandler) Update(namespace string, resource *extensionsv1beta1.In
 
 type StatefulSetHandler interface {
 	Get(namespace, name string) (*appv1beta1.StatefulSet, error)
+	List(namespace string) ([]*appv1beta1.StatefulSet, error)
 	Create(namespace string, ss *appv1beta1.StatefulSet) error
 	Delete(namespace string, name string) error
 	Update(namespace string, resource *appv1beta1.StatefulSet) error
@@ -1264,6 +1313,9 @@ type statefulsetHandler struct {
 func (h *statefulsetHandler) Get(namespace, name string) (*appv1beta1.StatefulSet, error) {
 	return h.informerController.statefulsetInformer.Lister().StatefulSets(namespace).Get(name)
 }
+func (h *statefulsetHandler) List(namespace string) ([]*appv1beta1.StatefulSet, error) {
+	return h.informerController.statefulsetInformer.Lister().StatefulSets(namespace).List(labels.Everything())
+}
 
 func (h *statefulsetHandler) Create(namespace string, statefulset *appv1beta1.StatefulSet) error {
 	_, err := h.clientset.Apps().StatefulSets(namespace).Create(statefulset)
@@ -1283,6 +1335,7 @@ func (h *statefulsetHandler) Update(namespace string, resource *appv1beta1.State
 
 type CronJobHandler interface {
 	Get(namespace, name string) (*batchv2alpha1.CronJob, error)
+	List(namespace string) ([]*batchv2alpha1.CronJob, error)
 	Create(namespace string, cj *batchv2alpha1.CronJob) error
 	Delete(namespace string, name string) error
 	Update(namespace string, resource *batchv2alpha1.CronJob) error
@@ -1308,6 +1361,9 @@ func (h *cronjobHandler) Get(namespace, name string) (*batchv2alpha1.CronJob, er
 	return h.informerController.cronjobInformer.Lister().CronJobs(namespace).Get(name)
 }
 
+func (h *cronjobHandler) List(namespace string) ([]*batchv2alpha1.CronJob, error) {
+	return h.informerController.cronjobInformer.Lister().CronJobs(namespace).List(labels.Everything())
+}
 func (h *cronjobHandler) Create(namespace string, cronjob *batchv2alpha1.CronJob) error {
 	_, err := h.clientset.BatchV2alpha1().CronJobs(namespace).Create(cronjob)
 	return err
@@ -1386,6 +1442,8 @@ func (h *cronjobHandler) Event(namespace, resourceName string) ([]corev1.Event, 
 /* ------------------------- Job ---------------------*/
 type JobHandler interface {
 	Get(namespace, name string) (*batchv1.Job, error)
+	List(namespace string) ([]*batchv1.Job, error)
+
 	Create(namespace string, job *batchv1.Job) error
 	Delete(namespace string, name string) error
 	Update(namespace string, resource *batchv1.Job) error
@@ -1408,6 +1466,9 @@ type jobHandler struct {
 
 func (h *jobHandler) Get(namespace, name string) (*batchv1.Job, error) {
 	return h.informerController.jobInformer.Lister().Jobs(namespace).Get(name)
+}
+func (h *jobHandler) List(namespace string) ([]*batchv1.Job, error) {
+	return h.informerController.jobInformer.Lister().Jobs(namespace).List(labels.Everything())
 }
 
 func (h *jobHandler) Create(namespace string, job *batchv1.Job) error {

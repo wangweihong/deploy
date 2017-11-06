@@ -198,6 +198,35 @@ func (p *PodManager) AddWorkspace(groupName string, workspaceName string) error 
 	ws.Pods = make(map[string]Pod)
 	g.Workspaces[workspaceName] = ws
 	p.Groups[groupName] = g
+
+	//因为工作区事件的监听和集群的resource informers的监听是异步的,因此
+	//工作区映射的命名空间实际创建时像sa/secret的资源会立即被创建,而且被resource informers已经
+	//监听到,但是工作区事件因为延时的问题,导致没有把工作区告知informer controller.
+	//这样informer controller认为该命名空间的资源的事件为可忽略的事件,从而忽略了资源的创建事件
+	//从而导致工作区中缺失了该资源
+	//因此在添加工作区时,获取一遍资源,更新到secret中
+	ph, err := cluster.NewPodHandler(groupName, workspaceName)
+	if err != nil {
+		return log.DebugPrint(err)
+	}
+	res, err := ph.List(workspaceName)
+	if err != nil {
+		return log.DebugPrint(err)
+	}
+	for _, e := range res {
+
+		var o resource.ObjectMeta
+		o.Name = e.Name
+		o.MemoryOnly = true
+		o.Workspace = workspaceName
+		o.Group = groupName
+		o.User = "kubernetes"
+
+		err = p.NewObject(o)
+		if err != nil && err != resource.ErrResourceExists {
+			return log.ErrorPrint(err)
+		}
+	}
 	return nil
 
 }

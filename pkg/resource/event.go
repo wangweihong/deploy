@@ -34,8 +34,11 @@ func HandleEventWatchFromK8sCluster(echan chan cluster.Event, kind string, oc Ob
 			switch e.Action {
 			case cluster.ActionDelete:
 				//清除内存中的数据即可
-				if err := oc.DeleteObject(e.Group, e.Workspace, e.Name, DeleteOption{MemoryOnly: true}); err != nil {
-					log.ErrorPrint("%v:  event handler/delete:%v", kind, err)
+				err := oc.DeleteObject(e.Group, e.Workspace, e.Name, DeleteOption{MemoryOnly: true})
+				if err != nil {
+					if err != ErrGroupNotFound || err != ErrWorkspaceNotFound {
+						log.ErrorPrint("%v:  event handler/delete:%v", kind, err)
+					}
 				}
 				return
 
@@ -69,22 +72,6 @@ func HandleEventWatchFromK8sCluster(echan chan cluster.Event, kind string, oc Ob
 
 				return
 			case cluster.ActionUpdate:
-				oc.Lock()
-				defer oc.Unlock()
-				//不管有没有是否已经存在,强制写入
-
-				var p ObjectMeta
-				p.Name = e.Name
-				p.MemoryOnly = true
-				p.Workspace = e.Workspace
-				p.Group = e.Group
-				p.User = clusterConfigMapCreater
-
-				err := oc.NewObject(p)
-				if err != nil {
-					log.ErrorPrint("'%v':'%v' event handler create fail for %v", e, kind, err)
-					return
-				}
 
 				return
 			}
