@@ -1,7 +1,6 @@
 package resource
 
 import (
-	"fmt"
 	"strings"
 	"ufleet-deploy/pkg/backend"
 	"ufleet-deploy/pkg/cluster"
@@ -9,10 +8,10 @@ import (
 )
 
 const (
-	clusterConfigMapCreater = "kubernetes"
-	eGroup                  = "group"
-	eWorkspace              = "workspace"
-	eResource               = "resource"
+	clusterObjectCreater = "kubernetes"
+	eGroup               = "group"
+	eWorkspace           = "workspace"
+	eResource            = "resource"
 )
 
 func HandleEventWatchFromK8sCluster(echan chan cluster.Event, kind string, oc ObjectController) {
@@ -24,20 +23,18 @@ func HandleEventWatchFromK8sCluster(echan chan cluster.Event, kind string, oc Ob
 
 	for {
 		pe := <-echan
-		//注意:这里一定不能用return!!!!!!!
-		if pe.FromUfleet {
-			//	log.DebugPrint("%v:  event %v from ufleet,ignore ", kind, pe)
-			continue
-		}
 
 		go func(e cluster.Event) {
+			if e.FromUfleet {
+				return
+			}
 			switch e.Action {
 			case cluster.ActionDelete:
 				//清除内存中的数据即可
 				err := oc.DeleteObject(e.Group, e.Workspace, e.Name, DeleteOption{MemoryOnly: true})
 				if err != nil {
 					if err != ErrGroupNotFound || err != ErrWorkspaceNotFound {
-						log.ErrorPrint("%v:  event handler/delete:%v", kind, err)
+						log.ErrorPrint("%v:  event handler delete 'group:%v,Workspace:%v,resource:%v':%v ", kind, e.Group, e.Workspace, e.Name, err)
 					}
 				}
 				return
@@ -49,11 +46,11 @@ func HandleEventWatchFromK8sCluster(echan chan cluster.Event, kind string, oc Ob
 				_, err := oc.GetObjectWithoutLock(e.Group, e.Workspace, e.Name)
 				if err != nil {
 					if err != ErrResourceNotFound {
-						log.ErrorPrint("%v: event handler create fail:%v", kind, err)
+						log.ErrorPrint("%v:  event handler create 'group:%v,Workspace:%v,resource:%v':%v ", kind, e.Group, e.Workspace, e.Name, err)
 						return
 					}
 				} else {
-					log.ErrorPrint("%v: event handler create fail for %v exists", kind, e.Name)
+					log.ErrorPrint("%v:  event handler create 'group:%v,Workspace:%v,resource:%v': exists ", kind, e.Group, e.Workspace, e.Name, err)
 					return
 				}
 
@@ -62,11 +59,11 @@ func HandleEventWatchFromK8sCluster(echan chan cluster.Event, kind string, oc Ob
 				p.MemoryOnly = true
 				p.Workspace = e.Workspace
 				p.Group = e.Group
-				p.User = clusterConfigMapCreater
+				p.User = clusterObjectCreater
 
 				err = oc.NewObject(p)
 				if err != nil {
-					log.ErrorPrint("'%v':'%v' event handler create fail for %v", e, kind, err)
+					log.ErrorPrint("%v:  event handler create 'group:%v,Workspace:%v,resource:%v':%v ", kind, e.Group, e.Workspace, e.Name, err)
 					return
 				}
 
@@ -94,7 +91,7 @@ func EtcdEventHandler(e backend.ResourceEvent, cm ObjectController) {
 	}
 
 	if etype == eResource {
-		log.DebugPrint(fmt.Sprintf("handle etcd event:%v %v %v %v", e.Group, *e.Workspace, *e.Resource, e.Action))
+		log.DebugPrint("handle etcd event:'group:%v workspace:%v resource:%v action:%v'", e.Group, *e.Workspace, *e.Resource, e.Action)
 	}
 
 	switch e.Action {
@@ -106,7 +103,7 @@ func EtcdEventHandler(e backend.ResourceEvent, cm ObjectController) {
 		case eWorkspace:
 			err := cm.DeleteWorkspace(e.Group, *e.Workspace)
 			if err == ErrGroupNotFound {
-				log.ErrorPrint("group %v not found", e.Group)
+				log.ErrorPrint("handle etcd event:group %v not found", e.Group)
 			}
 			return
 
@@ -116,7 +113,7 @@ func EtcdEventHandler(e backend.ResourceEvent, cm ObjectController) {
 				//清除内存中的数据即可
 				err := cm.DeleteObject(e.Group, *e.Workspace, *e.Resource, DeleteOption{MemoryOnly: true})
 				if err != nil {
-					log.ErrorPrint("handle delete event(%v) fail for %v", e, err)
+					log.ErrorPrint("handle etcd event:delete event(%v) fail for %v", e, err)
 				}
 			}
 			return
@@ -129,7 +126,7 @@ func EtcdEventHandler(e backend.ResourceEvent, cm ObjectController) {
 		case eWorkspace:
 			err := cm.AddWorkspace(e.Group, *e.Workspace)
 			if err == ErrGroupNotFound {
-				log.ErrorPrint(fmt.Sprintf("configmap: group %v doesn't exist in appManager", e.Group))
+				log.ErrorPrint("handle etcd event: group %v doesn't exist in objectManager", e.Group)
 			}
 
 			return

@@ -6,17 +6,19 @@ import (
 
 func Init() {
 	be := NewBackendHandler()
+	//创建根key
 	err := initRootKey()
 	if err != nil {
 		panic(err.Error())
 	}
 
+	//创建各资源key
 	err = initResourcesKey()
 	if err != nil {
 		panic(err.Error())
 	}
-	log.DebugPrint("tune resources group according to external group")
 
+	log.DebugPrint("tune resources group according to external group")
 	for _, v := range resources {
 		err := TuneResourceGroupAccordingToExternalGroup(be, v, nil)
 		if err != nil {

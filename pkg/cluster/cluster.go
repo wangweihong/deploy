@@ -28,8 +28,6 @@ type ClusterController interface {
 	//只有在集群全部相关的workspace都被移除时,cluster才会真正被移除
 	DeleteCluster(group, workspace string) error
 	GetCluster(group, workspace string) (*Cluster, error)
-	//	StartClusterInformers(group, workspace string) error
-	//	CloseClusterInformers(group, workspace string) error
 }
 
 type Workspace struct {
@@ -158,6 +156,7 @@ func (c *clusterController) startClusterInformers(clusterName string) error {
 	if err != nil {
 		return err
 	}
+
 	c.clusters[clusterName] = cluster
 	for _, v := range cluster.Workspaces {
 		key := v.Group + "_" + v.Name
@@ -192,6 +191,8 @@ func (c *clusterController) DeleteCluster(group, workspace string) error {
 
 	cluster := c.clusters[pcluster.Name]
 	cluster.Reference -= 1
+	//更新informers的工作区表,忽略指定工作区
+	delete(cluster.Workspaces, workspace)
 
 	//已经没有工作区了
 	//停止cluster,即使后续会往集群中添加新的工作区

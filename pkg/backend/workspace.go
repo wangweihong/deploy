@@ -207,8 +207,7 @@ func watchWorkspaceChange() error {
 				}(k, event)
 			}
 
-			for v, k := range workspaceNoticers {
-				log.DebugPrint(v)
+			for _, k := range workspaceNoticers {
 				go func(c chan WorkspaceEvent, we WorkspaceEvent) {
 					c <- we
 				}(k, event)

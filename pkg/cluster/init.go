@@ -45,13 +45,13 @@ func Init(clusterHostStr string, currentHost string) {
 	if err != nil {
 		panic(err.Error())
 	}
-	handleWorkspaceEvent(wechan)
+	go handleWorkspaceEvent(wechan)
 }
 
 func handleWorkspaceEvent(weChan chan backend.WorkspaceEvent) {
-	go func() {
-		for {
-			we := <-weChan
+	for {
+		we := <-weChan
+		go func(we backend.WorkspaceEvent) {
 			log.DebugPrint("catch workspace event:%v", we)
 			switch we.Action {
 			case "delete":
@@ -65,8 +65,7 @@ func handleWorkspaceEvent(weChan chan backend.WorkspaceEvent) {
 					log.ErrorPrint("create cluster(group:%v,workspace:%v)  fail for %v", we.Group, we.Workspace, err)
 				}
 			}
-		}
-
-	}()
+		}(we)
+	}
 
 }

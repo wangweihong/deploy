@@ -44,6 +44,7 @@ type UpdateOption struct {
 	Comment string //注释
 }
 
+//抽象,便于app使用
 func RegisterResourceController(name string, cud ObjectController) error {
 	locker.Lock()
 	defer locker.Unlock()
