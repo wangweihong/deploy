@@ -1042,3 +1042,42 @@ func (this *ReplicationControllerController) UpdateReplicationControllerContaine
 	this.normalReturn("ok")
 
 }
+
+// GetReplicationControllerServices
+// @Title ReplicationController
+// @Description   ReplicationController 服务
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Param workspace path string true "工作区"
+// @Param replicationcontroller path string true "副本控制器"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /:replicationcontroller/group/:group/workspace/:workspace/services [Get]
+func (this *ReplicationControllerController) GetReplicationControllerServices() {
+	err := this.checkRouteControllerAbility()
+	if err != nil {
+		this.abilityErrorReturn(err)
+		return
+	}
+
+	group := this.Ctx.Input.Param(":group")
+	workspace := this.Ctx.Input.Param(":workspace")
+	replicationcontroller := this.Ctx.Input.Param(":replicationcontroller")
+
+	v, err := pk.Controller.GetObject(group, workspace, replicationcontroller)
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+	pi, _ := pk.GetReplicationControllerInterface(v)
+
+	services, err := pi.GetServices()
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+
+	}
+
+	this.normalReturn(services)
+
+}

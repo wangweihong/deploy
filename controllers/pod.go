@@ -14,17 +14,6 @@ type PodController struct {
 	baseController
 }
 
-type PodState struct {
-	Name       string    `json:"name"`
-	User       string    `json:"user"`
-	App        string    `json:"app"`
-	Workspace  string    `json:"workspace"`
-	CreateTime int64     `json:"createtime"`
-	Reason     string    `json:"reason"`
-	Message    string    `json:"message"`
-	Status     pk.Status `json:"status"`
-}
-
 func getPodsCount(pis []resource.Object) *Count {
 	c := &Count{}
 	for _, v := range pis {
@@ -48,24 +37,6 @@ func getPodsCount(pis []resource.Object) *Count {
 	}
 	return c
 
-}
-
-func GetPodState(pi pk.PodInterface) PodState {
-	var ps PodState
-	pod := pi.Info()
-	ps.Name = pod.Name
-	ps.User = pod.User
-	ps.CreateTime = pod.CreateTime
-	ps.Workspace = pod.Workspace
-	ps.App = pod.App
-
-	status := pi.GetStatus()
-	ps.Status = *status
-	if ps.CreateTime == 0 {
-		ps.CreateTime = ps.Status.CreateTime
-	}
-
-	return ps
 }
 
 type Count struct {
@@ -101,11 +72,11 @@ func (this *PodController) ListPods() {
 		this.errReturn(err, 500)
 		return
 	}
-	pss := make([]PodState, 0)
+	pss := make([]pk.Status, 0)
 	for _, j := range pis {
 		v, _ := pk.GetPodInterface(j)
-		ps := GetPodState(v)
-		pss = append(pss, ps)
+		ps := v.GetStatus()
+		pss = append(pss, *ps)
 	}
 
 	this.normalReturn(pss)
@@ -211,11 +182,11 @@ func (this *PodController) ListGroupsPods() {
 		}
 		pis = append(pis, tmp...)
 	}
-	pss := make([]PodState, 0)
+	pss := make([]pk.Status, 0)
 	for _, j := range pis {
 		v, _ := pk.GetPodInterface(j)
-		ps := GetPodState(v)
-		pss = append(pss, ps)
+		ps := v.GetStatus()
+		pss = append(pss, *ps)
 	}
 
 	this.normalReturn(pss)
@@ -243,11 +214,11 @@ func (this *PodController) ListGroupPods() {
 		this.errReturn(err, 500)
 		return
 	}
-	pss := make([]PodState, 0)
+	pss := make([]pk.Status, 0)
 	for _, j := range pis {
 		v, _ := pk.GetPodInterface(j)
-		ps := GetPodState(v)
-		pss = append(pss, ps)
+		ps := v.GetStatus()
+		pss = append(pss, *ps)
 	}
 
 	this.normalReturn(pss)
@@ -745,4 +716,43 @@ func (this *PodController) GetPodContainerSpecEnv() {
 	err = fmt.Errorf("container not found")
 
 	this.errReturn(err, 500)
+}
+
+// GetPodServices
+// @Title Pod
+// @Description   Pod 服务
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Param workspace path string true "工作区"
+// @Param pod path string true "容器组"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /:pod/group/:group/workspace/:workspace/services [Get]
+func (this *PodController) GetPodServices() {
+	err := this.checkRouteControllerAbility()
+	if err != nil {
+		this.abilityErrorReturn(err)
+		return
+	}
+
+	group := this.Ctx.Input.Param(":group")
+	workspace := this.Ctx.Input.Param(":workspace")
+	pod := this.Ctx.Input.Param(":pod")
+
+	v, err := pk.Controller.GetObject(group, workspace, pod)
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+	pi, _ := pk.GetPodInterface(v)
+
+	services, err := pi.GetServices()
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+
+	}
+
+	this.normalReturn(services)
+
 }

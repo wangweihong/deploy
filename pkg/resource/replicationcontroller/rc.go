@@ -31,7 +31,7 @@ type ReplicationControllerInterface interface {
 	Scale(num int) error
 	Event() ([]corev1.Event, error)
 	GetTemplate() (string, error)
-	//	Runtime()
+	GetServices() ([]*corev1.Service, error)
 }
 
 type ReplicationControllerManager struct {
@@ -729,6 +729,16 @@ func (j *ReplicationController) GetTemplate() (string, error) {
 	*t = fmt.Sprintf("%v\n%v", prefix, *t)
 	return *t, nil
 }
+
+func (p *ReplicationController) GetServices() ([]*corev1.Service, error) {
+	ph, err := cluster.NewReplicationControllerHandler(p.Group, p.Workspace)
+	if err != nil {
+		return nil, log.DebugPrint(err)
+	}
+
+	return ph.GetServices(p.Workspace, p.Name)
+}
+
 func (s *ReplicationController) Metadata() resource.ObjectMeta {
 	return s.ObjectMeta
 }

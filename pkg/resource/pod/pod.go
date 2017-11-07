@@ -34,6 +34,7 @@ type PodInterface interface {
 	Stat(c string) ([]ContainerStat, error)
 	Terminal(containerName string) (string, error)
 	Event() ([]corev1.Event, error)
+	GetServices() ([]*corev1.Service, error)
 }
 
 type PodManager struct {
@@ -907,6 +908,16 @@ func (p *Pod) Event() ([]corev1.Event, error) {
 
 	return ph.Event(p.Workspace, p.Name)
 }
+
+func (p *Pod) GetServices() ([]*corev1.Service, error) {
+	ph, err := cluster.NewPodHandler(p.Group, p.Workspace)
+	if err != nil {
+		return nil, log.DebugPrint(err)
+	}
+
+	return ph.GetServices(p.Workspace, p.Name)
+}
+
 func (s *Pod) Metadata() resource.ObjectMeta {
 	return s.ObjectMeta
 }
@@ -939,7 +950,6 @@ func InitPodController(be backend.BackendHandler) (resource.ObjectController, er
 		}
 		rm.Groups[k] = group
 	}
-	//log.DebugPrint(rm)
-	return rm, nil
 
+	return rm, nil
 }

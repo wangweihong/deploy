@@ -38,6 +38,7 @@ type DeploymentInterface interface {
 	GetAutoScale() (*HPA, error)
 	StartAutoScale(min int, max int, cpuPercent int, memPercent int, diskPercent int, NetPercent int) error
 	ResumeOrPauseRollOut() error
+	GetServices() ([]*corev1.Service, error)
 }
 
 type DeploymentManager struct {
@@ -848,6 +849,15 @@ func (j *Deployment) ResumeOrPauseRollOut() error {
 	} else {
 		return ph.PauseRollout(j.Workspace, j.Name)
 	}
+}
+
+func (p *Deployment) GetServices() ([]*corev1.Service, error) {
+	ph, err := cluster.NewDeploymentHandler(p.Group, p.Workspace)
+	if err != nil {
+		return nil, log.DebugPrint(err)
+	}
+
+	return ph.GetServices(p.Workspace, p.Name)
 }
 
 func (s *Deployment) Metadata() resource.ObjectMeta {

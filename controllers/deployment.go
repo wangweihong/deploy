@@ -1321,3 +1321,42 @@ func (this *DeploymentController) UpdateDeploymentContainerSpecVolume() {
 	this.normalReturn("ok")
 
 }
+
+// GetDeploymentServices
+// @Title Deployment
+// @Description   Deployment 服务
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Param workspace path string true "工作区"
+// @Param deployment path string true "部署"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /:deployment/group/:group/workspace/:workspace/services [Get]
+func (this *DeploymentController) GetDeploymentServices() {
+	err := this.checkRouteControllerAbility()
+	if err != nil {
+		this.abilityErrorReturn(err)
+		return
+	}
+
+	group := this.Ctx.Input.Param(":group")
+	workspace := this.Ctx.Input.Param(":workspace")
+	deployment := this.Ctx.Input.Param(":deployment")
+
+	v, err := pk.Controller.GetObject(group, workspace, deployment)
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+	pi, _ := pk.GetDeploymentInterface(v)
+
+	services, err := pi.GetServices()
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+
+	}
+
+	this.normalReturn(services)
+
+}

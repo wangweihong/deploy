@@ -1038,3 +1038,42 @@ func (this *DaemonSetController) UpdateDaemonSetContainerSpecVolume() {
 	this.normalReturn("ok")
 
 }
+
+// GetDaemonSetServices
+// @Title DaemonSet
+// @Description   DaemonSet 服务
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Param workspace path string true "工作区"
+// @Param daemonset path string true "守护进程"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /:daemonset/group/:group/workspace/:workspace/services [Get]
+func (this *DaemonSetController) GetDaemonSetServices() {
+	err := this.checkRouteControllerAbility()
+	if err != nil {
+		this.abilityErrorReturn(err)
+		return
+	}
+
+	group := this.Ctx.Input.Param(":group")
+	workspace := this.Ctx.Input.Param(":workspace")
+	daemonset := this.Ctx.Input.Param(":daemonset")
+
+	v, err := pk.Controller.GetObject(group, workspace, daemonset)
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+	pi, _ := pk.GetDaemonSetInterface(v)
+
+	services, err := pi.GetServices()
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+
+	}
+
+	this.normalReturn(services)
+
+}

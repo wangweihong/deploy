@@ -811,6 +811,13 @@ func init() {
 			AllowHTTPMethods: []string{"Get"},
 			Params: nil})
 
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:PodController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:PodController"],
+		beego.ControllerComments{
+			Method: "GetPodServices",
+			Router: `/:pod/group/:group/workspace/:workspace/services`,
+			AllowHTTPMethods: []string{"Get"},
+			Params: nil})
+
 	beego.GlobalControllerRouter["ufleet-deploy/controllers:ProgramController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:ProgramController"],
 		beego.ControllerComments{
 			Method: "GetVersion",

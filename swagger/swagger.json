@@ -2141,6 +2141,51 @@
                 }
             }
         },
+        "/daemonset/{daemonset}/group/{group}/workspace/{workspace}/services": {
+            "get": {
+                "tags": [
+                    "daemonset"
+                ],
+                "description": "DaemonSet 服务",
+                "operationId": "DaemonSetController.DaemonSet",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Token",
+                        "description": "'Token'",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "group",
+                        "description": "组名",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "workspace",
+                        "description": "工作区",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "daemonset",
+                        "description": "守护进程",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "{string} create success!"
+                    },
+                    "500": {}
+                }
+            }
+        },
         "/daemonset/{daemonset}/group/{group}/workspace/{workspace}/template": {
             "get": {
                 "tags": [
@@ -3278,6 +3323,51 @@
                     "deployment"
                 ],
                 "description": "Deployment 版本描述",
+                "operationId": "DeploymentController.Deployment",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Token",
+                        "description": "'Token'",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "group",
+                        "description": "组名",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "workspace",
+                        "description": "工作区",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "deployment",
+                        "description": "部署",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "{string} create success!"
+                    },
+                    "500": {}
+                }
+            }
+        },
+        "/deployment/{deployment}/group/{group}/workspace/{workspace}/services": {
+            "get": {
+                "tags": [
+                    "deployment"
+                ],
+                "description": "Deployment 服务",
                 "operationId": "DeploymentController.Deployment",
                 "parameters": [
                     {
@@ -5116,6 +5206,51 @@
                 }
             }
         },
+        "/pod/{pod}/group/{group}/workspace/{workspace}/services": {
+            "get": {
+                "tags": [
+                    "pod"
+                ],
+                "description": "Pod 服务",
+                "operationId": "PodController.Pod",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Token",
+                        "description": "'Token'",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "group",
+                        "description": "组名",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "workspace",
+                        "description": "工作区",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "pod",
+                        "description": "容器组",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "{string} create success!"
+                    },
+                    "500": {}
+                }
+            }
+        },
         "/pod/{pod}/group/{group}/workspace/{workspace}/template": {
             "get": {
                 "tags": [
@@ -6021,6 +6156,51 @@
                 }
             }
         },
+        "/replicaset/{replicaset}/group/{group}/workspace/{workspace}/services": {
+            "get": {
+                "tags": [
+                    "replicaset"
+                ],
+                "description": "ReplicaSet 服务",
+                "operationId": "ReplicaSetController.ReplicaSet",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Token",
+                        "description": "'Token'",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "group",
+                        "description": "组名",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "workspace",
+                        "description": "工作区",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "replicaset",
+                        "description": "副本集",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "{string} create success!"
+                    },
+                    "500": {}
+                }
+            }
+        },
         "/replicaset/{replicaset}/group/{group}/workspace/{workspace}/template": {
             "get": {
                 "tags": [
@@ -6884,6 +7064,51 @@
                         "in": "path",
                         "name": "replicas",
                         "description": "副本数",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "{string} create success!"
+                    },
+                    "500": {}
+                }
+            }
+        },
+        "/replicationcontroller/{replicationcontroller}/group/{group}/workspace/{workspace}/services": {
+            "get": {
+                "tags": [
+                    "replicationcontroller"
+                ],
+                "description": "ReplicationController 服务",
+                "operationId": "ReplicationControllerController.ReplicationController",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Token",
+                        "description": "'Token'",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "group",
+                        "description": "组名",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "workspace",
+                        "description": "工作区",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "replicationcontroller",
+                        "description": "副本控制器",
                         "required": true,
                         "type": "string"
                     }

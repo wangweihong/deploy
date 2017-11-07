@@ -34,6 +34,7 @@ type DaemonSetInterface interface {
 	GetTemplate() (string, error)
 	GetRevisionsAndDescribe() (map[int64]string, error)
 	Rollback(revision int64) (*string, error)
+	GetServices() ([]*corev1.Service, error)
 }
 
 type DaemonSetManager struct {
@@ -60,6 +61,20 @@ type Runtime struct {
 //可以根据事件及时更新DaemonSet的信息
 type DaemonSet struct {
 	resource.ObjectMeta
+}
+
+func GetDaemonSetInterface(obj resource.Object) (DaemonSetInterface, error) {
+	if obj == nil {
+		return nil, fmt.Errorf("resource object is nil")
+	}
+
+	ri, ok := obj.(*DaemonSet)
+	if !ok {
+		return nil, fmt.Errorf("resource object is not DaemonSet type")
+	}
+
+	return ri, nil
+
 }
 
 func (p *DaemonSetManager) Lock() {
@@ -677,21 +692,18 @@ func (j *DaemonSet) Rollback(revision int64) (*string, error) {
 	return ph.Rollback(j.Workspace, j.Name, revision)
 
 }
+
+func (p *DaemonSet) GetServices() ([]*corev1.Service, error) {
+	ph, err := cluster.NewDaemonSetHandler(p.Group, p.Workspace)
+	if err != nil {
+		return nil, log.DebugPrint(err)
+	}
+
+	return ph.GetServices(p.Workspace, p.Name)
+}
+
 func (s *DaemonSet) Metadata() resource.ObjectMeta {
 	return s.ObjectMeta
-}
-func GetDaemonSetInterface(obj resource.Object) (DaemonSetInterface, error) {
-	if obj == nil {
-		return nil, fmt.Errorf("resource object is nil")
-	}
-
-	ri, ok := obj.(*DaemonSet)
-	if !ok {
-		return nil, fmt.Errorf("resource object is not DaemonSet type")
-	}
-
-	return ri, nil
-
 }
 
 func InitDaemonSetController(be backend.BackendHandler) (resource.ObjectController, error) {

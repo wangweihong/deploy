@@ -1041,3 +1041,42 @@ func (this *ReplicaSetController) UpdateReplicaSetContainerSpecVolume() {
 	this.normalReturn("ok")
 
 }
+
+// GetReplicaSetServices
+// @Title ReplicaSet
+// @Description   ReplicaSet 服务
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Param workspace path string true "工作区"
+// @Param replicaset path string true "副本集"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /:replicaset/group/:group/workspace/:workspace/services [Get]
+func (this *ReplicaSetController) GetReplicaSetServices() {
+	err := this.checkRouteControllerAbility()
+	if err != nil {
+		this.abilityErrorReturn(err)
+		return
+	}
+
+	group := this.Ctx.Input.Param(":group")
+	workspace := this.Ctx.Input.Param(":workspace")
+	replicaset := this.Ctx.Input.Param(":replicaset")
+
+	v, err := pk.Controller.GetObject(group, workspace, replicaset)
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+	pi, _ := pk.GetReplicaSetInterface(v)
+
+	services, err := pi.GetServices()
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+
+	}
+
+	this.normalReturn(services)
+
+}

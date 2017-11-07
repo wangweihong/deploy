@@ -51,6 +51,7 @@ type PodHandler interface {
 	Event(namespace, resourceName string) ([]corev1.Event, error)
 	Update(namespace string, pod *corev1.Pod) error
 	List(namespace string) ([]*corev1.Pod, error)
+	GetServices(namespace string, name string) ([]*corev1.Service, error)
 }
 
 func NewPodHandler(group, workspace string) (PodHandler, error) {
@@ -132,6 +133,30 @@ func (h *podHandler) Event(namespace, podName string) ([]corev1.Event, error) {
 
 func (h *podHandler) List(namespace string) ([]*corev1.Pod, error) {
 	return h.informerController.podInformer.Lister().Pods(namespace).List(labels.Everything())
+}
+
+func (h *podHandler) GetServices(namespace string, name string) ([]*corev1.Service, error) {
+	allServices, err := h.informerController.serviceInformer.Lister().Services(namespace).List(labels.Everything())
+	if err != nil {
+		return nil, err
+	}
+	pod, err := h.informerController.podInformer.Lister().Pods(namespace).Get(name)
+	if err != nil {
+		return nil, err
+	}
+	services := make([]*corev1.Service, 0)
+	for i := range allServices {
+		service := allServices[i]
+		if service.Spec.Selector == nil {
+			// services with nil selectors match nothing, not everything.
+			continue
+		}
+		selector := labels.Set(service.Spec.Selector).AsSelectorPreValidated()
+		if selector.Matches(labels.Set(pod.Labels)) {
+			services = append(services, service)
+		}
+	}
+	return services, nil
 }
 
 /* ----------------- Service ----------------------*/
@@ -250,6 +275,7 @@ type ReplicationControllerHandler interface {
 	Scale(namespace, name string, num int32) error
 	Event(namespace, resourceName string) ([]corev1.Event, error)
 	List(namespace string) ([]*corev1.ReplicationController, error)
+	GetServices(namespace string, name string) ([]*corev1.Service, error)
 }
 
 func NewReplicationControllerHandler(group, workspace string) (ReplicationControllerHandler, error) {
@@ -365,6 +391,31 @@ func (h *replicationcontrollerHandler) Scale(namespace, replicationcontrollerNam
 
 func (h *replicationcontrollerHandler) List(namespace string) ([]*corev1.ReplicationController, error) {
 	return h.informerController.replicationcontrollerInformer.Lister().ReplicationControllers(namespace).List(labels.Everything())
+}
+
+func (h *replicationcontrollerHandler) GetServices(namespace string, name string) ([]*corev1.Service, error) {
+	allServices, err := h.informerController.serviceInformer.Lister().Services(namespace).List(labels.Everything())
+	if err != nil {
+		return nil, err
+	}
+
+	d, err := h.informerController.replicationcontrollerInformer.Lister().ReplicationControllers(namespace).Get(name)
+	if err != nil {
+		return nil, err
+	}
+	services := make([]*corev1.Service, 0)
+	for i := range allServices {
+		service := allServices[i]
+		if service.Spec.Selector == nil {
+			// services with nil selectors match nothing, not everything.
+			continue
+		}
+		selector := labels.Set(service.Spec.Selector).AsSelectorPreValidated()
+		if selector.Matches(labels.Set(d.Spec.Selector)) {
+			services = append(services, service)
+		}
+	}
+	return services, nil
 }
 
 /* ------------------------ ServiceAccount ----------------------------*/
@@ -518,6 +569,7 @@ type DeploymentHandler interface {
 	Rollback(namespace, name string, revision int64) (*string, error)
 	ResumeRollout(namespace, name string) error
 	PauseRollout(namespace, name string) error
+	GetServices(namespace string, name string) ([]*corev1.Service, error)
 }
 
 func NewDeploymentHandler(group, workspace string) (DeploymentHandler, error) {
@@ -630,7 +682,8 @@ func (h *deploymentHandler) GetPods(namespace, name string) ([]*corev1.Pod, erro
 	if err != nil {
 		return nil, nil
 	}
-	rsSelector := d.Spec.Selector.MatchLabels
+	//	rsSelector := d.Spec.Selector.MatchLabels
+	rsSelector := d.Spec.Template.Labels
 	selector := labels.Set(rsSelector).AsSelector()
 	//opts := corev1.ListOptions{LabelSelector: selector.String()}
 	//po, err := h.clientset.CoreV1().Pods(namespace).List(opts)
@@ -848,7 +901,31 @@ func (h *deploymentHandler) GetRevisionsAndReplicas(namespace, name string) (map
 		revisionToReplicas[v] = rs
 	}
 	return revisionToReplicas, nil
+}
 
+func (h *deploymentHandler) GetServices(namespace string, name string) ([]*corev1.Service, error) {
+	allServices, err := h.informerController.serviceInformer.Lister().Services(namespace).List(labels.Everything())
+	if err != nil {
+		return nil, err
+	}
+
+	deploy, err := h.informerController.deploymentInformer.Lister().Deployments(namespace).Get(name)
+	if err != nil {
+		return nil, err
+	}
+	services := make([]*corev1.Service, 0)
+	for i := range allServices {
+		service := allServices[i]
+		if service.Spec.Selector == nil {
+			// services with nil selectors match nothing, not everything.
+			continue
+		}
+		selector := labels.Set(service.Spec.Selector).AsSelectorPreValidated()
+		if selector.Matches(labels.Set(deploy.Spec.Template.Labels)) {
+			services = append(services, service)
+		}
+	}
+	return services, nil
 }
 
 /* ------------------------ ReplicaSet---------------------------*/
@@ -862,6 +939,7 @@ type ReplicaSetHandler interface {
 	Update(namespace string, resource *extensionsv1beta1.ReplicaSet) error
 	Scale(namespace, name string, num int32) error
 	Event(namespace, resourceName string) ([]corev1.Event, error)
+	GetServices(namespace string, name string) ([]*corev1.Service, error)
 }
 
 func NewReplicaSetHandler(group, workspace string) (ReplicaSetHandler, error) {
@@ -979,6 +1057,31 @@ func (h *replicasetHandler) Scale(namespace, replicasetName string, num int32) e
 	return nil
 }
 
+func (h *replicasetHandler) GetServices(namespace string, name string) ([]*corev1.Service, error) {
+	allServices, err := h.informerController.serviceInformer.Lister().Services(namespace).List(labels.Everything())
+	if err != nil {
+		return nil, err
+	}
+
+	rs, err := h.informerController.replicasetInformer.Lister().ReplicaSets(namespace).Get(name)
+	if err != nil {
+		return nil, err
+	}
+	services := make([]*corev1.Service, 0)
+	for i := range allServices {
+		service := allServices[i]
+		if service.Spec.Selector == nil {
+			// services with nil selectors match nothing, not everything.
+			continue
+		}
+		selector := labels.Set(service.Spec.Selector).AsSelectorPreValidated()
+		if selector.Matches(labels.Set(rs.Spec.Template.Labels)) {
+			services = append(services, service)
+		}
+	}
+	return services, nil
+}
+
 /*----------------- DaemonSet -----------------*/
 
 type DaemonSetHandler interface {
@@ -992,6 +1095,7 @@ type DaemonSetHandler interface {
 	Revision(namespace, name string) (int64, error)
 	GetRevisionsAndDescribe(namespace, name string) (map[int64]*corev1.PodTemplateSpec, error)
 	Rollback(namespace, name string, revision int64) (*string, error)
+	GetServices(namespace string, name string) ([]*corev1.Service, error)
 }
 
 func NewDaemonSetHandler(group, workspace string) (DaemonSetHandler, error) {
@@ -1061,12 +1165,7 @@ func (h *daemonsetHandler) Event(namespace, resourceName string) ([]corev1.Event
 
 //参考自:k8s.io/kubernetes/pkg/kubectl/history.go
 func (h *daemonsetHandler) GetControllerRevisions(namespace, name string) (*extensionsv1beta1.DaemonSet, map[int64]*appv1beta1.ControllerRevision, error) {
-	/*
-		d, err := h.Get(namespace, name)
-		if err != nil {
-			return nil, err
-		}
-	*/
+
 	d, err := h.clientset.ExtensionsV1beta1().DaemonSets(namespace).Get(name, metav1.GetOptions{})
 	if err != nil {
 		return nil, nil, err
@@ -1088,8 +1187,7 @@ func (h *daemonsetHandler) GetControllerRevisions(namespace, name string) (*exte
 		if controllerRef := controller.GetControllerOf(&history); controllerRef == nil || controllerRef.UID != d.UID {
 			continue
 		}
-		//		log.DebugPrint(string(history.Data.Raw))
-		//		log.DebugPrint(history.Data.Object)
+
 		allHistory = append(allHistory, &history)
 	}
 
@@ -1098,23 +1196,11 @@ func (h *daemonsetHandler) GetControllerRevisions(namespace, name string) (*exte
 		historyInfo[v.Revision] = v
 	}
 
-	//	h.clientset.AppsV1beta1().ControllerRevisions(namespace).
 	return d, historyInfo, nil
 
 }
 func (h *daemonsetHandler) GetRevisionsAndDescribe(namespace, name string) (map[int64]*corev1.PodTemplateSpec, error) {
-	/*
-		d, err := h.clientset.ExtensionsV1beta1().DaemonSets(namespace).Get(name, metav1.GetOptions{})
-		if err != nil {
-			return nil, err
-		}
-	*/
-	/*
-		d, err := h.Get(namespace, name)
-		if err != nil {
-			return nil, err
-		}
-	*/
+
 	d, allHistory, err := h.GetControllerRevisions(namespace, name)
 	if err != nil {
 		return nil, err
@@ -1130,7 +1216,6 @@ func (h *daemonsetHandler) GetRevisionsAndDescribe(namespace, name string) (map[
 		historySpecInfo[v.Revision] = &dsOfHistory.Spec.Template
 	}
 
-	//	h.clientset.AppsV1beta1().ControllerRevisions(namespace).
 	return historySpecInfo, nil
 
 }
@@ -1169,13 +1254,6 @@ func applyHistory(ds *extensionsv1beta1.DaemonSet, history *appv1beta1.Controlle
 
 //参考自:k8s.io/kubernetes/pkg/kubectl/rollback.go
 func (h *daemonsetHandler) Rollback(namespace, name string, revision int64) (*string, error) {
-	/*
-		d, err := h.Get(namespace, name)
-		if err != nil {
-			return nil, err
-		}
-	*/
-
 	d, allHistory, err := h.GetControllerRevisions(namespace, name)
 	if err != nil {
 		return nil, err
@@ -1241,6 +1319,31 @@ func getPatch(ds *extensionsv1beta1.DaemonSet) ([]byte, error) {
 	objCopy["spec"] = specCopy
 	patch, err := json.Marshal(objCopy)
 	return patch, err
+}
+
+func (h *daemonsetHandler) GetServices(namespace string, name string) ([]*corev1.Service, error) {
+	allServices, err := h.informerController.serviceInformer.Lister().Services(namespace).List(labels.Everything())
+	if err != nil {
+		return nil, err
+	}
+
+	d, err := h.informerController.daemonsetInformer.Lister().DaemonSets(namespace).Get(name)
+	if err != nil {
+		return nil, err
+	}
+	services := make([]*corev1.Service, 0)
+	for i := range allServices {
+		service := allServices[i]
+		if service.Spec.Selector == nil {
+			// services with nil selectors match nothing, not everything.
+			continue
+		}
+		selector := labels.Set(service.Spec.Selector).AsSelectorPreValidated()
+		if selector.Matches(labels.Set(d.Spec.Template.Labels)) {
+			services = append(services, service)
+		}
+	}
+	return services, nil
 }
 
 /* --------------- Ingress --------------*/

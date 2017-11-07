@@ -32,6 +32,7 @@ type ReplicaSetInterface interface {
 	Scale(num int) error
 	Event() ([]corev1.Event, error)
 	GetTemplate() (string, error)
+	GetServices() ([]*corev1.Service, error)
 	//	Runtime()
 }
 
@@ -730,6 +731,15 @@ func (j *ReplicaSet) GetTemplate() (string, error) {
 	prefix := "apiVersion: v1\nkind: ReplicaSet"
 	*t = fmt.Sprintf("%v\n%v", prefix, *t)
 	return *t, nil
+}
+
+func (p *ReplicaSet) GetServices() ([]*corev1.Service, error) {
+	ph, err := cluster.NewReplicaSetHandler(p.Group, p.Workspace)
+	if err != nil {
+		return nil, log.DebugPrint(err)
+	}
+
+	return ph.GetServices(p.Workspace, p.Name)
 }
 
 func (s *ReplicaSet) Metadata() resource.ObjectMeta {
