@@ -6,7 +6,6 @@ import (
 	"ufleet-deploy/pkg/sign"
 
 	"k8s.io/apimachinery/pkg/api/meta"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/informers"
 	appinformers "k8s.io/client-go/informers/apps/v1beta1"
 	batchinformers "k8s.io/client-go/informers/batch/v1"
@@ -80,27 +79,19 @@ func (c *ResourceController) locateResourceGW(ns string) *Workspace {
 }
 
 func (c *ResourceController) generateEventFromObj(obj interface{}, action ActionType) (*Event, error) {
-
-	runobj := obj.(runtime.Object)
-	accessor := meta.NewAccessor()
-	ns, err := accessor.Namespace(runobj)
+	//参考自:k8s.io/client-go/tools/cache/index.go的MetaNamespaceIndexFunc()
+	accessor, err := meta.Accessor(obj)
 	if err != nil {
-		return nil, fmt.Errorf("<cluster ResourceController> Get object Namespace fail :%v", err)
+		return nil, log.DebugPrint(err)
 	}
+
+	ns := accessor.GetNamespace()
+	name := accessor.GetName()
+	annotations := accessor.GetAnnotations()
 
 	wg := c.locateResourceGW(ns)
 	if wg == nil {
 		return nil, nil
-	}
-
-	name, err := accessor.Name(runobj)
-	if err != nil {
-		return nil, fmt.Errorf("<cluster ResourceController> Get object name fail :%v", err)
-	}
-
-	annotations, err := accessor.Annotations(runobj)
-	if err != nil {
-		return nil, fmt.Errorf("<cluster ResourceController> Get object Annotations fail :%v", err)
 	}
 
 	var e Event
