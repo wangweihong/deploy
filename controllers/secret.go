@@ -531,3 +531,39 @@ func (this *SecretController) GetSecretEvent() {
 
 	this.normalReturn(es)
 }
+
+// GetSecretReferencObjects
+// @Title Secret
+// @Description   Secret container event
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Param workspace path string true "工作区"
+// @Param secret path string true "私密凭据"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /:secret/group/:group/workspace/:workspace/reference [Get]
+func (this *SecretController) GetSecretReferenceObject() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
+
+	group := this.Ctx.Input.Param(":group")
+	workspace := this.Ctx.Input.Param(":workspace")
+	secret := this.Ctx.Input.Param(":secret")
+
+	v, err := pk.Controller.GetObject(group, workspace, secret)
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+	pi, _ := pk.GetSecretInterface(v)
+	es, err := pi.GetReferenceObjects()
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+
+	this.normalReturn(es)
+}
