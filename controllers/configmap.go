@@ -498,3 +498,39 @@ func (this *ConfigMapController) GetConfigMapEvent() {
 
 	this.normalReturn(es)
 }
+
+// GetConfigMapReferencObjects
+// @Title ConfigMap
+// @Description   ConfigMap container event
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Param workspace path string true "工作区"
+// @Param configmap path string true "配置"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /:configmap/group/:group/workspace/:workspace/reference [Get]
+func (this *ConfigMapController) GetConfigMapReferenceObject() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
+
+	group := this.Ctx.Input.Param(":group")
+	workspace := this.Ctx.Input.Param(":workspace")
+	configmap := this.Ctx.Input.Param(":configmap")
+
+	v, err := pk.Controller.GetObject(group, workspace, configmap)
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+	pi, _ := pk.GetConfigMapInterface(v)
+	es, err := pi.GetReferenceObjects()
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+
+	this.normalReturn(es)
+}

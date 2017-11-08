@@ -663,7 +663,6 @@ func (s *Service) GetReferenceObjects() ([]ObjectReference, error) {
 
 	}
 	return ors, nil
-
 }
 
 func InitServiceController(be backend.BackendHandler) (resource.ObjectController, error) {

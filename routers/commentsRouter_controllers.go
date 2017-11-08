@@ -146,6 +146,13 @@ func init() {
 			AllowHTTPMethods: []string{"Get"},
 			Params: nil})
 
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:ConfigMapController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:ConfigMapController"],
+		beego.ControllerComments{
+			Method: "GetConfigMapReferenceObject",
+			Router: `/:configmap/group/:group/workspace/:workspace/reference`,
+			AllowHTTPMethods: []string{"Get"},
+			Params: nil})
+
 	beego.GlobalControllerRouter["ufleet-deploy/controllers:CronJobController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:CronJobController"],
 		beego.ControllerComments{
 			Method: "ListGroupWorkspaceCronJobs",

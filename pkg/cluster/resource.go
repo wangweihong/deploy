@@ -179,21 +179,6 @@ func (h *podHandler) GetCreator(namespace string, name string) (*corev1.Serializ
 		return nil, nil
 	}
 	v1sr := kubernetesapiSerrializedReferenceToClientGo(*sr)
-	/*
-			switch sr.Reference.Kind {
-			case "ReplicationController":
-				return h.informerController.replicasetInformer.Lister().ReplicaSets(sr.Reference.Namespace).Get(sr.Reference.Name)
-			case "DaemonSet":
-				return h.informerController.daemonsetInformer.Lister().DaemonSets(sr.Reference.Namespace).Get(sr.Reference.Name)
-			case "Job":
-				return h.informerController.jobInformer.Lister().Jobs(sr.Reference.Namespace).Get(sr.Reference.Name)
-			case "ReplicaSet":
-				return h.informerController.replicasetInformer.Lister().ReplicaSets(sr.Reference.Namespace).Get(sr.Reference.Name)
-			case "StatefulSet":
-				return h.informerController.statefulsetInformer.Lister().StatefulSets(sr.Reference.Namespace).Get(sr.Reference.Name)
-			}
-		return nil, fmt.Errorf("Unknown controller kind %q", sr.Reference.Kind)
-	*/
 
 	return &v1sr, nil
 }
@@ -294,12 +279,12 @@ func (h *serviceHandler) GetReferenceResources(namespace, name string) ([]corev1
 		return nil, err
 	}
 	//replicaset
-	allrss, err := h.informerController.replicasetInformer.Lister().ReplicaSets(namespace).List(selector)
+	allrss, err := h.informerController.replicasetInformer.Lister().ReplicaSets(namespace).List(labels.Everything())
 	if err != nil {
 		return nil, err
 	}
 	//replicationcontroller
-	allrcs, err := h.informerController.replicationcontrollerInformer.Lister().ReplicationControllers(namespace).List(selector)
+	allrcs, err := h.informerController.replicationcontrollerInformer.Lister().ReplicationControllers(namespace).List(labels.Everything())
 	if err != nil {
 		return nil, err
 	}
@@ -391,6 +376,7 @@ type ConfigMapHandler interface {
 	Delete(namespace string, name string) error
 	Update(namespace string, service *corev1.ConfigMap) error
 	List(namespace string) ([]*corev1.ConfigMap, error)
+	GetReferenceResources(namespace string, name string) ([]corev1.ObjectReference, error)
 }
 
 func NewConfigMapHandler(group, workspace string) (ConfigMapHandler, error) {
@@ -425,6 +411,134 @@ func (h *configmapHandler) Delete(namespace, configmapName string) error {
 }
 func (h *configmapHandler) List(namespace string) ([]*corev1.ConfigMap, error) {
 	return h.informerController.configmapInformer.Lister().ConfigMaps(namespace).List(labels.Everything())
+}
+func (h *configmapHandler) GetReferenceResources(namespace string, name string) ([]corev1.ObjectReference, error) {
+	_, err := h.Get(namespace, name)
+	if err != nil {
+		return nil, err
+	}
+
+	ors := make([]corev1.ObjectReference, 0)
+
+	//statefulset
+	allsfs, err := h.informerController.statefulsetInformer.Lister().StatefulSets(namespace).List(labels.Everything())
+	if err != nil {
+		return nil, err
+	}
+
+	//daemonset,需要使用的是Template的
+	alldts, err := h.informerController.daemonsetInformer.Lister().DaemonSets(namespace).List(labels.Everything())
+	if err != nil {
+		return nil, err
+	}
+
+	//deployment
+	allds, err := h.informerController.deploymentInformer.Lister().Deployments(namespace).List(labels.Everything())
+	if err != nil {
+		return nil, err
+	}
+	//replicaset
+	allrss, err := h.informerController.replicasetInformer.Lister().ReplicaSets(namespace).List(labels.Everything())
+	if err != nil {
+		return nil, err
+	}
+	//replicationcontroller
+	allrcs, err := h.informerController.replicationcontrollerInformer.Lister().ReplicationControllers(namespace).List(labels.Everything())
+	if err != nil {
+		return nil, err
+	}
+
+	allcronjobs, err := h.informerController.cronjobInformer.Lister().CronJobs(namespace).List(labels.Everything())
+	if err != nil {
+		return nil, err
+	}
+
+	alljobs, err := h.informerController.jobInformer.Lister().Jobs(namespace).List(labels.Everything())
+	if err != nil {
+		return nil, err
+	}
+
+	//pod
+	allps, err := h.informerController.podInformer.Lister().Pods(namespace).List(labels.Everything())
+	if err != nil {
+		return nil, err
+	}
+
+	sfs := make([]*appv1beta1.StatefulSet, 0)
+	for _, v := range allsfs {
+		found := IsPodSpecReferencConfigMap(name, v.Spec.Template.Spec)
+		if found {
+			sfs = append(sfs, v)
+		}
+	}
+	dts := make([]*extensionsv1beta1.DaemonSet, 0)
+	for _, v := range alldts {
+		found := IsPodSpecReferencConfigMap(name, v.Spec.Template.Spec)
+		if found {
+			dts = append(dts, v)
+		}
+	}
+
+	ds := make([]*extensionsv1beta1.Deployment, 0)
+	for _, v := range allds {
+		found := IsPodSpecReferencConfigMap(name, v.Spec.Template.Spec)
+		if found {
+			ds = append(ds, v)
+		}
+	}
+
+	rss := make([]*extensionsv1beta1.ReplicaSet, 0)
+	for _, v := range allrss {
+		found := IsPodSpecReferencConfigMap(name, v.Spec.Template.Spec)
+		if found {
+			rss = append(rss, v)
+		}
+	}
+
+	rcs := make([]*corev1.ReplicationController, 0)
+	for _, v := range allrcs {
+		if v.Spec.Template != nil {
+			found := IsPodSpecReferencConfigMap(name, v.Spec.Template.Spec)
+			if found {
+				rcs = append(rcs, v)
+			}
+		}
+	}
+
+	cronjobs := make([]*batchv2alpha1.CronJob, 0)
+	for _, v := range allcronjobs {
+		found := IsPodSpecReferencConfigMap(name, v.Spec.JobTemplate.Spec.Template.Spec)
+		if found {
+			cronjobs = append(cronjobs, v)
+		}
+	}
+
+	jobs := make([]*batchv1.Job, 0)
+	for _, v := range alljobs {
+		found := IsPodSpecReferencConfigMap(name, v.Spec.Template.Spec)
+		if found {
+			jobs = append(jobs, v)
+		}
+	}
+
+	ps := make([]*corev1.Pod, 0)
+	for _, v := range allps {
+		found := IsPodSpecReferencConfigMap(name, v.Spec)
+		if found {
+			ps = append(ps, v)
+		}
+	}
+
+	ors = append(ors, runtimeObjectListToObjectReference(sfs)...)
+	ors = append(ors, runtimeObjectListToObjectReference(dts)...)
+	ors = append(ors, runtimeObjectListToObjectReference(ds)...)
+	ors = append(ors, runtimeObjectListToObjectReference(rss)...)
+	ors = append(ors, runtimeObjectListToObjectReference(rcs)...)
+	ors = append(ors, runtimeObjectListToObjectReference(cronjobs)...)
+	ors = append(ors, runtimeObjectListToObjectReference(jobs)...)
+	ors = append(ors, runtimeObjectListToObjectReference(ps)...)
+	return ors, nil
+
 }
 
 /* ------------------------ ReplicationController---------------------------*/
@@ -1990,7 +2104,55 @@ func runtimeObjectListToObjectReference(obj interface{}) []corev1.ObjectReferenc
 			or.Namespace = v.Namespace
 			ors = append(ors, or)
 		}
+	case []*batchv2alpha1.CronJob:
+		for _, v := range res {
+			var or corev1.ObjectReference
+			or.Kind = "CronJob"
+			or.APIVersion = "batch/v2alpha1"
+			or.Name = v.Name
+			or.ResourceVersion = v.ResourceVersion
+			or.Namespace = v.Namespace
+			ors = append(ors, or)
+		}
+	case []*batchv1.Job:
+		for _, v := range res {
+			var or corev1.ObjectReference
+			or.Kind = "Job"
+			or.APIVersion = "batch/v1"
+			or.Name = v.Name
+			or.ResourceVersion = v.ResourceVersion
+			or.Namespace = v.Namespace
+			ors = append(ors, or)
+		}
 	default:
+		log.ErrorPrint("unsupport type")
 	}
 	return ors
+}
+
+func IsPodSpecReferencConfigMap(name string, spec corev1.PodSpec) bool {
+	for _, c := range spec.Containers {
+		for _, j := range c.EnvFrom {
+			if j.ConfigMapRef != nil {
+				if j.ConfigMapRef.Name == name {
+					goto found
+				}
+			}
+		}
+		for _, j := range c.Env {
+
+			if j.ValueFrom != nil {
+				if j.ValueFrom.ConfigMapKeyRef != nil {
+					if j.ValueFrom.ConfigMapKeyRef.LocalObjectReference.Name == name {
+						goto found
+					}
+				}
+
+			}
+		}
+	}
+	//已找到,无须进行其他的遍历
+	return false
+found:
+	return true
 }
