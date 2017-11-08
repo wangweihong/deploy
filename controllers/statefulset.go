@@ -314,3 +314,42 @@ func (this *StatefulSetController) GetStatefulSetEvent() {
 
 	this.normalReturn(es)
 }
+
+// GetStatefulSetServices
+// @Title StatefulSet
+// @Description   StatefulSet 服务
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Param workspace path string true "工作区"
+// @Param statefulset path string true "有状态服务"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /:statefulset/group/:group/workspace/:workspace/services [Get]
+func (this *StatefulSetController) GetStatefulSetServices() {
+	err := this.checkRouteControllerAbility()
+	if err != nil {
+		this.abilityErrorReturn(err)
+		return
+	}
+
+	group := this.Ctx.Input.Param(":group")
+	workspace := this.Ctx.Input.Param(":workspace")
+	statefulset := this.Ctx.Input.Param(":statefulset")
+
+	v, err := pk.Controller.GetObject(group, workspace, statefulset)
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+	pi, _ := pk.GetStatefulSetInterface(v)
+
+	services, err := pi.GetServices()
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+
+	}
+
+	this.normalReturn(services)
+
+}

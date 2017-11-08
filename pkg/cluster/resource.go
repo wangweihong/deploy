@@ -1436,6 +1436,7 @@ type StatefulSetHandler interface {
 	Create(namespace string, ss *appv1beta1.StatefulSet) error
 	Delete(namespace string, name string) error
 	Update(namespace string, resource *appv1beta1.StatefulSet) error
+	GetServices(namespace string, name string) ([]*corev1.Service, error)
 }
 
 func NewStatefulSetHandler(group, workspace string) (StatefulSetHandler, error) {
@@ -1470,6 +1471,30 @@ func (h *statefulsetHandler) Delete(namespace, statefulsetName string) error {
 func (h *statefulsetHandler) Update(namespace string, resource *appv1beta1.StatefulSet) error {
 	_, err := h.clientset.AppsV1beta1().StatefulSets(namespace).Update(resource)
 	return err
+}
+
+func (h *statefulsetHandler) GetServices(namespace string, name string) ([]*corev1.Service, error) {
+	allServices, err := h.informerController.serviceInformer.Lister().Services(namespace).List(labels.Everything())
+	if err != nil {
+		return nil, err
+	}
+	statefulset, err := h.informerController.statefulsetInformer.Lister().StatefulSets(namespace).Get(name)
+	if err != nil {
+		return nil, err
+	}
+	services := make([]*corev1.Service, 0)
+	for i := range allServices {
+		service := allServices[i]
+		if service.Spec.Selector == nil {
+			// services with nil selectors match nothing, not everything.
+			continue
+		}
+		selector := labels.Set(service.Spec.Selector).AsSelectorPreValidated()
+		if selector.Matches(labels.Set(statefulset.Labels)) {
+			services = append(services, service)
+		}
+	}
+	return services, nil
 }
 
 /* --------------- CronJob --------------*/

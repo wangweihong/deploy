@@ -29,6 +29,7 @@ type StatefulSetInterface interface {
 	GetTemplate() (string, error)
 	GetStatus() *Status
 	Event() ([]corev1.Event, error)
+	GetServices() ([]*corev1.Service, error)
 }
 
 type StatefulSetManager struct {
@@ -581,6 +582,15 @@ func (s *StatefulSet) GetStatus() *Status {
 func (s *StatefulSet) Event() ([]corev1.Event, error) {
 	e := make([]corev1.Event, 0)
 	return e, nil
+}
+
+func (p *StatefulSet) GetServices() ([]*corev1.Service, error) {
+	ph, err := cluster.NewStatefulSetHandler(p.Group, p.Workspace)
+	if err != nil {
+		return nil, log.DebugPrint(err)
+	}
+
+	return ph.GetServices(p.Workspace, p.Name)
 }
 
 func (s *StatefulSet) Metadata() resource.ObjectMeta {
