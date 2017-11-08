@@ -172,7 +172,7 @@ func (this *ServiceController) ListGroupServices() {
 
 // CreateService
 // @Title Service
-// @Description  创建容器组
+// @Description  创建服务
 // @Param Token header string true 'Token'
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
@@ -222,11 +222,11 @@ func (this *ServiceController) CreateService() {
 
 // UpdateService
 // @Title Service
-// @Description  更新容器组
+// @Description  更新服务
 // @Param Token header string true 'Token'
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
-// @Param service path string true "容器组"
+// @Param service path string true "服务"
 // @Param body body string true "资源描述"
 // @Success 201 {string} create success!
 // @Failure 500
@@ -269,7 +269,7 @@ func (this *ServiceController) UpdateService() {
 // @Param Token header string true 'Token'
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
-// @Param service path string true "容器组"
+// @Param service path string true "服务"
 // @Success 201 {string} create success!
 // @Failure 500
 // @router /:service/group/:group/workspace/:workspace [Delete]
@@ -303,7 +303,7 @@ func (this *ServiceController) DeleteService() {
 // @Param Token header string true 'Token'
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
-// @Param service path string true "容器组"
+// @Param service path string true "服务"
 // @Success 201 {string} create success!
 // @Failure 500
 // @router /:service/group/:group/workspace/:workspace/template [Get]
@@ -340,7 +340,7 @@ func (this *ServiceController) GetServiceTemplate() {
 // @Param Token header string true 'Token'
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
-// @Param service path string true "容器组"
+// @Param service path string true "服务"
 // @Success 201 {string} create success!
 // @Failure 500
 // @router /:service/group/:group/workspace/:workspace/event [Get]
@@ -362,6 +362,42 @@ func (this *ServiceController) GetServiceEvent() {
 	}
 	pi, _ := pk.GetServiceInterface(v)
 	es, err := pi.Event()
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+
+	this.normalReturn(es)
+}
+
+// GetServiceReferencObjects
+// @Title Service
+// @Description   Service container event
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Param workspace path string true "工作区"
+// @Param service path string true "服务"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /:service/group/:group/workspace/:workspace/reference [Get]
+func (this *ServiceController) GetServiceReferenceObject() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
+
+	group := this.Ctx.Input.Param(":group")
+	workspace := this.Ctx.Input.Param(":workspace")
+	service := this.Ctx.Input.Param(":service")
+
+	v, err := pk.Controller.GetObject(group, workspace, service)
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+	pi, _ := pk.GetServiceInterface(v)
+	es, err := pi.GetReferenceObjects()
 	if err != nil {
 		this.errReturn(err, 500)
 		return

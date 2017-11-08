@@ -7611,7 +7611,7 @@
                 "tags": [
                     "service"
                 ],
-                "description": "创建容器组",
+                "description": "创建服务",
                 "operationId": "ServiceController.Service",
                 "parameters": [
                     {
@@ -7730,7 +7730,7 @@
                 "tags": [
                     "service"
                 ],
-                "description": "更新容器组",
+                "description": "更新服务",
                 "operationId": "ServiceController.Service",
                 "parameters": [
                     {
@@ -7757,7 +7757,7 @@
                     {
                         "in": "path",
                         "name": "service",
-                        "description": "容器组",
+                        "description": "服务",
                         "required": true,
                         "type": "string"
                     },
@@ -7807,7 +7807,7 @@
                     {
                         "in": "path",
                         "name": "service",
-                        "description": "容器组",
+                        "description": "服务",
                         "required": true,
                         "type": "string"
                     }
@@ -7852,7 +7852,52 @@
                     {
                         "in": "path",
                         "name": "service",
-                        "description": "容器组",
+                        "description": "服务",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "{string} create success!"
+                    },
+                    "500": {}
+                }
+            }
+        },
+        "/service/{service}/group/{group}/workspace/{workspace}/reference": {
+            "get": {
+                "tags": [
+                    "service"
+                ],
+                "description": "Service container event",
+                "operationId": "ServiceController.Service",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Token",
+                        "description": "'Token'",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "group",
+                        "description": "组名",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "workspace",
+                        "description": "工作区",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "service",
+                        "description": "服务",
                         "required": true,
                         "type": "string"
                     }
@@ -7897,7 +7942,7 @@
                     {
                         "in": "path",
                         "name": "service",
-                        "description": "容器组",
+                        "description": "服务",
                         "required": true,
                         "type": "string"
                     }

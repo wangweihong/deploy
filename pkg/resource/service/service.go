@@ -29,6 +29,7 @@ type ServiceInterface interface {
 	GetTemplate() (string, error)
 	GetStatus() *Status
 	Event() ([]corev1.Event, error)
+	GetReferenceObjects() ([]ObjectReference, error)
 }
 
 type ServiceManager struct {
@@ -630,8 +631,39 @@ func (s *Service) Event() ([]corev1.Event, error) {
 	e := make([]corev1.Event, 0)
 	return e, nil
 }
+
 func (s *Service) Metadata() resource.ObjectMeta {
 	return s.ObjectMeta
+}
+
+type ObjectReference struct {
+	corev1.ObjectReference
+	Group     string `group`
+	Namespace string `json:"workspace"`
+}
+
+func (s *Service) GetReferenceObjects() ([]ObjectReference, error) {
+	ph, err := cluster.NewServiceHandler(s.Group, s.Workspace)
+	if err != nil {
+		return nil, err
+	}
+
+	apiors, err := ph.GetReferenceResources(s.Workspace, s.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	ors := make([]ObjectReference, 0)
+	for _, v := range apiors {
+		var or ObjectReference
+		or.ObjectReference = v
+		or.Namespace = s.Workspace
+		or.Group = s.Group
+		ors = append(ors, or)
+
+	}
+	return ors, nil
+
 }
 
 func InitServiceController(be backend.BackendHandler) (resource.ObjectController, error) {

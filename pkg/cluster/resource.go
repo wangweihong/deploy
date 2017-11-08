@@ -19,6 +19,7 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/selection"
 	corev1 "k8s.io/client-go/pkg/api/v1"
 	appv1beta1 "k8s.io/client-go/pkg/apis/apps/v1beta1"
 	batchv1 "k8s.io/client-go/pkg/apis/batch/v1"
@@ -206,6 +207,7 @@ type ServiceHandler interface {
 	Update(namespace string, service *corev1.Service) error
 	GetPods(namespace, name string) ([]*corev1.Pod, error)
 	List(namespace string) ([]*corev1.Service, error)
+	GetReferenceResources(namespace, name string) ([]corev1.ObjectReference, error)
 }
 
 func NewServiceHandler(group, workspace string) (ServiceHandler, error) {
@@ -256,6 +258,129 @@ func (h *serviceHandler) GetPods(namespace, name string) ([]*corev1.Pod, error) 
 
 func (h *serviceHandler) List(namespace string) ([]*corev1.Service, error) {
 	return h.informerController.serviceInformer.Lister().Services(namespace).List(labels.Everything())
+}
+
+func (h *serviceHandler) GetReferenceResources(namespace, name string) ([]corev1.ObjectReference, error) {
+	s, err := h.Get(namespace, name)
+	if err != nil {
+		return nil, err
+	}
+
+	ors := make([]corev1.ObjectReference, 0)
+
+	if s.Spec.Selector == nil {
+		return ors, nil
+	}
+
+	selector := labels.Set(s.Spec.Selector).AsSelectorPreValidated()
+	slabels := s.Spec.Selector
+	log.DebugPrint("service'labels:", slabels)
+
+	//statefulset
+	allsfs, err := h.informerController.statefulsetInformer.Lister().StatefulSets(namespace).List(labels.Everything())
+	if err != nil {
+		return nil, err
+	}
+
+	//daemonset,需要使用的是Template的
+	alldts, err := h.informerController.daemonsetInformer.Lister().DaemonSets(namespace).List(labels.Everything())
+	if err != nil {
+		return nil, err
+	}
+
+	//deployment
+	allds, err := h.informerController.deploymentInformer.Lister().Deployments(namespace).List(labels.Everything())
+	if err != nil {
+		return nil, err
+	}
+	//replicaset
+	allrss, err := h.informerController.replicasetInformer.Lister().ReplicaSets(namespace).List(selector)
+	if err != nil {
+		return nil, err
+	}
+	//replicationcontroller
+	allrcs, err := h.informerController.replicationcontrollerInformer.Lister().ReplicationControllers(namespace).List(selector)
+	if err != nil {
+		return nil, err
+	}
+	//pod
+	allps, err := h.informerController.podInformer.Lister().Pods(namespace).List(selector)
+	if err != nil {
+		return nil, err
+	}
+
+	requirements := make([]labels.Requirement, 0)
+	for l, v := range slabels {
+		newreq, err := labels.NewRequirement(l, selection.In, []string{v})
+		if err != nil {
+			return nil, err
+		}
+		requirements = append(requirements, *newreq)
+	}
+	inSelector := labels.NewSelector()
+	inSelector = inSelector.Add(requirements...)
+	log.DebugPrint("inSelector:", inSelector.String())
+
+	//需要将检测service labels是否是statefulset的pod template的子集
+
+	sfs := make([]*appv1beta1.StatefulSet, 0)
+	for _, v := range allsfs {
+		if inSelector.Matches(labels.Set(v.Spec.Template.Labels)) {
+			log.DebugPrint("statefulset: %v: matchlabels:%v", v.Name, v.Spec.Template.Labels)
+			sfs = append(sfs, v)
+		}
+	}
+
+	dts := make([]*extensionsv1beta1.DaemonSet, 0)
+	for _, v := range alldts {
+		if inSelector.Matches(labels.Set(v.Spec.Template.Labels)) {
+			log.DebugPrint("daemonset %v: matchlabels:%v", v.Name, v.Spec.Template.Labels)
+			dts = append(dts, v)
+		}
+	}
+
+	ds := make([]*extensionsv1beta1.Deployment, 0)
+	for _, v := range allds {
+		if inSelector.Matches(labels.Set(v.Spec.Template.Labels)) {
+			log.DebugPrint("deployment: %v: matchlabels:%v", v.Name, v.Spec.Template.Labels)
+			ds = append(ds, v)
+		}
+	}
+
+	rss := make([]*extensionsv1beta1.ReplicaSet, 0)
+	for _, v := range allrss {
+		if inSelector.Matches(labels.Set(v.Spec.Template.Labels)) {
+			log.DebugPrint("replicaset: %v: matchlabels:%v", v.Name, v.Spec.Template.Labels)
+			rss = append(rss, v)
+		}
+	}
+
+	rcs := make([]*corev1.ReplicationController, 0)
+	for _, v := range allrcs {
+		if inSelector.Matches(labels.Set(v.Spec.Selector)) {
+			log.DebugPrint("replicationcontroller: %v: matchlabels:%v", v.Name, v.Spec.Template.Labels)
+			rcs = append(rcs, v)
+		}
+	}
+
+	ps := make([]*corev1.Pod, 0)
+	for _, v := range allps {
+		if v.Labels != nil {
+			if inSelector.Matches(labels.Set(v.Labels)) {
+				log.DebugPrint("replicaset: %v: matchlabels:%v", v.Name, v.Labels)
+				ps = append(ps, v)
+			}
+		}
+	}
+
+	ors = append(ors, runtimeObjectListToObjectReference(sfs)...)
+	ors = append(ors, runtimeObjectListToObjectReference(dts)...)
+	ors = append(ors, runtimeObjectListToObjectReference(ds)...)
+	ors = append(ors, runtimeObjectListToObjectReference(rss)...)
+	ors = append(ors, runtimeObjectListToObjectReference(rcs)...)
+	ors = append(ors, runtimeObjectListToObjectReference(ps)...)
+
+	return ors, nil
 }
 
 /* ------------------------ Configmap ----------------------------*/
@@ -1798,4 +1923,74 @@ func kubernetesapiSerrializedReferenceToClientGo(sr kubernetesapi.SerializedRefe
 	apisr.Reference.UID = sr.Reference.UID
 	return apisr
 
+}
+
+func runtimeObjectListToObjectReference(obj interface{}) []corev1.ObjectReference {
+
+	ors := make([]corev1.ObjectReference, 0)
+	switch res := obj.(type) {
+	case []*appv1beta1.StatefulSet:
+		for _, v := range res {
+			var or corev1.ObjectReference
+			or.Kind = "StatefulSet"
+			or.APIVersion = "apps/v1beta1"
+			or.Name = v.Name
+			or.ResourceVersion = v.ResourceVersion
+			or.Namespace = v.Namespace
+			ors = append(ors, or)
+		}
+	case []*extensionsv1beta1.ReplicaSet:
+		for _, v := range res {
+			var or corev1.ObjectReference
+			or.Kind = "ReplicaSet"
+			or.APIVersion = "extensions/v1beta1"
+			or.Name = v.Name
+			or.ResourceVersion = v.ResourceVersion
+			or.Namespace = v.Namespace
+			ors = append(ors, or)
+		}
+	case []*corev1.ReplicationController:
+		for _, v := range res {
+			var or corev1.ObjectReference
+			or.Kind = "ReplicationController"
+			or.APIVersion = "v1"
+			or.Name = v.Name
+			or.ResourceVersion = v.ResourceVersion
+			or.Namespace = v.Namespace
+			ors = append(ors, or)
+		}
+	case []*corev1.Pod:
+		for _, v := range res {
+			var or corev1.ObjectReference
+			or.Kind = "Pod"
+			or.APIVersion = "v1"
+			or.Name = v.Name
+			or.ResourceVersion = v.ResourceVersion
+			or.Namespace = v.Namespace
+			or.UID = v.UID
+			ors = append(ors, or)
+		}
+	case []*extensionsv1beta1.Deployment:
+		for _, v := range res {
+			var or corev1.ObjectReference
+			or.Kind = "Deployment"
+			or.APIVersion = "extensions/v1beta1"
+			or.Name = v.Name
+			or.ResourceVersion = v.ResourceVersion
+			or.Namespace = v.Namespace
+			ors = append(ors, or)
+		}
+	case []*extensionsv1beta1.DaemonSet:
+		for _, v := range res {
+			var or corev1.ObjectReference
+			or.Kind = "DaemonSet"
+			or.APIVersion = "extensions/v1beta1"
+			or.Name = v.Name
+			or.ResourceVersion = v.ResourceVersion
+			or.Namespace = v.Namespace
+			ors = append(ors, or)
+		}
+	default:
+	}
+	return ors
 }
