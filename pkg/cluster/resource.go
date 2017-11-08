@@ -12,6 +12,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	//	k8sapi "k8s.io/kubernetes/pkg/api"
+	"k8s.io/apimachinery/pkg/runtime"
 
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/kubernetes/pkg/controller"
@@ -27,7 +28,9 @@ import (
 	core "k8s.io/kubernetes/pkg/client/clientset_generated/clientset/typed/core/v1"
 	extensions "k8s.io/kubernetes/pkg/client/clientset_generated/clientset/typed/extensions/v1beta1"
 
+	"k8s.io/apimachinery/pkg/api/meta"
 	watch "k8s.io/apimachinery/pkg/watch"
+	kubernetesapi "k8s.io/kubernetes/pkg/api"
 	deploymentutil "k8s.io/kubernetes/pkg/controller/deployment/util"
 )
 
@@ -52,6 +55,7 @@ type PodHandler interface {
 	Update(namespace string, pod *corev1.Pod) error
 	List(namespace string) ([]*corev1.Pod, error)
 	GetServices(namespace string, name string) ([]*corev1.Service, error)
+	GetCreator(namespace string, name string) (*corev1.SerializedReference, error)
 }
 
 func NewPodHandler(group, workspace string) (PodHandler, error) {
@@ -157,6 +161,40 @@ func (h *podHandler) GetServices(namespace string, name string) ([]*corev1.Servi
 		}
 	}
 	return services, nil
+}
+
+func (h *podHandler) GetCreator(namespace string, name string) (*corev1.SerializedReference, error) {
+	pod, err := h.informerController.podInformer.Lister().Pods(namespace).Get(name)
+	if err != nil {
+		return nil, err
+	}
+
+	sr, err := getResourceCreator(pod)
+	if err != nil {
+		return nil, err
+	}
+
+	if sr == nil {
+		return nil, nil
+	}
+	v1sr := kubernetesapiSerrializedReferenceToClientGo(*sr)
+	/*
+			switch sr.Reference.Kind {
+			case "ReplicationController":
+				return h.informerController.replicasetInformer.Lister().ReplicaSets(sr.Reference.Namespace).Get(sr.Reference.Name)
+			case "DaemonSet":
+				return h.informerController.daemonsetInformer.Lister().DaemonSets(sr.Reference.Namespace).Get(sr.Reference.Name)
+			case "Job":
+				return h.informerController.jobInformer.Lister().Jobs(sr.Reference.Namespace).Get(sr.Reference.Name)
+			case "ReplicaSet":
+				return h.informerController.replicasetInformer.Lister().ReplicaSets(sr.Reference.Namespace).Get(sr.Reference.Name)
+			case "StatefulSet":
+				return h.informerController.statefulsetInformer.Lister().StatefulSets(sr.Reference.Namespace).Get(sr.Reference.Name)
+			}
+		return nil, fmt.Errorf("Unknown controller kind %q", sr.Reference.Kind)
+	*/
+
+	return &v1sr, nil
 }
 
 /* ----------------- Service ----------------------*/
@@ -1552,6 +1590,7 @@ type JobHandler interface {
 	Update(namespace string, resource *batchv1.Job) error
 	GetPods(Namespace, name string) ([]*corev1.Pod, error)
 	Event(namespace, resourceName string) ([]corev1.Event, error)
+	GetCreator(namespace, name string) (*corev1.SerializedReference, error)
 }
 
 func NewJobHandler(group, workspace string) (JobHandler, error) {
@@ -1641,6 +1680,25 @@ func (h *jobHandler) Event(namespace, resourceName string) ([]corev1.Event, erro
 	return events.Items, nil
 }
 
+func (h *jobHandler) GetCreator(namespace string, name string) (*corev1.SerializedReference, error) {
+	pod, err := h.informerController.jobInformer.Lister().Jobs(namespace).Get(name)
+	if err != nil {
+		return nil, err
+	}
+
+	sr, err := getResourceCreator(pod)
+	if err != nil {
+		return nil, err
+	}
+
+	if sr == nil {
+		return nil, nil
+	}
+	v1sr := kubernetesapiSerrializedReferenceToClientGo(*sr)
+
+	return &v1sr, nil
+}
+
 /*  helpers */
 
 func watchRollbackEvent(w watch.Interface) string {
@@ -1677,4 +1735,42 @@ func isRollbackEvent(e *corev1.Event) (bool, string) {
 		}
 	}
 	return false, ""
+}
+
+func getResourceCreator(obj interface{}) (*kubernetesapi.SerializedReference, error) {
+
+	accessor, err := meta.Accessor(obj)
+	if err != nil {
+		return nil, log.DebugPrint(err)
+	}
+
+	var creatorRef string
+	var found bool
+	creatorRef, found = accessor.GetAnnotations()[kubernetesapi.CreatedByAnnotation]
+	if !found {
+		return nil, nil
+	}
+
+	decoder := kubernetesapi.Codecs.UniversalDecoder()
+	sr := &kubernetesapi.SerializedReference{}
+	if err := runtime.DecodeInto(decoder, []byte(creatorRef), sr); err != nil {
+		return nil, err
+	}
+
+	return sr, nil
+}
+
+func kubernetesapiSerrializedReferenceToClientGo(sr kubernetesapi.SerializedReference) corev1.SerializedReference {
+	var apisr corev1.SerializedReference
+	apisr.APIVersion = sr.APIVersion
+	apisr.Kind = sr.Kind
+	apisr.Reference.APIVersion = sr.Reference.APIVersion
+	apisr.Reference.FieldPath = sr.Reference.FieldPath
+	apisr.Reference.Kind = sr.Reference.Kind
+	apisr.Reference.Name = sr.Reference.Name
+	apisr.Reference.Namespace = sr.Reference.Namespace
+	apisr.Reference.ResourceVersion = sr.Reference.ResourceVersion
+	apisr.Reference.UID = sr.Reference.UID
+	return apisr
+
 }

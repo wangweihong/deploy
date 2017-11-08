@@ -12,8 +12,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/yaml"
 
 	"k8s.io/apimachinery/pkg/runtime"
-	cmdutil "k8s.io/kubernetes/pkg/kubectl/cmd/util"
-	"k8s.io/kubernetes/pkg/printers"
+	//	cmdutil "k8s.io/kubernetes/pkg/kubectl/cmd/util"
+	//	"k8s.io/kubernetes/pkg/printers"
 )
 
 func GetObjectFromYamlTemplate(template []byte, obj interface{}) error {
@@ -30,25 +30,6 @@ func GetObjectFromYamlTemplate(template []byte, obj interface{}) error {
 		return err
 	}
 	return nil
-
-	/*
-		f := cmdutil.NewFactory(nil)
-		decoder := f.Decoder(false)
-		err := runtime.DecodeInto(decoder, template, obj)
-		if err != nil {
-			return err
-		}
-		return nil
-	*/
-	/*
-		data, err := ghyaml.JSONToYAML(template)
-		if err != nil {
-			return log.DebugPrint(err)
-		}
-
-		return json.Unmarshal(data, &obj)
-	*/
-
 }
 
 func GetYamlTemplateFromObject(origin runtime.Object) (*string, error) {
@@ -63,32 +44,6 @@ func GetYamlTemplateFromObject(origin runtime.Object) (*string, error) {
 	}
 	str := string(data)
 	return &str, err
-
-	f := cmdutil.NewFactory(nil)
-	log.DebugPrint(origin.GetObjectKind().GroupVersionKind().String())
-	//	log.DebugPrint(origin)
-
-	//一定要编码,不然会出现字段首字母全大写的情况
-	//1.7客户端返回的TypeMeta为空,无法进行Encoder
-	encoder := f.JSONEncoder()
-	data, err = runtime.Encode(encoder, origin)
-	if err != nil {
-		return nil, log.DebugPrint(err)
-	}
-	//注意这里.
-	obj := runtime.Unknown{Raw: data}
-
-	buf := new(bytes.Buffer)
-	//printer, _, _ := kubectl.GetPrinter("yaml", "", false)
-	printer := printers.YAMLPrinter{}
-	err = printer.PrintObj(&obj, buf)
-	if err != nil {
-		return nil, log.DebugPrint(err)
-	}
-
-	t := string(buf.Bytes())
-
-	return &t, nil
 
 }
 

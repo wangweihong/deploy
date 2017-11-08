@@ -3,7 +3,6 @@ package resource
 import (
 	"strings"
 	"ufleet-deploy/pkg/option"
-	//	"ufleet-deploy/pkg/pod"
 )
 
 type Controller interface {

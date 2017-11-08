@@ -563,10 +563,17 @@ type Status struct {
 	Selector    map[string]string `json:"selector"`
 	Reason      string            `json:"reason"`
 	//-1表示没有设置
-	ActiveDeadlineSeconds int64 `json:"activeDeadlineSeconds"`
+	ActiveDeadlineSeconds int64 `json:"activedeadlineseconds"`
 	//	Pods       []string `json:"pods"`
-	PodStatus      []pk.Status        `json:"podstatus"`
-	ContainerSpecs []pk.ContainerSpec `json:"containerspec"`
+	PodStatus        []pk.Status        `json:"podstatus"`
+	ContainerSpecs   []pk.ContainerSpec `json:"containerspec"`
+	CreatorReference *CreatorReference  `json:"creatorreference"`
+}
+
+type CreatorReference struct {
+	corev1.SerializedReference
+	Workspace string `json:"workspace"`
+	Group     string `json:"group"`
 }
 
 //不包含PodStatus的信息
@@ -619,40 +626,57 @@ func (j *Job) ObjectStatus() resource.ObjectStatus {
 }
 
 func (j *Job) GetStatus() *Status {
-	runtime, err := j.GetRuntime()
-	if err != nil {
-		js := Status{ObjectMeta: j.ObjectMeta}
-		js.Name = j.Name
-		js.Images = make([]string, 0)
-		js.PodStatus = make([]pk.Status, 0)
-		js.Labels = make(map[string]string)
-		js.Selector = make(map[string]string)
+	var err error
+	var e error
+	var ph cluster.JobHandler
+	var sr *corev1.SerializedReference
+	var js *Status
 
-		js.ContainerSpecs = make([]pk.ContainerSpec, 0)
-		js.Reason = err.Error()
-		return &js
+	runtime, e := j.GetRuntime()
+	if err != nil {
+		err = e
+		goto MeetError
 	}
 
-	js := K8sJobToJobStatus(runtime.Job)
+	ph, err = cluster.NewJobHandler(j.Group, j.Workspace)
+	if err != nil {
+		goto MeetError
+	}
+
+	sr, err = ph.GetCreator(j.Workspace, j.Name)
+	if err != nil {
+		goto MeetError
+	}
+
+	js = K8sJobToJobStatus(runtime.Job)
+
+	if sr != nil {
+		js.CreatorReference = &CreatorReference{SerializedReference: *sr, Group: j.Group, Workspace: j.Workspace}
+	}
 	js.PodNum = len(runtime.Pods)
 	if js.PodNum != 0 {
 		pod := runtime.Pods[0]
 		js.ClusterIP = pod.Status.HostIP
 	}
-	info := j.Info()
-	js.User = info.User
-	js.Group = info.Group
-	js.Workspace = info.Workspace
 
-	if js.CreateTime == 0 {
-		js.CreateTime = runtime.Job.CreationTimestamp.Unix()
-	}
+	js.ObjectMeta = j.ObjectMeta
 
 	for _, v := range runtime.Pods {
 		ps := pk.V1PodToPodStatus(*v)
 		js.PodStatus = append(js.PodStatus, *ps)
 	}
 
+	return js
+MeetError:
+	js = &Status{ObjectMeta: j.ObjectMeta}
+	js.Name = j.Name
+	js.Images = make([]string, 0)
+	js.PodStatus = make([]pk.Status, 0)
+	js.Labels = make(map[string]string)
+	js.Selector = make(map[string]string)
+
+	js.ContainerSpecs = make([]pk.ContainerSpec, 0)
+	js.Reason = err.Error()
 	return js
 }
 

@@ -600,6 +600,7 @@ type Status struct {
 	ContainerStatuses []ContainerStatus `json:"containerstatuses"`
 	ContainerSpecs    []ContainerSpec   `json:"containerspec"`
 	Containers        []string          `json:"containers"`
+	CreatorReference  *CreatorReference `json:"creatorreference"`
 }
 
 type PodSpec struct {
@@ -762,16 +763,39 @@ func (p *Pod) ObjectStatus() resource.ObjectStatus {
 	return p.GetStatus()
 }
 
+type CreatorReference struct {
+	corev1.SerializedReference
+	Workspace string `json:"workspace"`
+	Group     string `json:"group"`
+}
+
 func (p *Pod) GetStatus() *Status {
+	var e error
+	var ph cluster.PodHandler
+	var sr *corev1.SerializedReference
+	var s *Status
 	runtime, err := p.GetRuntime()
 	if err != nil {
-		s := Status{ObjectMeta: p.ObjectMeta}
-		s.Containers = make([]string, 0)
-		s.Labels = make(map[string]string)
-		s.Reason = err.Error()
-		return &s
+		e = err
+		goto MeetError
 	}
-	s := V1PodToPodStatus(*runtime.Pod)
+
+	ph, err = cluster.NewPodHandler(p.Group, p.Workspace)
+	if err != nil {
+		e = err
+		goto MeetError
+	}
+
+	sr, err = ph.GetCreator(p.Workspace, p.Name)
+	if err != nil {
+		e = err
+		goto MeetError
+	}
+
+	s = V1PodToPodStatus(*runtime.Pod)
+	if sr != nil {
+		s.CreatorReference = &CreatorReference{SerializedReference: *sr, Group: p.Group, Workspace: p.Workspace}
+	}
 	s.Name = p.Name
 	s.App = p.App
 	s.ObjectMeta.Comment = p.Comment
@@ -783,6 +807,12 @@ func (p *Pod) GetStatus() *Status {
 	s.ObjectMeta.Group = p.Group
 	s.ObjectMeta.Workspace = p.Workspace
 
+	return s
+MeetError:
+	s = &Status{ObjectMeta: p.ObjectMeta}
+	s.Containers = make([]string, 0)
+	s.Labels = make(map[string]string)
+	s.Reason = e.Error()
 	return s
 }
 
