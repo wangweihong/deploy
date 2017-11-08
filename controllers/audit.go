@@ -74,6 +74,10 @@ var (
 			object:  operateObjectApp,
 			operate: operateTypeUpdate,
 		},
+		"UpdateApp": audit{
+			object:  operateObjectApp,
+			operate: operateTypeUpdate,
+		},
 
 		//Pod
 		"CreatePod": audit{

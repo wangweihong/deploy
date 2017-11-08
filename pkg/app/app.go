@@ -208,6 +208,7 @@ func (sm *AppMananger) UpdateApp(groupName, workspaceName, appName string, desc 
 	sm.Locker.Lock()
 	defer sm.Locker.Unlock()
 
+	log.DebugPrint(string(desc))
 	stack, err := sm.get(groupName, workspaceName, appName)
 	if err != nil {
 		return log.DebugPrint(err)
@@ -236,16 +237,18 @@ func (sm *AppMananger) UpdateApp(groupName, workspaceName, appName string, desc 
 		delete(stack.Resources, generateResourceKey(v.Kind, v.Name))
 	}
 
-	log.DebugPrint("start to create new resources")
 	//需要睡眠等待旧资源真正被删除
 	//TODO:需要更好的方法
 	time.Sleep(3 * time.Second)
 
 	//添加新的
-	e = stack.addResources(desc, false)
-	if e != nil {
-		log.DebugPrint(e)
-		goto Resume
+	if strings.TrimSpace(string(desc)) != "" {
+		log.DebugPrint("start to create new resources")
+		e = stack.addResources(desc, false)
+		if e != nil {
+			log.DebugPrint(e)
+			goto Resume
+		}
 	}
 
 	e = be.UpdateResource(backendKind, groupName, workspaceName, appName, stack)
@@ -442,6 +445,7 @@ func (s *App) addResources(desc []byte, flush bool) error {
 	groupName := s.Group
 	workspaceName := s.Workspace
 	be := backend.NewBackendHandler()
+	log.DebugPrint(string(desc))
 	exts, uerr := util.ParseJsonOrYaml(desc)
 	if uerr != nil {
 		return log.DebugPrint(uerr)
@@ -467,6 +471,7 @@ func (s *App) addResources(desc []byte, flush bool) error {
 		}{}
 		var res Resource
 
+		log.DebugPrint(string(exts[k].Raw))
 		e = json.Unmarshal(exts[k].Raw, &tmp)
 		if e != nil {
 			e = log.ErrorPrint("create app "+appName+" fail for %v", e)

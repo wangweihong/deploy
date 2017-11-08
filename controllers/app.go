@@ -3,6 +3,7 @@ package controllers
 import (
 	"fmt"
 	"ufleet-deploy/pkg/app"
+	"ufleet-deploy/pkg/log"
 	"ufleet-deploy/pkg/user"
 )
 
@@ -116,6 +117,7 @@ func (this *AppController) UpdateApp() {
 		this.errReturn(err, 500)
 		return
 	}
+	log.DebugPrint(string(this.Ctx.Input.RequestBody))
 
 	err = app.Controller.UpdateApp(group, workspace, appName, this.Ctx.Input.RequestBody, app.UpdateOption{})
 	if err != nil {
