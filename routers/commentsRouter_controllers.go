@@ -1259,6 +1259,13 @@ func init() {
 			AllowHTTPMethods: []string{"Get"},
 			Params: nil})
 
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:ServiceAccountController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:ServiceAccountController"],
+		beego.ControllerComments{
+			Method: "GetServiceAccountReferenceObject",
+			Router: `/:serviceaccount/group/:group/workspace/:workspace/reference`,
+			AllowHTTPMethods: []string{"Get"},
+			Params: nil})
+
 	beego.GlobalControllerRouter["ufleet-deploy/controllers:ServiceController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:ServiceController"],
 		beego.ControllerComments{
 			Method: "ListGroupWorkspaceServices",

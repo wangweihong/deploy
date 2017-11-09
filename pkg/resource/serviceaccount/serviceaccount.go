@@ -28,6 +28,7 @@ type ServiceAccountInterface interface {
 	GetTemplate() (string, error)
 	GetStatus() *Status
 	Event() ([]corev1.Event, error)
+	GetReferenceObjects() ([]resource.ObjectReference, error)
 }
 
 type ServiceAccountManager struct {
@@ -589,6 +590,29 @@ func (s *ServiceAccount) GetStatus() *Status {
 func (s *ServiceAccount) Event() ([]corev1.Event, error) {
 	e := make([]corev1.Event, 0)
 	return e, nil
+}
+
+func (s *ServiceAccount) GetReferenceObjects() ([]resource.ObjectReference, error) {
+	ph, err := cluster.NewServiceAccountHandler(s.Group, s.Workspace)
+	if err != nil {
+		return nil, err
+	}
+
+	apiors, err := ph.GetReferenceResources(s.Workspace, s.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	ors := make([]resource.ObjectReference, 0)
+	for _, v := range apiors {
+		var or resource.ObjectReference
+		or.ObjectReference = v
+		or.Namespace = s.Workspace
+		or.Group = s.Group
+		ors = append(ors, or)
+
+	}
+	return ors, nil
 }
 
 func (s *ServiceAccount) Metadata() resource.ObjectMeta {

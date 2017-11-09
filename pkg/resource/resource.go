@@ -3,6 +3,8 @@ package resource
 import (
 	"fmt"
 	"sync"
+
+	corev1 "k8s.io/client-go/pkg/api/v1"
 )
 
 const (
@@ -120,4 +122,10 @@ type ObjectController interface {
 //env
 
 type EnvVar struct {
+}
+
+type ObjectReference struct {
+	corev1.ObjectReference
+	Group     string `group`
+	Namespace string `json:"workspace"`
 }

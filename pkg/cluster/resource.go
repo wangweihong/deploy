@@ -420,7 +420,7 @@ func (h *configmapHandler) GetReferenceResources(namespace string, name string) 
 		return nil, err
 	}
 
-	ors, err := getGeneralResourceReference(h.informerController, namespace, name, IsPodSpecReferencConfigMap)
+	ors, err := getGeneralResourceReference(h.informerController, namespace, name, IsPodSpecReferenceConfigMap)
 	if err != nil {
 		return nil, err
 	}
@@ -590,6 +590,7 @@ type ServiceAccountHandler interface {
 	Delete(namespace string, name string) error
 	Update(namespace string, resource *corev1.ServiceAccount) error
 	List(namespace string) ([]*corev1.ServiceAccount, error)
+	GetReferenceResources(namespace string, name string) ([]corev1.ObjectReference, error)
 }
 
 func NewServiceAccountHandler(group, workspace string) (ServiceAccountHandler, error) {
@@ -625,6 +626,20 @@ func (h *serviceaccountHandler) Delete(namespace, serviceaccountName string) err
 
 func (h *serviceaccountHandler) List(namespace string) ([]*corev1.ServiceAccount, error) {
 	return h.informerController.serviceaccountInformer.Lister().ServiceAccounts(namespace).List(labels.Everything())
+}
+
+func (h *serviceaccountHandler) GetReferenceResources(namespace string, name string) ([]corev1.ObjectReference, error) {
+	_, err := h.Get(namespace, name)
+	if err != nil {
+		return nil, err
+	}
+
+	ors, err := getGeneralResourceReference(h.informerController, namespace, name, IsPodSpecReferenceServiceAccount)
+	if err != nil {
+		return nil, err
+	}
+	return ors, nil
+
 }
 
 /* ------------------------ Secret ----------------------------*/
@@ -679,7 +694,7 @@ func (h *secretHandler) GetReferenceResources(namespace string, name string) ([]
 		return nil, err
 	}
 
-	ors, err := getGeneralResourceReference(h.informerController, namespace, name, IsPodSpecReferencSecret)
+	ors, err := getGeneralResourceReference(h.informerController, namespace, name, IsPodSpecReferenceSecret)
 	if err != nil {
 		return nil, err
 	}
@@ -2032,7 +2047,7 @@ func runtimeObjectListToObjectReference(obj interface{}) []corev1.ObjectReferenc
 	return ors
 }
 
-func IsPodSpecReferencConfigMap(name string, spec corev1.PodSpec) bool {
+func IsPodSpecReferenceConfigMap(name string, spec corev1.PodSpec) bool {
 	for _, c := range spec.Containers {
 		for _, j := range c.EnvFrom {
 			if j.ConfigMapRef != nil {
@@ -2053,13 +2068,13 @@ func IsPodSpecReferencConfigMap(name string, spec corev1.PodSpec) bool {
 			}
 		}
 	}
-	//已找到,无须进行其他的遍历
 	return false
+	//已找到,无须进行其他的遍历
 found:
 	return true
 }
 
-func IsPodSpecReferencSecret(name string, spec corev1.PodSpec) bool {
+func IsPodSpecReferenceSecret(name string, spec corev1.PodSpec) bool {
 	for _, c := range spec.Containers {
 		for _, j := range c.Env {
 
@@ -2073,10 +2088,17 @@ func IsPodSpecReferencSecret(name string, spec corev1.PodSpec) bool {
 			}
 		}
 	}
-	//已找到,无须进行其他的遍历
 	return false
+	//已找到,无须进行其他的遍历
 found:
 	return true
+}
+
+func IsPodSpecReferenceServiceAccount(name string, spec corev1.PodSpec) bool {
+	if spec.ServiceAccountName == name {
+		return true
+	}
+	return false
 }
 
 type podspecReferencCheckFn func(name string, spec corev1.PodSpec) bool

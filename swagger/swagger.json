@@ -8418,6 +8418,51 @@
                 }
             }
         },
+        "/serviceaccount/{serviceaccount}/group/{group}/workspace/{workspace}/reference": {
+            "get": {
+                "tags": [
+                    "serviceaccount"
+                ],
+                "description": "ServiceAccount container event",
+                "operationId": "ServiceAccountController.ServiceAccount",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Token",
+                        "description": "'Token'",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "group",
+                        "description": "组名",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "workspace",
+                        "description": "工作区",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "serviceaccount",
+                        "description": "私密凭据",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "{string} create success!"
+                    },
+                    "500": {}
+                }
+            }
+        },
         "/serviceaccount/{serviceaccount}/group/{group}/workspace/{workspace}/template": {
             "get": {
                 "tags": [

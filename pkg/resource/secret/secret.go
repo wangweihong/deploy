@@ -30,7 +30,7 @@ type SecretInterface interface {
 	GetTemplate() (string, error)
 	GetStatus() *Status
 	Event() ([]corev1.Event, error)
-	GetReferenceObjects() ([]ObjectReference, error)
+	GetReferenceObjects() ([]resource.ObjectReference, error)
 }
 
 type SecretManager struct {
@@ -603,13 +603,7 @@ func (s *Secret) Event() ([]corev1.Event, error) {
 	return e, nil
 }
 
-type ObjectReference struct {
-	corev1.ObjectReference
-	Group     string `group`
-	Namespace string `json:"workspace"`
-}
-
-func (s *Secret) GetReferenceObjects() ([]ObjectReference, error) {
+func (s *Secret) GetReferenceObjects() ([]resource.ObjectReference, error) {
 	ph, err := cluster.NewSecretHandler(s.Group, s.Workspace)
 	if err != nil {
 		return nil, err
@@ -620,9 +614,9 @@ func (s *Secret) GetReferenceObjects() ([]ObjectReference, error) {
 		return nil, err
 	}
 
-	ors := make([]ObjectReference, 0)
+	ors := make([]resource.ObjectReference, 0)
 	for _, v := range apiors {
-		var or ObjectReference
+		var or resource.ObjectReference
 		or.ObjectReference = v
 		or.Namespace = s.Workspace
 		or.Group = s.Group

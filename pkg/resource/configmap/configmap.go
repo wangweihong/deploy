@@ -32,7 +32,7 @@ type ConfigMapInterface interface {
 	//	ObjectStatus() resource.ObjectStatus
 	Event() ([]corev1.Event, error)
 	Metadata() resource.ObjectMeta
-	GetReferenceObjects() ([]ObjectReference, error)
+	GetReferenceObjects() ([]resource.ObjectReference, error)
 }
 
 type ConfigMapManager struct {
@@ -624,13 +624,7 @@ func (s *ConfigMap) Event() ([]corev1.Event, error) {
 	return e, nil
 }
 
-type ObjectReference struct {
-	corev1.ObjectReference
-	Group     string `group`
-	Namespace string `json:"workspace"`
-}
-
-func (s *ConfigMap) GetReferenceObjects() ([]ObjectReference, error) {
+func (s *ConfigMap) GetReferenceObjects() ([]resource.ObjectReference, error) {
 	ph, err := cluster.NewConfigMapHandler(s.Group, s.Workspace)
 	if err != nil {
 		return nil, err
@@ -641,9 +635,9 @@ func (s *ConfigMap) GetReferenceObjects() ([]ObjectReference, error) {
 		return nil, err
 	}
 
-	ors := make([]ObjectReference, 0)
+	ors := make([]resource.ObjectReference, 0)
 	for _, v := range apiors {
-		var or ObjectReference
+		var or resource.ObjectReference
 		or.ObjectReference = v
 		or.Namespace = s.Workspace
 		or.Group = s.Group
