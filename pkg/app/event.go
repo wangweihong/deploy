@@ -40,10 +40,12 @@ func (a *AppMananger) HandleEvent(e backend.ResourceEvent) {
 			return
 		case eWorkspace:
 			group, ok := sm.Groups[e.Group]
-			if !ok {
+			if ok {
 				delete(group.Workspaces, *e.Workspace)
 				sm.Groups[e.Group] = group
 				return
+			} else {
+				log.ErrorPrint("group %v not found ", e.Group)
 			}
 		case eResource:
 			group, ok := sm.Groups[e.Group]
