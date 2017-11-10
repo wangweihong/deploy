@@ -565,6 +565,7 @@ type Status struct {
 	//	Pods       []string `json:"pods"`
 	ContainerSpecs []pk.ContainerSpec `json:"containerspec"`
 	PodStatus      []pk.Status        `json:"podstatus"`
+	PodsCount      resource.PodsCount `json:"podscount"`
 	corev1.ReplicationControllerStatus
 }
 
@@ -682,6 +683,7 @@ func (j *ReplicationController) GetStatus() *Status {
 	js.User = info.User
 	js.Group = info.Group
 	js.Workspace = info.Workspace
+	js.PodsCount = *resource.GetPodsCount(runtime.Pods)
 
 	for _, v := range runtime.Pods {
 		ps := pk.V1PodToPodStatus(*v)

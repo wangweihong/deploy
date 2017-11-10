@@ -14,8 +14,8 @@ type PodController struct {
 	baseController
 }
 
-func getPodsCount(pis []resource.Object) *Count {
-	c := &Count{}
+func getPodsCount(pis []resource.Object) *resource.PodsCount {
+	c := &resource.PodsCount{}
 	for _, v := range pis {
 		c.Total += 1
 		pi, _ := v.(pk.PodInterface)
@@ -36,16 +36,6 @@ func getPodsCount(pis []resource.Object) *Count {
 		}
 	}
 	return c
-
-}
-
-type Count struct {
-	Total     int `json:"total"`
-	Pending   int `json:"pending"`
-	Running   int `json:"running"`
-	Succeeded int `json:"successed"`
-	Failed    int `json:"failed"`
-	Unknown   int `json:"unknown"`
 }
 
 // ListPods
@@ -238,7 +228,7 @@ func (this *PodController) GetAllGroupPodsCount() {
 		return
 	}
 
-	cs := &Count{}
+	cs := &resource.PodsCount{}
 	groups := pk.Controller.ListGroups()
 	for _, v := range groups {
 		v, err := pk.Controller.ListGroupObject(v)

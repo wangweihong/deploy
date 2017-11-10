@@ -595,19 +595,20 @@ type Status struct {
 	PodNum     int      `json:"podnum"`
 	ClusterIP  string   `json:"clusterip"`
 	//Replicas    int32             `json:"replicas"`
-	Strategy    string            `json:"strategy"`
-	Desire      int               `json:"desire"`
-	Current     int               `json:"current"`
-	Available   int               `json:"available"`
-	UpToDate    int               `json:"uptodate"`
-	Ready       int               `json:"ready"`
-	Labels      map[string]string `json:"labels"`
-	Annotations map[string]string `json:"annotations"`
-	Selectors   map[string]string `json:"selectors"`
-	Reason      string            `json:"reason"`
-	timeout     int64             `json:"timemout"`
-	Paused      bool              `json:"paused"`
-	Revision    int64             `json:"revision"`
+	Strategy    string             `json:"strategy"`
+	Desire      int                `json:"desire"`
+	Current     int                `json:"current"`
+	Available   int                `json:"available"`
+	UpToDate    int                `json:"uptodate"`
+	Ready       int                `json:"ready"`
+	Labels      map[string]string  `json:"labels"`
+	Annotations map[string]string  `json:"annotations"`
+	Selectors   map[string]string  `json:"selectors"`
+	Reason      string             `json:"reason"`
+	timeout     int64              `json:"timemout"`
+	Paused      bool               `json:"paused"`
+	Revision    int64              `json:"revision"`
+	PodsCount   resource.PodsCount `json:"podscount"`
 	//	Pods       []string `json:"pods"`
 	PodStatus               []pk.Status        `json:"podstatus"`
 	ContainerSpecs          []pk.ContainerSpec `json:"containerspecs"`
@@ -620,36 +621,23 @@ func (j *Deployment) ObjectStatus() resource.ObjectStatus {
 }
 
 func (j *Deployment) GetStatus() *Status {
+	var e error
+	var revision int64
+	var js *Status
+	var deployment *extensionsv1beta1.Deployment
 	runtime, err := j.GetRuntime()
 	if err != nil {
-		js := Status{ObjectMeta: j.ObjectMeta}
-		js.Images = make([]string, 0)
-		js.PodStatus = make([]pk.Status, 0)
-		js.ContainerSpecs = make([]pk.ContainerSpec, 0)
-		js.Labels = make(map[string]string)
-		js.Annotations = make(map[string]string)
-		js.Selectors = make(map[string]string)
-		js.Reason = err.Error()
-
-		return &js
+		e = err
+		goto faileReturn
 	}
 
-	revision, err := cluster.GetCurrentDeploymentRevision(runtime.Deployment)
-	if err != nil {
-		js := Status{ObjectMeta: j.ObjectMeta}
-		js.Images = make([]string, 0)
-		js.PodStatus = make([]pk.Status, 0)
-		js.ContainerSpecs = make([]pk.ContainerSpec, 0)
-		js.Labels = make(map[string]string)
-		js.Annotations = make(map[string]string)
-		js.Selectors = make(map[string]string)
-		js.Reason = fmt.Errorf("get revision failed for %v", err).Error()
-
-		return &js
+	revision, e = cluster.GetCurrentDeploymentRevision(runtime.Deployment)
+	if e != nil {
+		goto faileReturn
 	}
 
-	deployment := runtime.Deployment
-	js := Status{ObjectMeta: j.ObjectMeta, DeploymentStatus: deployment.Status}
+	deployment = runtime.Deployment
+	js = &Status{ObjectMeta: j.ObjectMeta, DeploymentStatus: deployment.Status}
 	js.Revision = revision
 	js.Images = make([]string, 0)
 	js.PodStatus = make([]pk.Status, 0)
@@ -695,6 +683,8 @@ func (j *Deployment) GetStatus() *Status {
 	js.Available = int(deployment.Status.AvailableReplicas)
 	js.UpToDate = int(deployment.Status.UpdatedReplicas)
 
+	js.PodsCount = *resource.GetPodsCount(runtime.Pods)
+
 	for _, v := range deployment.Spec.Template.Spec.Containers {
 		js.Containers = append(js.Containers, v.Name)
 		js.Images = append(js.Images, v.Image)
@@ -711,7 +701,17 @@ func (j *Deployment) GetStatus() *Status {
 		js.PodStatus = append(js.PodStatus, *ps)
 	}
 
-	return &js
+	return js
+faileReturn:
+	js = &Status{ObjectMeta: j.ObjectMeta}
+	js.Images = make([]string, 0)
+	js.PodStatus = make([]pk.Status, 0)
+	js.ContainerSpecs = make([]pk.ContainerSpec, 0)
+	js.Labels = make(map[string]string)
+	js.Annotations = make(map[string]string)
+	js.Selectors = make(map[string]string)
+	js.Reason = e.Error()
+	return js
 }
 
 func (j *Deployment) Scale(num int) error {
@@ -815,15 +815,6 @@ func (j *Deployment) StartAutoScale(min int, max int, cpuPercent int, memPercent
 			return log.DebugPrint(err)
 		}
 	} else {
-		/*
-			rm.locker.Lock()
-			defer rm.locker.Unlock()
-			err := rm.update(j.Group, j.Workspace, j.Name, j)
-			if err != nil {
-				return err
-			}
-
-		*/
 		return fmt.Errorf("deployment is not created by ufleet directly doesn't support autoscale")
 	}
 	return nil

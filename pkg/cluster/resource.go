@@ -1592,6 +1592,7 @@ type StatefulSetHandler interface {
 	Create(namespace string, ss *appv1beta1.StatefulSet) error
 	Delete(namespace string, name string) error
 	Update(namespace string, resource *appv1beta1.StatefulSet) error
+	GetPods(namespace, name string) ([]*corev1.Pod, error)
 	GetServices(namespace string, name string) ([]*corev1.Service, error)
 }
 
@@ -1627,6 +1628,23 @@ func (h *statefulsetHandler) Delete(namespace, statefulsetName string) error {
 func (h *statefulsetHandler) Update(namespace string, resource *appv1beta1.StatefulSet) error {
 	_, err := h.clientset.AppsV1beta1().StatefulSets(namespace).Update(resource)
 	return err
+}
+func (h *statefulsetHandler) GetPods(namespace, name string) ([]*corev1.Pod, error) {
+	d, err := h.informerController.statefulsetInformer.Lister().StatefulSets(namespace).Get(name)
+	if err != nil {
+		return nil, nil
+	}
+	//	rsSelector := d.Spec.Selector.MatchLabels
+	rsSelector := d.Spec.Template.Labels
+	selector := labels.Set(rsSelector).AsSelector()
+	//opts := corev1.ListOptions{LabelSelector: selector.String()}
+	//po, err := h.clientset.CoreV1().Pods(namespace).List(opts)
+	pos, err := h.informerController.podInformer.Lister().List(selector)
+	if err != nil {
+		return nil, err
+	}
+
+	return pos, nil
 }
 
 func (h *statefulsetHandler) GetServices(namespace string, name string) ([]*corev1.Service, error) {

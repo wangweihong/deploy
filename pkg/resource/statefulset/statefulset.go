@@ -47,6 +47,7 @@ type StatefulSetWorkspace struct {
 
 type Runtime struct {
 	StatefulSet *appv1beta1.StatefulSet
+	Pods        []*corev1.Pod
 }
 
 //TODO:是否可以添加一个特定的只存于内存的标记位
@@ -536,7 +537,17 @@ func (s *StatefulSet) GetRuntime() (*Runtime, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Runtime{StatefulSet: svc}, nil
+
+	pods, err := ph.GetPods(s.Workspace, s.Name)
+	if err != nil {
+		return nil, log.DebugPrint(err)
+	}
+
+	var runtime Runtime
+	runtime.Pods = pods
+	runtime.StatefulSet = svc
+
+	return &runtime, nil
 }
 
 func (s *StatefulSet) GetTemplate() (string, error) {
@@ -557,7 +568,8 @@ func (s *StatefulSet) GetTemplate() (string, error) {
 
 type Status struct {
 	resource.ObjectMeta
-	Reason string `json:"reason"`
+	Reason    string             `json:"reason"`
+	PodsCount resource.PodsCount `json:"podscount"`
 }
 
 func (s *StatefulSet) ObjectStatus() resource.ObjectStatus {
@@ -575,6 +587,7 @@ func (s *StatefulSet) GetStatus() *Status {
 		js.CreateTime = runtime.StatefulSet.CreationTimestamp.Unix()
 	}
 
+	js.PodsCount = *resource.GetPodsCount(runtime.Pods)
 	return &js
 
 }

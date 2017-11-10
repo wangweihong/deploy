@@ -129,3 +129,37 @@ type ObjectReference struct {
 	Group     string `group`
 	Namespace string `json:"workspace"`
 }
+
+type PodsCount struct {
+	Total     int `json:"total"`
+	Pending   int `json:"pending"`
+	Running   int `json:"running"`
+	Succeeded int `json:"successed"`
+	Failed    int `json:"failed"`
+	Unknown   int `json:"unknown"`
+}
+
+func GetPodsCount(pis interface{}) *PodsCount {
+
+	c := &PodsCount{}
+	if pods, ok := pis.([]*corev1.Pod); ok {
+		for _, v := range pods {
+			c.Total += 1
+			switch corev1.PodPhase(v.Status.Phase) {
+			case corev1.PodPending:
+				c.Pending += 1
+			case corev1.PodFailed:
+				c.Failed += 1
+			case corev1.PodSucceeded:
+				c.Succeeded += 1
+			case corev1.PodRunning:
+				c.Running += 1
+			case corev1.PodUnknown:
+				c.Unknown += 1
+			default:
+				c.Unknown += 1
+			}
+		}
+	}
+	return c
+}

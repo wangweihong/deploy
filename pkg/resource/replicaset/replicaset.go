@@ -568,6 +568,7 @@ type Status struct {
 	//	Pods       []string `json:"pods"`
 	ContainerSpecs []pk.ContainerSpec `json:"containerspec"`
 	PodStatus      []pk.Status        `json:"podstatus"`
+	PodsCount      resource.PodsCount `json:"podscount"`
 	extensionsv1beta1.ReplicaSetStatus
 }
 
@@ -691,6 +692,7 @@ func (j *ReplicaSet) GetStatus() *Status {
 		js.PodStatus = append(js.PodStatus, *ps)
 	}
 
+	js.PodsCount = *resource.GetPodsCount(runtime.Pods)
 	return &js
 }
 func (j *ReplicaSet) Scale(num int) error {

@@ -566,6 +566,7 @@ type Status struct {
 	//	Pods       []string `json:"pods"`
 	PodStatus      []pk.Status        `json:"podstatus"`
 	ContainerSpecs []pk.ContainerSpec `json:"containerspec"`
+	PodsCount      resource.PodsCount `json:"podscount"`
 	extensionsv1beta1.DaemonSetStatus
 }
 
@@ -632,6 +633,7 @@ func (j *DaemonSet) GetStatus() *Status {
 		ps := pk.V1PodToPodStatus(*v)
 		js.PodStatus = append(js.PodStatus, *ps)
 	}
+	js.PodsCount = *resource.GetPodsCount(runtime.Pods)
 
 	return &js
 }
