@@ -716,7 +716,6 @@ func V1PodToPodStatus(pod corev1.Pod) *Status {
 	var s Status
 	s.Name = pod.Name
 	ps := pod.Status
-	s.Phase = string(ps.Phase)
 	s.IP = ps.PodIP
 	s.Containers = make([]string, 0)
 	s.ID = string(pod.UID)
@@ -753,6 +752,13 @@ func V1PodToPodStatus(pod corev1.Pod) *Status {
 		//显示最大的重启次数
 		if s.Restarts < int(v.RestartCount) {
 			s.Restarts = int(v.RestartCount)
+		}
+	}
+
+	s.Phase = string(ps.Phase)
+	for _, v := range pod.Status.Conditions {
+		if v.Type == corev1.PodReady && v.Status == corev1.ConditionTrue {
+			s.Phase = resource.PodReady
 		}
 	}
 	return &s

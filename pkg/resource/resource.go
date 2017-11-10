@@ -9,6 +9,8 @@ import (
 
 const (
 	DefaultAppBelong = "standalone"
+
+	PodReady = "ready"
 )
 
 var (
@@ -136,6 +138,7 @@ type PodsCount struct {
 	Running   int `json:"running"`
 	Succeeded int `json:"successed"`
 	Failed    int `json:"failed"`
+	Ready     int `json:"ready"`
 	Unknown   int `json:"unknown"`
 }
 
@@ -156,6 +159,9 @@ func GetPodsCount(pis interface{}) *PodsCount {
 				c.Running += 1
 			case corev1.PodUnknown:
 				c.Unknown += 1
+			case PodReady:
+				c.Ready += 1
+				c.Running += 1
 			default:
 				c.Unknown += 1
 			}

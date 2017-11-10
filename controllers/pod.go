@@ -31,6 +31,9 @@ func getPodsCount(pis []resource.Object) *resource.PodsCount {
 			c.Running += 1
 		case corev1.PodUnknown:
 			c.Unknown += 1
+		case resource.PodReady:
+			c.Running += 1
+			c.Ready += 1
 		default:
 			c.Unknown += 1
 		}
