@@ -88,6 +88,8 @@ func (c *ResourceController) generateEventFromObj(obj interface{}, action Action
 	ns := accessor.GetNamespace()
 	name := accessor.GetName()
 	annotations := accessor.GetAnnotations()
+	//由rc创建出来的pod,deployment创建出来的rc包含owner references
+	ows := accessor.GetOwnerReferences()
 
 	wg := c.locateResourceGW(ns)
 	if wg == nil {
@@ -101,7 +103,7 @@ func (c *ResourceController) generateEventFromObj(obj interface{}, action Action
 	e.Name = name
 
 	_, ok := annotations[sign.SignFromUfleetKey]
-	if ok {
+	if ok && len(ows) == 0 {
 		e.FromUfleet = true
 	}
 	return &e, nil
