@@ -590,11 +590,10 @@ func (j *Deployment) GetRuntime() (*Runtime, error) {
 type Status struct {
 	resource.ObjectMeta
 
-	Images     []string `json:"images"`
-	Containers []string `json:"containers"`
-	PodNum     int      `json:"podnum"`
-	ClusterIP  string   `json:"clusterip"`
-	//Replicas    int32             `json:"replicas"`
+	Images      []string           `json:"images"`
+	Containers  []string           `json:"containers"`
+	PodNum      int                `json:"podnum"`
+	ClusterIP   string             `json:"clusterip"`
 	Strategy    string             `json:"strategy"`
 	Desire      int                `json:"desire"`
 	Current     int                `json:"current"`
@@ -652,9 +651,6 @@ func (j *Deployment) GetStatus() *Status {
 		js.CreateTime = deployment.CreationTimestamp.Unix()
 	}
 
-	if deployment.Spec.Replicas != nil {
-		js.Replicas = *deployment.Spec.Replicas
-	}
 	if deployment.Labels != nil {
 		js.Labels = deployment.Labels
 	}

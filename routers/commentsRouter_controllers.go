@@ -1399,6 +1399,13 @@ func init() {
 			AllowHTTPMethods: []string{"Get"},
 			Params: nil})
 
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:StatefulSetController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:StatefulSetController"],
+		beego.ControllerComments{
+			Method: "GetStatefulSetTemplate",
+			Router: `/:statefulset/group/:group/workspace/:workspace/template`,
+			AllowHTTPMethods: []string{"Get"},
+			Params: nil})
+
 	beego.GlobalControllerRouter["ufleet-deploy/controllers:TestController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:TestController"],
 		beego.ControllerComments{
 			Method: "CheckDevMode",

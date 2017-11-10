@@ -13,6 +13,8 @@ import (
 	"ufleet-deploy/pkg/resource/util"
 	"ufleet-deploy/pkg/sign"
 
+	pk "ufleet-deploy/pkg/resource/pod"
+
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	corev1 "k8s.io/client-go/pkg/api/v1"
 	appv1beta1 "k8s.io/client-go/pkg/apis/apps/v1beta1"
@@ -568,28 +570,102 @@ func (s *StatefulSet) GetTemplate() (string, error) {
 
 type Status struct {
 	resource.ObjectMeta
-	Reason    string             `json:"reason"`
-	PodsCount resource.PodsCount `json:"podscount"`
+	ServiceName    string             `json:"servicename"`
+	Desire         int                `json:"desire"`
+	Current        int                `json:"current"`
+	PodsCount      resource.PodsCount `json:"podscount"`
+	PodStatus      []pk.Status        `json:"podstatus"`
+	Revision       string             `json:"revision"`
+	Images         []string           `json:"images"`
+	Containers     []string           `json:"containers"`
+	ContainerSpecs []pk.ContainerSpec `json:"containerspecs"`
+	PodNum         int                `json:"podnum"`
+	Labels         map[string]string  `json:"labels"`
+	Annotations    map[string]string  `json:"annotations"`
+	Selectors      map[string]string  `json:"selectors"`
+	Reason         string             `json:"reason"`
+	//	appv1beta1.StatefulSetStatus
 }
 
 func (s *StatefulSet) ObjectStatus() resource.ObjectStatus {
 	return s.GetStatus()
 }
 func (s *StatefulSet) GetStatus() *Status {
-	js := Status{ObjectMeta: s.ObjectMeta}
+	var e error
+
+	var js *Status
+	var statefulset *appv1beta1.StatefulSet
+
 	runtime, err := s.GetRuntime()
 	if err != nil {
-		js.Reason = err.Error()
-		return &js
+		e = err
+		goto faileReturn
 	}
 
-	if js.CreateTime == 0 {
-		js.CreateTime = runtime.StatefulSet.CreationTimestamp.Unix()
-	}
+	statefulset = runtime.StatefulSet
+	js = &Status{ObjectMeta: s.ObjectMeta}
+	js.Images = make([]string, 0)
+	js.PodStatus = make([]pk.Status, 0)
+	js.ContainerSpecs = make([]pk.ContainerSpec, 0)
+	js.Labels = make(map[string]string)
+	js.Annotations = make(map[string]string)
+	js.Selectors = make(map[string]string)
+
+	js.ServiceName = statefulset.Spec.ServiceName
 
 	js.PodsCount = *resource.GetPodsCount(runtime.Pods)
-	return &js
 
+	if statefulset.Spec.Replicas != nil {
+		t := *statefulset.Spec.Replicas
+		js.Desire = int(t)
+	} else {
+		js.Desire = 1
+	}
+
+	js.Current = int(statefulset.Status.CurrentReplicas)
+
+	if js.CreateTime == 0 {
+		js.CreateTime = statefulset.CreationTimestamp.Unix()
+
+	}
+	js.Revision = statefulset.Status.CurrentRevision
+
+	if statefulset.Labels != nil {
+		js.Labels = statefulset.Labels
+	}
+
+	if statefulset.Annotations != nil {
+		js.Annotations = statefulset.Annotations
+	}
+
+	if statefulset.Spec.Selector != nil {
+		js.Selectors = statefulset.Spec.Selector.MatchLabels
+	}
+	for _, v := range statefulset.Spec.Template.Spec.Containers {
+		js.Containers = append(js.Containers, v.Name)
+		js.Images = append(js.Images, v.Image)
+		js.ContainerSpecs = append(js.ContainerSpecs, *pk.K8sContainerSpecTran(&v))
+	}
+	js.PodNum = len(runtime.Pods)
+
+	for _, v := range runtime.Pods {
+		ps := pk.V1PodToPodStatus(*v)
+		js.PodStatus = append(js.PodStatus, *ps)
+	}
+	//	js.StatefulSetStatus = statefulset.Status
+
+	return js
+
+faileReturn:
+	js = &Status{ObjectMeta: s.ObjectMeta}
+	js.Images = make([]string, 0)
+	js.PodStatus = make([]pk.Status, 0)
+	js.ContainerSpecs = make([]pk.ContainerSpec, 0)
+	js.Labels = make(map[string]string)
+	js.Annotations = make(map[string]string)
+	js.Selectors = make(map[string]string)
+	js.Reason = e.Error()
+	return js
 }
 
 func (s *StatefulSet) Event() ([]corev1.Event, error) {
