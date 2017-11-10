@@ -588,7 +588,6 @@ type Status struct {
 	Phase             string            `json:"phase"`
 	IP                string            `json:"ip"`
 	HostIP            string            `json:"hostip"`
-	CreateTime        int64             `json:"createtime"`
 	Running           int               `json:"running"`
 	Total             int               `json:"total"`
 	ID                string            `json:"id"`
@@ -733,9 +732,6 @@ func V1PodToPodStatus(pod corev1.Pod) *Status {
 
 	s.RestartPolicy = string(pod.Spec.RestartPolicy)
 
-	if ps.StartTime != nil {
-		s.CreateTime = ps.StartTime.Unix()
-	}
 	for _, v := range pod.Spec.Containers {
 		cs := K8sContainerSpecTran(&v)
 		s.ContainerSpecs = append(s.ContainerSpecs, *cs)
@@ -802,16 +798,22 @@ func (p *Pod) GetStatus() *Status {
 	if sr != nil {
 		s.CreatorReference = &CreatorReference{SerializedReference: *sr, Group: p.Group, Workspace: p.Workspace}
 	}
-	s.Name = p.Name
-	s.App = p.App
-	s.ObjectMeta.Comment = p.Comment
-	s.ObjectMeta.CreateTime = p.CreateTime
-	s.ObjectMeta.MemoryOnly = p.MemoryOnly
-	s.ObjectMeta.User = p.User
-	s.ObjectMeta.Template = p.Template
-	s.ObjectMeta.Kind = p.Kind
-	s.ObjectMeta.Group = p.Group
-	s.ObjectMeta.Workspace = p.Workspace
+	/*
+		s.Name = p.Name
+		s.App = p.App
+		s.ObjectMeta.Comment = p.Comment
+		s.ObjectMeta.CreateTime = p.CreateTime
+		s.ObjectMeta.MemoryOnly = p.MemoryOnly
+		s.ObjectMeta.User = p.User
+		s.ObjectMeta.Template = p.Template
+		s.ObjectMeta.Kind = p.Kind
+		s.ObjectMeta.Group = p.Group
+		s.ObjectMeta.Workspace = p.Workspace
+	*/
+	s.ObjectMeta = p.ObjectMeta
+	if s.CreateTime == 0 {
+		s.CreateTime = runtime.Pod.CreationTimestamp.Unix()
+	}
 
 	return s
 MeetError:
