@@ -368,7 +368,6 @@ func (p *DeploymentManager) CreateObject(groupName, workspaceName string, data [
 	}
 
 	var obj extensionsv1beta1.Deployment
-	obj.Annotations = make(map[string]string)
 	err = json.Unmarshal(exts[0].Raw, &obj)
 	if err != nil {
 		return log.DebugPrint(err)
@@ -378,6 +377,9 @@ func (p *DeploymentManager) CreateObject(groupName, workspaceName string, data [
 		return log.DebugPrint("must and  offer one resource json/yaml data")
 	}
 	obj.ResourceVersion = ""
+	if obj.Annotations == nil {
+		obj.Annotations = make(map[string]string)
+	}
 	obj.Annotations[sign.SignFromUfleetKey] = sign.SignFromUfleetValue
 
 	var cp Deployment

@@ -363,7 +363,9 @@ func (p *DaemonSetManager) CreateObject(groupName, workspaceName string, data []
 		return log.DebugPrint("must and  offer one resource json/yaml data")
 	}
 	obj.ResourceVersion = ""
-	obj.Annotations = make(map[string]string)
+	if obj.Annotations == nil {
+		obj.Annotations = make(map[string]string)
+	}
 	obj.Annotations[sign.SignFromUfleetKey] = sign.SignFromUfleetValue
 
 	var cp DaemonSet

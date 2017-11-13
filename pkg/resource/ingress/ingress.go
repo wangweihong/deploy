@@ -349,7 +349,6 @@ func (p *IngressManager) CreateObject(groupName, workspaceName string, data []by
 	}
 
 	var obj extensionsv1beta1.Ingress
-	obj.Annotations = make(map[string]string)
 	err = json.Unmarshal(exts[0].Raw, &obj)
 	if err != nil {
 		return log.DebugPrint(err)
@@ -359,8 +358,11 @@ func (p *IngressManager) CreateObject(groupName, workspaceName string, data []by
 		return log.DebugPrint("must and  offer one resource json/yaml data")
 	}
 	obj.ResourceVersion = ""
-	obj.Annotations[sign.SignFromUfleetKey] = sign.SignFromUfleetValue
 
+	if obj.Annotations == nil {
+		obj.Annotations = make(map[string]string)
+	}
+	obj.Annotations[sign.SignFromUfleetKey] = sign.SignFromUfleetValue
 	var cp Ingress
 	cp.CreateTime = time.Now().Unix()
 	cp.Name = obj.Name

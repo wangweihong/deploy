@@ -370,7 +370,9 @@ func (p *ConfigMapManager) CreateObject(groupName, workspaceName string, data []
 	}
 
 	obj.ResourceVersion = ""
-	obj.Annotations = make(map[string]string)
+	if obj.Annotations == nil {
+		obj.Annotations = make(map[string]string)
+	}
 	obj.Annotations[sign.SignFromUfleetKey] = sign.SignFromUfleetValue
 
 	var cp ConfigMap

@@ -351,7 +351,6 @@ func (p *ReplicationControllerManager) CreateObject(groupName, workspaceName str
 	}
 
 	var obj corev1.ReplicationController
-	obj.Annotations = make(map[string]string)
 	err = json.Unmarshal(exts[0].Raw, &obj)
 	if err != nil {
 		return log.DebugPrint(err)
@@ -361,6 +360,9 @@ func (p *ReplicationControllerManager) CreateObject(groupName, workspaceName str
 		return log.DebugPrint("must and  offer one rc json/yaml data")
 	}
 	obj.ResourceVersion = ""
+	if obj.Annotations == nil {
+		obj.Annotations = make(map[string]string)
+	}
 	obj.Annotations[sign.SignFromUfleetKey] = sign.SignFromUfleetValue
 
 	var cp ReplicationController

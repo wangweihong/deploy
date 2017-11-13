@@ -353,7 +353,6 @@ func (p *SecretManager) CreateObject(groupName, workspaceName string, data []byt
 	}
 
 	var obj corev1.Secret
-	obj.Annotations = make(map[string]string)
 	err = json.Unmarshal(exts[0].Raw, &obj)
 	if err != nil {
 		return log.DebugPrint(err)
@@ -363,6 +362,9 @@ func (p *SecretManager) CreateObject(groupName, workspaceName string, data []byt
 		return log.DebugPrint("must and  offer one resource json/yaml data")
 	}
 	obj.ResourceVersion = ""
+	if obj.Annotations == nil {
+		obj.Annotations = make(map[string]string)
+	}
 	obj.Annotations[sign.SignFromUfleetKey] = sign.SignFromUfleetValue
 
 	var cp Secret
