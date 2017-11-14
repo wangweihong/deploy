@@ -50,7 +50,7 @@ func HandleEventWatchFromK8sCluster(echan chan cluster.Event, kind string, oc Ob
 						return
 					}
 				} else {
-					log.ErrorPrint("%v:  event handler create 'group:%v,Workspace:%v,resource:%v': exists ", kind, e.Group, e.Workspace, e.Name, err)
+					log.ErrorPrint("%v:  event handler create 'group:%v,Workspace:%v,resource:%v': exists ", kind, e.Group, e.Workspace, e.Name)
 					return
 				}
 
@@ -91,7 +91,7 @@ func EtcdEventHandler(e backend.ResourceEvent, cm ObjectController) {
 	}
 
 	if etype == eResource {
-		log.DebugPrint("handle etcd event:'group:%v workspace:%v resource:%v action:%v'", e.Group, *e.Workspace, *e.Resource, e.Action)
+		log.DebugPrint("%v: handle etcd event:'group:%v workspace:%v resource:%v action:%v'", cm.Kind(), e.Group, *e.Workspace, *e.Resource, e.Action)
 	}
 
 	switch e.Action {
@@ -103,7 +103,7 @@ func EtcdEventHandler(e backend.ResourceEvent, cm ObjectController) {
 		case eWorkspace:
 			err := cm.DeleteWorkspace(e.Group, *e.Workspace)
 			if err == ErrGroupNotFound {
-				log.ErrorPrint("handle etcd event:group %v not found", e.Group)
+				log.ErrorPrint("%v: handle etcd event:group %v not found", cm.Kind(), e.Group)
 			}
 			return
 
@@ -113,7 +113,7 @@ func EtcdEventHandler(e backend.ResourceEvent, cm ObjectController) {
 				//清除内存中的数据即可
 				err := cm.DeleteObject(e.Group, *e.Workspace, *e.Resource, DeleteOption{MemoryOnly: true})
 				if err != nil {
-					log.ErrorPrint("handle etcd event:delete event(%v) fail for %v", e, err)
+					log.ErrorPrint("%v: handle etcd event:delete event(%v) fail for %v", e, err)
 				}
 			}
 			return
@@ -126,20 +126,20 @@ func EtcdEventHandler(e backend.ResourceEvent, cm ObjectController) {
 		case eWorkspace:
 			err := cm.AddWorkspace(e.Group, *e.Workspace)
 			if err == ErrGroupNotFound {
-				log.ErrorPrint("handle etcd event: group %v doesn't exist in objectManager", e.Group)
+				log.ErrorPrint("%v: handle etcd event: group %v doesn't exist in objectManager", cm.Kind(), e.Group)
 			}
 
 			return
 		case eResource:
 			err := cm.AddObjectFromBytes([]byte(e.Value), true)
 			if err != nil {
-				log.ErrorPrint(err)
+				log.ErrorPrint("%v: handle etcd event failed to add object for bytes: %v", cm.Kind(), err)
 			}
 			return
 		}
 
 	default:
-		log.ErrorPrint("configmap: app watcher:ingore invalid action:", e.Action)
+		log.ErrorPrint("%v: app watcher:ingore invalid action: %v", cm.Kind(), e.Action)
 		return
 	}
 

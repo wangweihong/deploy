@@ -74,8 +74,13 @@ func GetServiceInterface(obj resource.Object) (ServiceInterface, error) {
 func (p *ServiceManager) Lock() {
 	p.locker.Lock()
 }
+
 func (p *ServiceManager) Unlock() {
 	p.locker.Unlock()
+}
+
+func (p *ServiceManager) Kind() string {
+	return resourceKind
 }
 
 //仅仅用于基于内存的对象的创建

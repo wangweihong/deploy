@@ -76,8 +76,13 @@ func GetStatefulSetInterface(obj resource.Object) (StatefulSetInterface, error) 
 func (p *StatefulSetManager) Lock() {
 	p.locker.Lock()
 }
+
 func (p *StatefulSetManager) Unlock() {
 	p.locker.Unlock()
+}
+
+func (p *StatefulSetManager) Kind() string {
+	return resourceKind
 }
 
 //仅仅用于基于内存的对象的创建

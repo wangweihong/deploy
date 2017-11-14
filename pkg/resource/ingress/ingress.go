@@ -72,8 +72,13 @@ func GetIngressInterface(obj resource.Object) (IngressInterface, error) {
 func (p *IngressManager) Lock() {
 	p.locker.Lock()
 }
+
 func (p *IngressManager) Unlock() {
 	p.locker.Unlock()
+}
+
+func (p *IngressManager) Kind() string {
+	return resourceKind
 }
 
 //仅仅用于基于内存的对象的创建

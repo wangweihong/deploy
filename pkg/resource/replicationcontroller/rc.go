@@ -76,8 +76,13 @@ func GetReplicationControllerInterface(obj resource.Object) (ReplicationControll
 func (p *ReplicationControllerManager) Lock() {
 	p.locker.Lock()
 }
+
 func (p *ReplicationControllerManager) Unlock() {
 	p.locker.Unlock()
+}
+
+func (p *ReplicationControllerManager) Kind() string {
+	return resourceKind
 }
 
 //仅仅用于基于内存的对象的创建

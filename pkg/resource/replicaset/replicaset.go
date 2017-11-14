@@ -78,8 +78,13 @@ func GetReplicaSetInterface(obj resource.Object) (ReplicaSetInterface, error) {
 func (p *ReplicaSetManager) Lock() {
 	p.locker.Lock()
 }
+
 func (p *ReplicaSetManager) Unlock() {
 	p.locker.Unlock()
+}
+
+func (p *ReplicaSetManager) Kind() string {
+	return resourceKind
 }
 
 //仅仅用于基于内存的对象的创建

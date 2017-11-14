@@ -77,8 +77,13 @@ func GetJobInterface(obj resource.Object) (JobInterface, error) {
 func (p *JobManager) Lock() {
 	p.locker.Lock()
 }
+
 func (p *JobManager) Unlock() {
 	p.locker.Unlock()
+}
+
+func (p *JobManager) Kind() string {
+	return resourceKind
 }
 
 //仅仅用于基于内存的对象的创建

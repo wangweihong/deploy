@@ -68,6 +68,9 @@ func (p *CronJobManager) Lock() {
 func (p *CronJobManager) Unlock() {
 	p.locker.Unlock()
 }
+func (p *CronJobManager) Kind() string {
+	return resourceKind
+}
 
 //仅仅用于基于内存的对象的创建
 func (p *CronJobManager) NewObject(meta resource.ObjectMeta) error {

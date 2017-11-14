@@ -77,8 +77,13 @@ func GetConfigMapInterface(obj resource.Object) (ConfigMapInterface, error) {
 func (p *ConfigMapManager) Lock() {
 	p.locker.Lock()
 }
+
 func (p *ConfigMapManager) Unlock() {
 	p.locker.Unlock()
+}
+
+func (p *ConfigMapManager) Kind() string {
+	return resourceKind
 }
 
 //仅仅用于基于内存的对象的创建

@@ -78,8 +78,13 @@ func GetPodInterface(obj resource.Object) (PodInterface, error) {
 func (p *PodManager) Lock() {
 	p.locker.Lock()
 }
+
 func (p *PodManager) Unlock() {
 	p.locker.Unlock()
+}
+
+func (p *PodManager) Kind() string {
+	return resourceKind
 }
 
 //仅仅用于基于内存的对象的创建

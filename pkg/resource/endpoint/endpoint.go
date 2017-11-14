@@ -71,8 +71,13 @@ func GetEndpointInterface(obj resource.Object) (EndpointInterface, error) {
 func (p *EndpointManager) Lock() {
 	p.locker.Lock()
 }
+
 func (p *EndpointManager) Unlock() {
 	p.locker.Unlock()
+}
+
+func (p *EndpointManager) Kind() string {
+	return resourceKind
 }
 
 //仅仅用于基于内存的对象的创建

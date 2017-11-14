@@ -94,8 +94,14 @@ func GetDeploymentInterface(obj resource.Object) (DeploymentInterface, error) {
 func (p *DeploymentManager) Lock() {
 	p.locker.Lock()
 }
+
 func (p *DeploymentManager) Unlock() {
 	p.locker.Unlock()
+}
+
+func (p *DeploymentManager) Kind() string {
+	return resourceKind
+
 }
 
 //仅仅用于基于内存的对象的创建

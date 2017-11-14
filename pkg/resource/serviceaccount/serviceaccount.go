@@ -73,8 +73,13 @@ func GetServiceAccountInterface(obj resource.Object) (ServiceAccountInterface, e
 func (p *ServiceAccountManager) Lock() {
 	p.locker.Lock()
 }
+
 func (p *ServiceAccountManager) Unlock() {
 	p.locker.Unlock()
+}
+
+func (p *ServiceAccountManager) Kind() string {
+	return resourceKind
 }
 
 //仅仅用于基于内存的对象的创建

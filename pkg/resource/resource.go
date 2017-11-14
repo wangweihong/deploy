@@ -103,6 +103,7 @@ type Locker interface {
 
 type ObjectController interface {
 	Locker
+	Kind() string
 	NewObject(meta ObjectMeta) error
 	GetObjectWithoutLock(group, workspace, name string) (Object, error)
 	DeleteGroup(group string) error

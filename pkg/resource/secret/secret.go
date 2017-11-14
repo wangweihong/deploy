@@ -75,8 +75,13 @@ func GetSecretInterface(obj resource.Object) (SecretInterface, error) {
 func (p *SecretManager) Lock() {
 	p.locker.Lock()
 }
+
 func (p *SecretManager) Unlock() {
 	p.locker.Unlock()
+}
+
+func (p *SecretManager) Kind() string {
+	return resourceKind
 }
 
 //仅仅用于基于内存的对象的创建

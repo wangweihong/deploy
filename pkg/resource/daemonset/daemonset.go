@@ -80,8 +80,13 @@ func GetDaemonSetInterface(obj resource.Object) (DaemonSetInterface, error) {
 func (p *DaemonSetManager) Lock() {
 	p.locker.Lock()
 }
+
 func (p *DaemonSetManager) Unlock() {
 	p.locker.Unlock()
+}
+
+func (p *DaemonSetManager) Kind() string {
+	return resourceKind
 }
 
 //仅仅用于基于内存的对象的创建
