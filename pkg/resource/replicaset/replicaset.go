@@ -371,6 +371,13 @@ func (p *ReplicaSetManager) CreateObject(groupName, workspaceName string, data [
 	}
 	obj.Annotations[sign.SignFromUfleetKey] = sign.SignFromUfleetValue
 
+	if opt.App != nil {
+		if obj.Spec.Template.Annotations == nil {
+			obj.Spec.Template.Annotations = make(map[string]string)
+		}
+		obj.Spec.Template.Annotations[sign.SignUfleetAppKey] = *opt.App
+	}
+
 	var cp ReplicaSet
 	cp.CreateTime = time.Now().Unix()
 	cp.Name = obj.Name

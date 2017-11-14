@@ -373,6 +373,13 @@ func (p *DaemonSetManager) CreateObject(groupName, workspaceName string, data []
 	}
 	obj.Annotations[sign.SignFromUfleetKey] = sign.SignFromUfleetValue
 
+	if opt.App != nil {
+		if obj.Spec.Template.Annotations == nil {
+			obj.Spec.Template.Annotations = make(map[string]string)
+		}
+		obj.Spec.Template.Annotations[sign.SignUfleetAppKey] = *opt.App
+	}
+
 	var cp DaemonSet
 	cp.CreateTime = time.Now().Unix()
 	cp.Name = obj.Name
@@ -496,11 +503,18 @@ func (p *DaemonSetManager) UpdateObject(groupName, workspaceName string, resourc
 	}
 	//
 	newr.ResourceVersion = ""
-	if newr.Annotations == nil {
-		newr.Annotations = make(map[string]string)
-	}
 	if !res.MemoryOnly {
+		if newr.Annotations == nil {
+			newr.Annotations = make(map[string]string)
+		}
 		newr.Annotations[sign.SignFromUfleetKey] = sign.SignFromUfleetValue
+	}
+
+	if res.App != "" {
+		if newr.Spec.Template.Annotations == nil {
+			newr.Spec.Template.Annotations = make(map[string]string)
+		}
+		newr.Spec.Template.Annotations[sign.SignUfleetAppKey] = res.App
 	}
 
 	if newr.Name != resourceName {

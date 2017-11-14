@@ -370,6 +370,13 @@ func (p *ReplicationControllerManager) CreateObject(groupName, workspaceName str
 	}
 	obj.Annotations[sign.SignFromUfleetKey] = sign.SignFromUfleetValue
 
+	if opt.App != nil {
+		if obj.Spec.Template.Annotations == nil {
+			obj.Spec.Template.Annotations = make(map[string]string)
+		}
+		obj.Spec.Template.Annotations[sign.SignUfleetAppKey] = *opt.App
+	}
+
 	var cp ReplicationController
 	cp.CreateTime = time.Now().Unix()
 	cp.Name = obj.Name
@@ -497,6 +504,13 @@ func (p *ReplicationControllerManager) UpdateObject(groupName, workspaceName str
 	}
 	if !res.MemoryOnly {
 		newr.Annotations[sign.SignFromUfleetKey] = sign.SignFromUfleetValue
+	}
+
+	if res.App != "" {
+		if newr.Spec.Template.Annotations == nil {
+			newr.Spec.Template.Annotations = make(map[string]string)
+		}
+		newr.Spec.Template.Annotations[sign.SignUfleetAppKey] = res.App
 	}
 
 	if newr.Name != resourceName {

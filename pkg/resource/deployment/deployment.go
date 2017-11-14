@@ -382,11 +382,20 @@ func (p *DeploymentManager) CreateObject(groupName, workspaceName string, data [
 	if obj.Kind != resourceKind {
 		return log.DebugPrint("must and  offer one resource json/yaml data")
 	}
+
 	obj.ResourceVersion = ""
+
 	if obj.Annotations == nil {
 		obj.Annotations = make(map[string]string)
 	}
 	obj.Annotations[sign.SignFromUfleetKey] = sign.SignFromUfleetValue
+
+	if opt.App != nil {
+		if obj.Spec.Template.Annotations == nil {
+			obj.Spec.Template.Annotations = make(map[string]string)
+		}
+		obj.Spec.Template.Annotations[sign.SignUfleetAppKey] = *opt.App
+	}
 
 	var cp Deployment
 	cp.CreateTime = time.Now().Unix()
@@ -533,11 +542,19 @@ func (p *DeploymentManager) UpdateObject(groupName, workspaceName string, resour
 	}
 	//
 	newr.ResourceVersion = ""
-	if newr.Annotations == nil {
-		newr.Annotations = make(map[string]string)
-	}
+
 	if !res.MemoryOnly {
+		if newr.Annotations == nil {
+			newr.Annotations = make(map[string]string)
+		}
 		newr.Annotations[sign.SignFromUfleetKey] = sign.SignFromUfleetValue
+	}
+
+	if res.App != "" {
+		if newr.Spec.Template.Annotations == nil {
+			newr.Spec.Template.Annotations = make(map[string]string)
+		}
+		newr.Spec.Template.Annotations[sign.SignUfleetAppKey] = res.App
 	}
 
 	if newr.Name != resourceName {

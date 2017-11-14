@@ -379,6 +379,10 @@ func (p *PodManager) CreateObject(groupName, workspaceName string, data []byte, 
 	}
 	obj.Annotations[sign.SignFromUfleetKey] = sign.SignFromUfleetValue
 
+	if opt.App != nil {
+		obj.Annotations[sign.SignUfleetAppKey] = *opt.App
+	}
+
 	var cp Pod
 	cp.CreateTime = time.Now().Unix()
 	cp.Name = obj.Name
@@ -439,11 +443,15 @@ func (p *PodManager) UpdateObject(groupName, workspaceName string, resourceName 
 	}
 	//
 	newr.ResourceVersion = ""
-	if newr.Annotations == nil {
-		newr.Annotations = make(map[string]string)
-	}
 	if !res.MemoryOnly {
+		if newr.Annotations == nil {
+			newr.Annotations = make(map[string]string)
+		}
 		newr.Annotations[sign.SignFromUfleetKey] = sign.SignFromUfleetValue
+	}
+
+	if res.App != "" {
+		newr.Annotations[sign.SignUfleetAppKey] = res.App
 	}
 
 	if newr.Name != resourceName {
