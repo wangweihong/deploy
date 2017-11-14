@@ -527,6 +527,12 @@ func (p *DeploymentManager) UpdateObject(groupName, workspaceName string, resour
 	}
 	//
 	newr.ResourceVersion = ""
+	if newr.Annotations == nil {
+		newr.Annotations = make(map[string]string)
+	}
+	if !res.MemoryOnly {
+		newr.Annotations[sign.SignFromUfleetKey] = sign.SignFromUfleetValue
+	}
 
 	if newr.Name != resourceName {
 		return fmt.Errorf("invalid update data, name not match")
@@ -612,7 +618,7 @@ type Status struct {
 	PodsCount   resource.PodsCount `json:"podscount"`
 	//	Pods       []string `json:"pods"`
 	PodStatus               []pk.Status        `json:"podstatus"`
-	ContainerSpecs          []pk.ContainerSpec `json:"containerspecs"`
+	ContainerSpecs          []pk.ContainerSpec `json:"containerspec"`
 	ProgressDeadlineSeconds int                `json:"progressdeadlineseconds"`
 	extensionsv1beta1.DeploymentStatus
 }

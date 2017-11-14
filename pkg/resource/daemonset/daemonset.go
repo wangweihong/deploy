@@ -491,6 +491,12 @@ func (p *DaemonSetManager) UpdateObject(groupName, workspaceName string, resourc
 	}
 	//
 	newr.ResourceVersion = ""
+	if newr.Annotations == nil {
+		newr.Annotations = make(map[string]string)
+	}
+	if !res.MemoryOnly {
+		newr.Annotations[sign.SignFromUfleetKey] = sign.SignFromUfleetValue
+	}
 
 	if newr.Name != resourceName {
 		return fmt.Errorf("invalid update data, name not match")
@@ -560,7 +566,7 @@ type Status struct {
 	PodNum         int               `json:"podnum"`
 	ClusterIP      string            `json:"clusterip"`
 	Labels         map[string]string `json:"labels"`
-	Annotatiosn    map[string]string `json:"annotations"`
+	Annotations    map[string]string `json:"annotations"`
 	Selectors      map[string]string `json:"selectors"`
 	Reason         string            `json:"reason"`
 	Revision       int64             `json:"revision"`
@@ -585,7 +591,7 @@ func (j *DaemonSet) GetStatus() *Status {
 		js.PodStatus = make([]pk.Status, 0)
 		js.ContainerSpecs = make([]pk.ContainerSpec, 0)
 		js.Labels = make(map[string]string)
-		js.Annotatiosn = make(map[string]string)
+		js.Annotations = make(map[string]string)
 		js.Selectors = make(map[string]string)
 		js.Reason = err.Error()
 		return &js
@@ -597,7 +603,7 @@ func (j *DaemonSet) GetStatus() *Status {
 	js.PodStatus = make([]pk.Status, 0)
 	js.ContainerSpecs = make([]pk.ContainerSpec, 0)
 	js.Labels = make(map[string]string)
-	js.Annotatiosn = make(map[string]string)
+	js.Annotations = make(map[string]string)
 	js.Selectors = make(map[string]string)
 
 	if js.CreateTime == 0 {
@@ -609,7 +615,7 @@ func (j *DaemonSet) GetStatus() *Status {
 	}
 
 	if daemonset.Annotations != nil {
-		js.Labels = daemonset.Annotations
+		js.Annotations = daemonset.Annotations
 	}
 
 	if daemonset.Spec.Selector != nil {

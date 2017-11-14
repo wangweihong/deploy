@@ -490,6 +490,12 @@ func (p *StatefulSetManager) UpdateObject(groupName, workspaceName string, resou
 	}
 	//
 	newr.ResourceVersion = ""
+	if newr.Annotations == nil {
+		newr.Annotations = make(map[string]string)
+	}
+	if !res.MemoryOnly {
+		newr.Annotations[sign.SignFromUfleetKey] = sign.SignFromUfleetValue
+	}
 
 	if newr.Name != resourceName {
 		return fmt.Errorf("invalid update data, name not match")
@@ -580,7 +586,7 @@ type Status struct {
 	Revision       string             `json:"revision"`
 	Images         []string           `json:"images"`
 	Containers     []string           `json:"containers"`
-	ContainerSpecs []pk.ContainerSpec `json:"containerspecs"`
+	ContainerSpecs []pk.ContainerSpec `json:"containerspec"`
 	PodNum         int                `json:"podnum"`
 	Labels         map[string]string  `json:"labels"`
 	Annotations    map[string]string  `json:"annotations"`

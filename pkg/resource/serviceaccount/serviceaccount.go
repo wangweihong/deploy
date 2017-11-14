@@ -485,6 +485,12 @@ func (p *ServiceAccountManager) UpdateObject(groupName, workspaceName string, re
 	}
 	//
 	newr.ResourceVersion = ""
+	if newr.Annotations == nil {
+		newr.Annotations = make(map[string]string)
+	}
+	if !res.MemoryOnly {
+		newr.Annotations[sign.SignFromUfleetKey] = sign.SignFromUfleetValue
+	}
 
 	if newr.Name != resourceName {
 		return fmt.Errorf("invalid update data, name not match")

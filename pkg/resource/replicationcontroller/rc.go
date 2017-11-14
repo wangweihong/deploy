@@ -487,6 +487,12 @@ func (p *ReplicationControllerManager) UpdateObject(groupName, workspaceName str
 	}
 	//
 	newr.ResourceVersion = ""
+	if newr.Annotations == nil {
+		newr.Annotations = make(map[string]string)
+	}
+	if !res.MemoryOnly {
+		newr.Annotations[sign.SignFromUfleetKey] = sign.SignFromUfleetValue
+	}
 
 	if newr.Name != resourceName {
 		return fmt.Errorf("invalid update data, name not match")
@@ -561,7 +567,7 @@ type Status struct {
 	Available   int               `json:"available"`
 	Ready       int               `json:"ready"`
 	Labels      map[string]string `json:"labels"`
-	Annotatiosn map[string]string `json:"annotations"`
+	Annotations map[string]string `json:"annotations"`
 	Selectors   map[string]string `json:"selectors"`
 	Reason      string            `json:"reason"`
 	//	Pods       []string `json:"pods"`
@@ -588,9 +594,9 @@ func K8sReplicationControllerToReplicationControllerStatus(replicationcontroller
 		js.Labels = replicationcontroller.Labels
 	}
 
-	js.Annotatiosn = make(map[string]string)
+	js.Annotations = make(map[string]string)
 	if replicationcontroller.Annotations != nil {
-		js.Labels = replicationcontroller.Annotations
+		js.Annotations = replicationcontroller.Annotations
 	}
 
 	js.Selectors = make(map[string]string)
@@ -628,7 +634,7 @@ func (j *ReplicationController) GetStatus() *Status {
 		js.Images = make([]string, 0)
 		js.PodStatus = make([]pk.Status, 0)
 		js.Labels = make(map[string]string)
-		js.Annotatiosn = make(map[string]string)
+		js.Annotations = make(map[string]string)
 		js.Selectors = make(map[string]string)
 		js.Reason = err.Error()
 		return &js
@@ -639,7 +645,7 @@ func (j *ReplicationController) GetStatus() *Status {
 	js.Images = make([]string, 0)
 	js.PodStatus = make([]pk.Status, 0)
 	js.Labels = make(map[string]string)
-	js.Annotatiosn = make(map[string]string)
+	js.Annotations = make(map[string]string)
 	js.Selectors = make(map[string]string)
 
 	if js.CreateTime == 0 {

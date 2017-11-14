@@ -490,6 +490,12 @@ func (p *ReplicaSetManager) UpdateObject(groupName, workspaceName string, resour
 	}
 	//
 	newr.ResourceVersion = ""
+	if newr.Annotations == nil {
+		newr.Annotations = make(map[string]string)
+	}
+	if !res.MemoryOnly {
+		newr.Annotations[sign.SignFromUfleetKey] = sign.SignFromUfleetValue
+	}
 
 	if newr.Name != resourceName {
 		return fmt.Errorf("invalid update data, name not match")
@@ -564,7 +570,7 @@ type Status struct {
 	Available   int               `json:"available"`
 	Ready       int               `json:"ready"`
 	Labels      map[string]string `json:"labels"`
-	Annotatiosn map[string]string `json:"annotations"`
+	Annotations map[string]string `json:"annotations"`
 	Selectors   map[string]string `json:"selector"`
 	Reason      string            `json:"reason"`
 	//	Pods       []string `json:"pods"`
@@ -591,7 +597,7 @@ func K8sReplicaSetToReplicaSetStatus(replicaset *extensionsv1beta1.ReplicaSet) *
 		js.Labels = replicaset.Labels
 	}
 
-	js.Annotatiosn = make(map[string]string)
+	js.Annotations = make(map[string]string)
 	if replicaset.Annotations != nil {
 		js.Labels = replicaset.Annotations
 	}
@@ -631,18 +637,19 @@ func (j *ReplicaSet) GetStatus() *Status {
 		js.Images = make([]string, 0)
 		js.PodStatus = make([]pk.Status, 0)
 		js.Labels = make(map[string]string)
-		js.Annotatiosn = make(map[string]string)
+		js.Annotations = make(map[string]string)
 		js.Selectors = make(map[string]string)
 		js.Reason = err.Error()
 		return &js
 	}
 	replicaset := runtime.ReplicaSet
 	js := Status{ObjectMeta: j.ObjectMeta, ReplicaSetStatus: replicaset.Status}
+	log.DebugPrint(js.ObjectMeta)
 	js.ContainerSpecs = make([]pk.ContainerSpec, 0)
 	js.Images = make([]string, 0)
 	js.PodStatus = make([]pk.Status, 0)
 	js.Labels = make(map[string]string)
-	js.Annotatiosn = make(map[string]string)
+	js.Annotations = make(map[string]string)
 	js.Selectors = make(map[string]string)
 
 	if js.CreateTime == 0 {
@@ -657,7 +664,7 @@ func (j *ReplicaSet) GetStatus() *Status {
 	}
 
 	if replicaset.Annotations != nil {
-		js.Labels = replicaset.Annotations
+		js.Annotations = replicaset.Annotations
 	}
 
 	if replicaset.Spec.Selector != nil {

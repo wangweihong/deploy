@@ -434,6 +434,12 @@ func (p *PodManager) UpdateObject(groupName, workspaceName string, resourceName 
 	}
 	//
 	newr.ResourceVersion = ""
+	if newr.Annotations == nil {
+		newr.Annotations = make(map[string]string)
+	}
+	if !res.MemoryOnly {
+		newr.Annotations[sign.SignFromUfleetKey] = sign.SignFromUfleetValue
+	}
 
 	if newr.Name != resourceName {
 		return fmt.Errorf("invalid update data, name not match")
@@ -696,9 +702,9 @@ func K8sContainerSpecTran(cspec *corev1.Container) *ContainerSpec {
 			rp = Probe{Probe: cspec.ReadinessProbe, Type: "TCP"}
 		}
 
-		cs.LivenessProbe = &rp
+		cs.ReadinessProbe = &rp
 	} else {
-		cs.LivenessProbe = nil
+		cs.ReadinessProbe = nil
 	}
 
 	cs.Lifecycle = cspec.Lifecycle
