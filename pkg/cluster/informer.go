@@ -103,8 +103,16 @@ func (c *ResourceController) generateEventFromObj(obj interface{}, action Action
 	e.Name = name
 
 	_, ok := annotations[sign.SignFromUfleetKey]
-	if ok && len(ows) == 0 {
-		e.FromUfleet = true
+	if ok {
+		//		if len(ows) == 0 {
+		//Replicaset会继承Deployment的Anntations
+		_, ok := obj.(*extensionsv1beta1.ReplicaSet)
+		if ok && len(ows) != 0 {
+			//这是由deployment创建出来的
+			e.FromUfleet = false
+		} else {
+			e.FromUfleet = true
+		}
 	}
 	return &e, nil
 }

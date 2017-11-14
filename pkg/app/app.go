@@ -664,10 +664,12 @@ func (s *App) removeResource(kind string, name string, flush bool) error {
 	if !flush {
 		opt.DontCallApp = true
 	}
+
 	err = rcud.DeleteObject(s.Group, s.Workspace, name, opt)
 	if err != nil && !resource.IsErrorNotFound(err) {
 		return log.DebugPrint(err)
 	}
+
 	if flush {
 		delete(s.Resources, key)
 
