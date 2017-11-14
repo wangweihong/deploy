@@ -14,6 +14,37 @@
     },
     "basePath": "/v1/deploy",
     "paths": {
+        "/app/apps/cluster": {
+            "post": {
+                "tags": [
+                    "app"
+                ],
+                "description": "获取集群上的应用",
+                "operationId": "AppController.应用",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Token",
+                        "description": "'Token'",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "body",
+                        "name": "body",
+                        "description": "集群信息",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "{string} create success!"
+                    },
+                    "500": {}
+                }
+            }
+        },
         "/app/group/{group}": {
             "get": {
                 "tags": [

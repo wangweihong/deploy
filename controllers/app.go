@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"encoding/json"
 	"fmt"
 	"ufleet-deploy/pkg/app"
 	"ufleet-deploy/pkg/log"
@@ -274,7 +275,64 @@ func (this *AppController) ListGroupApp() {
 	}
 
 	this.normalReturn(statuses)
+}
 
+// GetAppsFromCluster
+// @Title 应用
+// @Description   获取集群上的应用
+// @Param Token header string true 'Token'
+// @Param body body string true "集群信息"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /apps/cluster [Post]
+func (this *AppController) GetClusterAppsCount() {
+	err := this.checkRouteControllerAbility()
+	if err != nil {
+		this.abilityErrorReturn(err)
+		return
+	}
+
+	wgs := struct {
+		Clusterwgs []struct {
+			Gws []struct {
+				Group     string   `json:"group"`
+				Workspace []string `json:"workspace"`
+			} `json:"gws"`
+			Cluster string `json:"cluster"`
+		} `json:"clusterwgs"`
+	}{}
+
+	if this.Ctx.Input.RequestBody == nil {
+		err := fmt.Errorf("must commit group/workspace info")
+		this.errReturn(err, 500)
+		return
+	}
+
+	err = json.Unmarshal(this.Ctx.Input.RequestBody, &wgs)
+	if err != nil {
+		err = fmt.Errorf("try to unmarshal data \"%v\" fail for %v", string(this.Ctx.Input.RequestBody), err)
+		this.errReturn(err, 500)
+		return
+	}
+
+	can := make(map[string]int)
+
+	for _, j := range wgs.Clusterwgs {
+		for _, i := range j.Gws {
+			for _, w := range i.Workspace {
+				ais, err := app.Controller.ListGroupWorkspaceApps(i.Group, w)
+				if err != nil {
+					this.errReturn(err, 500)
+					return
+				}
+
+				can[j.Cluster] += len(ais)
+			}
+		}
+
+	}
+
+	this.normalReturn(can)
 }
 
 // App

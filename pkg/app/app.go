@@ -38,6 +38,7 @@ type AppController interface {
 	Get(group, workspaceName, name string) (AppInterface, error)
 	List(group string, opt ListOption) ([]AppInterface, error)
 	ListGroupsApps() []AppInterface
+	ListGroupWorkspaceApps(group, workspace string) ([]AppInterface, error)
 	AddAppResource(group, workspace, app string, describe []byte, opt UpdateOption) error
 	RemoveAppResource(group, workspace, app string, kind string, resource string) error
 }
@@ -202,6 +203,29 @@ func (sm *AppMananger) ListGroupsApps() []AppInterface {
 		}
 	}
 	return ais
+}
+
+func (sm *AppMananger) ListGroupWorkspaceApps(groupName, workspaceName string) ([]AppInterface, error) {
+	sm.Locker.Lock()
+	defer sm.Locker.Unlock()
+
+	ais := make([]AppInterface, 0)
+	group, ok := sm.Groups[groupName]
+	if !ok {
+		return nil, fmt.Errorf("%v:%v", ErrGroupNotFound, groupName)
+	}
+
+	workspace, ok := group.Workspaces[workspaceName]
+	if !ok {
+		return nil, fmt.Errorf("%v:group '%v' workspace '%v'", ErrWorkspaceNotFound, groupName, workspaceName)
+	}
+
+	for i := range workspace.Apps {
+		t := workspace.Apps[i]
+		ais = append(ais, &t)
+
+	}
+	return ais, nil
 }
 
 func (sm *AppMananger) UpdateApp(groupName, workspaceName, appName string, desc []byte, opt UpdateOption) error {
