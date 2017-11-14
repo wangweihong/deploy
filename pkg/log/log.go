@@ -21,7 +21,7 @@ func debugPrintFunc(err interface{}) string {
 		return "n/a"
 	}
 
-	file, line := fun.FileLine(fpcs[0])
+	file, line := fun.FileLine(fpcs[0] - 1)
 	return fmt.Sprintf("File(%v) Line(%v) Func(%v): %v", file, line, fun.Name(), err)
 }
 
