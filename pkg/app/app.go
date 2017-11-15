@@ -34,7 +34,7 @@ var (
 type AppController interface {
 	NewApp(group, workspace, app string, describe []byte, opt CreateOption) error
 	DeleteApp(group, workspace, app string, opt DeleteOption) error
-	UpdateApp(group, workspace, app string, describe []byte, opt UpdateOption) error
+	RecreateApp(group, workspace, app string, describe []byte, opt UpdateOption) error
 	Get(group, workspaceName, name string) (AppInterface, error)
 	List(group string, opt ListOption) ([]AppInterface, error)
 	ListGroupsApps() []AppInterface
@@ -228,7 +228,110 @@ func (sm *AppMananger) ListGroupWorkspaceApps(groupName, workspaceName string) (
 	return ais, nil
 }
 
+type ResourceMetadata struct {
+	Kind     string `json:"kind"`
+	MetaData struct {
+		Name string `json:"name"`
+	} `json:"metadata"`
+}
+
+//func getKindFromRuntimeExtansion(ext)
+/*
 func (sm *AppMananger) UpdateApp(groupName, workspaceName, appName string, desc []byte, opt UpdateOption) error {
+	sm.Locker.Lock()
+	defer sm.Locker.Unlock()
+	log.DebugPrint(string(desc))
+
+	stack, err := sm.get(groupName, workspaceName, appName)
+	if err != nil {
+		return log.DebugPrint(err)
+	}
+
+	ts, err := stack.GetTemplates()
+	if err != nil {
+		return log.DebugPrint(err)
+	}
+
+	exts, err := util.ParseJsonOrYaml(desc)
+	if err != nil {
+		return log.DebugPrint(err)
+	}
+
+	oldexts, err := util.ParseJsonOrYaml([]byte(ts))
+	if err != nil {
+		return log.DebugPrint("app template parse fail; %v", err)
+	}
+
+	if len(exts) != len(stack.Resources) {
+		return log.DebugPrint(fmt.Errorf("json/yaml resource doesn't match app[%v]", stack.Resources))
+	}
+
+	rawDataAndMetadatas := make([]struct {
+		MetaData ResourceMetadata
+		Raw      []byte
+		Key      string
+	}, 0)
+
+	for k := range exts {
+
+		rdm := struct {
+			MetaData ResourceMetadata
+			Raw      []byte
+			Key      string
+		}{}
+
+		var tmp ResourceMetadata
+
+		err := json.Unmarshal(exts[k].Raw, &tmp)
+		if err != nil {
+			return log.DebugPrint(err)
+		}
+		if strings.TrimSpace(tmp.Kind) == "" || strings.TrimSpace(tmp.MetaData.Name) == "" {
+			return log.DebugPrint("json/yaml resource has invalid kind or name:Kind '%v',Name:'%v'", tmp.Kind, tmp.MetaData.Name)
+		}
+
+		key := generateResourceKey(tmp.Kind, tmp.MetaData.Name)
+		rdm.Raw = exts[k].Raw
+		rdm.MetaData = tmp
+		rdm.Key = key
+		rawDataAndMetadatas = append(rawDataAndMetadatas, rdm)
+
+		_, ok := stack.Resources[key]
+		if !ok {
+			return log.DebugPrint(fmt.Errorf("json/yaml resource doesn't exist in stack: Kind '%v',Name '%v'", tmp.Kind, tmp.MetaData.Name))
+		}
+	}
+
+	for k, r := range stack.Resources {
+		var found bool
+		for _, j := range rawDataAndMetadatas {
+			if k == j.Key {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return log.DebugPrint(fmt.Errorf("json/yaml resource doesn't contain in stack's resource:Kind:'%v' Name '%v'", r.Kind, r.Name))
+		}
+	}
+
+	var e error
+	var alreadUpdateIndex int
+
+	for k, v := range rawDataAndMetadatas {
+		var rcud resource.ObjectController
+		rcud, e = resource.GetResourceController(v.MetaData.Kind)
+		if e != nil {
+			alreadUpdateIndex = k - 1
+		}
+
+	}
+
+	return nil
+}
+*/
+
+func (sm *AppMananger) RecreateApp(groupName, workspaceName, appName string, desc []byte, opt UpdateOption) error {
 	sm.Locker.Lock()
 	defer sm.Locker.Unlock()
 

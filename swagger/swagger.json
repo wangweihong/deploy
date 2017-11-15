@@ -175,56 +175,6 @@
                     "500": {}
                 }
             },
-            "put": {
-                "tags": [
-                    "app"
-                ],
-                "description": "更新应用",
-                "operationId": "AppController.应用",
-                "parameters": [
-                    {
-                        "in": "header",
-                        "name": "Token",
-                        "description": "'Token'",
-                        "required": true,
-                        "type": "string"
-                    },
-                    {
-                        "in": "path",
-                        "name": "group",
-                        "description": "组名",
-                        "required": true,
-                        "type": "string"
-                    },
-                    {
-                        "in": "path",
-                        "name": "workspace",
-                        "description": "工作区",
-                        "required": true,
-                        "type": "string"
-                    },
-                    {
-                        "in": "path",
-                        "name": "app",
-                        "description": "栈名",
-                        "required": true,
-                        "type": "string"
-                    },
-                    {
-                        "in": "body",
-                        "name": "body",
-                        "description": "资源描述",
-                        "required": true,
-                        "type": "string"
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "{string} create success!"
-                    },
-                    "500": {}
-                }
-            },
             "post": {
                 "tags": [
                     "app"
@@ -307,6 +257,58 @@
                         "in": "path",
                         "name": "app",
                         "description": "栈名",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "{string} create success!"
+                    },
+                    "500": {}
+                }
+            }
+        },
+        "/app/{app}/group/{group}/workspace/{workspace}/Recreate": {
+            "put": {
+                "tags": [
+                    "app"
+                ],
+                "description": "重建应用",
+                "operationId": "AppController.应用",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Token",
+                        "description": "'Token'",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "group",
+                        "description": "组名",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "workspace",
+                        "description": "工作区",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "app",
+                        "description": "栈名",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "body",
+                        "name": "body",
+                        "description": "资源描述",
                         "required": true,
                         "type": "string"
                     }

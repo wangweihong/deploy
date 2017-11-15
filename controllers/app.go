@@ -91,7 +91,7 @@ func (this *AppController) DeleteApp() {
 
 // App
 // @Title 应用
-// @Description  更新应用
+// @Description  重建应用
 // @Param Token header string true 'Token'
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
@@ -99,8 +99,8 @@ func (this *AppController) DeleteApp() {
 // @Param body body string true "资源描述"
 // @Success 201 {string} create success!
 // @Failure 500
-// @router /:app/group/:group/workspace/:workspace [Put]
-func (this *AppController) UpdateApp() {
+// @router /:app/group/:group/workspace/:workspace/Recreate [Put]
+func (this *AppController) RecreateApp() {
 	token := this.Ctx.Request.Header.Get("token")
 	err := this.checkRouteControllerAbility()
 	if err != nil {
@@ -120,7 +120,7 @@ func (this *AppController) UpdateApp() {
 	}
 	log.DebugPrint(string(this.Ctx.Input.RequestBody))
 
-	err = app.Controller.UpdateApp(group, workspace, appName, this.Ctx.Input.RequestBody, app.UpdateOption{})
+	err = app.Controller.RecreateApp(group, workspace, appName, this.Ctx.Input.RequestBody, app.UpdateOption{})
 	if err != nil {
 		this.errReturn(err, 500)
 		return
