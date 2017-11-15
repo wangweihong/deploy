@@ -854,7 +854,7 @@ func (this *DeploymentController) AddDeploymentContainerSpecEnv() {
 	old := runtime.Deployment
 	podSpec := old.Spec.Template.Spec
 
-	newPodSpec, err := addPodSpecEnv(podSpec, container, envVar)
+	newPodSpec, err := addPodSpecContainerEnv(podSpec, container, envVar)
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
@@ -925,7 +925,7 @@ func (this *DeploymentController) DeleteDeploymentContainerSpecEnv() {
 	old := runtime.Deployment
 	podSpec := old.Spec.Template.Spec
 
-	newPodSpec, err := deletePodSpecEnv(podSpec, container, env)
+	newPodSpec, err := deletePodSpecContainerEnv(podSpec, container, env)
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
@@ -1009,7 +1009,7 @@ func (this *DeploymentController) UpdateDeploymentContainerSpecEnv() {
 
 	old := runtime.Deployment
 	podSpec := old.Spec.Template.Spec
-	newPodSpec, err := updatePodSpecEnv(podSpec, container, envVar)
+	newPodSpec, err := updatePodSpecContainerEnv(podSpec, container, envVar)
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
@@ -1111,7 +1111,8 @@ func (this *DeploymentController) AddDeploymentContainerSpecVolume() {
 		return
 	}
 
-	volumeVar := make([]corev1.VolumeMount, 0)
+	//	volumeVar := make([]corev1.VolumeMount, 0)
+	volumeVar := VolumeAndVolumeMounts{}
 	err = json.Unmarshal(this.Ctx.Input.RequestBody, &volumeVar)
 	if err != nil {
 		this.audit(token, "", true)
@@ -1140,9 +1141,16 @@ func (this *DeploymentController) AddDeploymentContainerSpecVolume() {
 	}
 
 	old := runtime.Deployment
-	podSpec := old.Spec.Template.Spec
 
-	newPodSpec, err := addPodSpecVolume(podSpec, container, volumeVar)
+	podSpec := old.Spec.Template.Spec
+	newPodSpec, err := addPodSpecVolume(podSpec, []corev1.Volume{volumeVar.Volume})
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+
+	newPodSpec, err = addPodSpecContainerVolume(podSpec, container, []corev1.VolumeMount{volumeVar.VolumeMount})
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
@@ -1212,7 +1220,7 @@ func (this *DeploymentController) DeleteDeploymentContainerSpecVolume() {
 	old := runtime.Deployment
 	podSpec := old.Spec.Template.Spec
 
-	newPodSpec, err := deletePodSpecVolume(podSpec, container, volume)
+	newPodSpec, err := deletePodSpecContainerVolume(podSpec, container, volume)
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
@@ -1224,7 +1232,6 @@ func (this *DeploymentController) DeleteDeploymentContainerSpecVolume() {
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
-
 	}
 
 	err = pk.Controller.UpdateObject(group, workspace, deployment, byteContent, resource.UpdateOption{})
@@ -1266,7 +1273,8 @@ func (this *DeploymentController) UpdateDeploymentContainerSpecVolume() {
 		return
 	}
 
-	volumeVar := make([]corev1.VolumeMount, 0)
+	//	volumeVar := make([]VolumeAndVolumeMounts, 0)
+	var volumeVar VolumeAndVolumeMounts
 	err = json.Unmarshal(this.Ctx.Input.RequestBody, &volumeVar)
 	if err != nil {
 		this.audit(token, "", true)
@@ -1296,7 +1304,10 @@ func (this *DeploymentController) UpdateDeploymentContainerSpecVolume() {
 
 	old := runtime.Deployment
 	podSpec := old.Spec.Template.Spec
-	newPodSpec, err := updatePodSpecVolume(podSpec, container, volumeVar)
+
+	//	newPodSpec, err := updatePodSpecVolume(podSpec, []corev1.Volume{volumeVar.Volume})
+
+	newPodSpec, err := updatePodSpecContainerVolume(podSpec, container, []corev1.VolumeMount{volumeVar.VolumeMount})
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
@@ -1359,4 +1370,25 @@ func (this *DeploymentController) GetDeploymentServices() {
 
 	this.normalReturn(services)
 
+}
+
+type VolumeMount struct {
+	Name      string `json:"name"`
+	ReadOnly  bool   `json:"readonly"`
+	MountPath string `json:"mountpath"`
+	SubPath   string `json:"subpath"`
+}
+
+type ContainerVolumeMount struct {
+	Container string `json:"container"`
+	VolumeMount
+}
+
+type VolumeMountDesc struct {
+	Type           string `json:"type"`
+	HostPath       string `json:"claimname"`
+	EmptyDirMedium string `json:"emptydirmedium"`
+	PVCName        string `json:"pvcname"`
+	PVCReadonly    bool   `json:"pvcreadonly"`
+	CVM            ContainerVolumeMount
 }

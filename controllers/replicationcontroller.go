@@ -832,7 +832,7 @@ func (this *ReplicationControllerController) AddReplicationControllerContainerSp
 		return
 	}
 
-	volumeVar := make([]corev1.VolumeMount, 0)
+	var volumeVar VolumeAndVolumeMounts
 	err = json.Unmarshal(this.Ctx.Input.RequestBody, &volumeVar)
 	if err != nil {
 		this.audit(token, "", true)
@@ -863,7 +863,14 @@ func (this *ReplicationControllerController) AddReplicationControllerContainerSp
 	old := runtime.ReplicationController
 	podSpec := old.Spec.Template.Spec
 
-	newPodSpec, err := addPodSpecVolume(podSpec, container, volumeVar)
+	newPodSpec, err := addPodSpecVolume(podSpec, []corev1.Volume{volumeVar.Volume})
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+
+	newPodSpec, err = addPodSpecContainerVolume(podSpec, container, []corev1.VolumeMount{volumeVar.VolumeMount})
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
@@ -933,7 +940,7 @@ func (this *ReplicationControllerController) DeleteReplicationControllerContaine
 	old := runtime.ReplicationController
 	podSpec := old.Spec.Template.Spec
 
-	newPodSpec, err := deletePodSpecVolume(podSpec, container, volume)
+	newPodSpec, err := deletePodSpecContainerVolume(podSpec, container, volume)
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
@@ -1017,7 +1024,7 @@ func (this *ReplicationControllerController) UpdateReplicationControllerContaine
 
 	old := runtime.ReplicationController
 	podSpec := old.Spec.Template.Spec
-	newPodSpec, err := updatePodSpecVolume(podSpec, container, volumeVar)
+	newPodSpec, err := updatePodSpecContainerVolume(podSpec, container, volumeVar)
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)

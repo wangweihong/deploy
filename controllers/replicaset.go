@@ -862,7 +862,7 @@ func (this *ReplicaSetController) AddReplicaSetContainerSpecVolume() {
 	old := runtime.ReplicaSet
 	podSpec := old.Spec.Template.Spec
 
-	newPodSpec, err := addPodSpecVolume(podSpec, container, volumeVar)
+	newPodSpec, err := addPodSpecContainerVolume(podSpec, container, volumeVar)
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
@@ -932,7 +932,7 @@ func (this *ReplicaSetController) DeleteReplicaSetContainerSpecVolume() {
 	old := runtime.ReplicaSet
 	podSpec := old.Spec.Template.Spec
 
-	newPodSpec, err := deletePodSpecVolume(podSpec, container, volume)
+	newPodSpec, err := deletePodSpecContainerVolume(podSpec, container, volume)
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
@@ -1016,7 +1016,7 @@ func (this *ReplicaSetController) UpdateReplicaSetContainerSpecVolume() {
 
 	old := runtime.ReplicaSet
 	podSpec := old.Spec.Template.Spec
-	newPodSpec, err := updatePodSpecVolume(podSpec, container, volumeVar)
+	newPodSpec, err := updatePodSpecContainerVolume(podSpec, container, volumeVar)
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
