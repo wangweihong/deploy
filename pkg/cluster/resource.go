@@ -1016,6 +1016,8 @@ func (h *deploymentHandler) GetAllReplicaSets(namespace string, name string) ([]
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to retrieve deployment %s: %v", name, err)
 	}
+
+	//特别注意:在对deployment执行pause后,直接更改deployment的podSpec升级deployment,将不会生成新的Replicaset,从而导致newRs为空.
 	_, allOldRSs, newRS, err := deploymentutil.GetAllReplicaSets(deployment, versionedClient)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to retrieve replica sets from deployment %s: %v", name, err)
@@ -1030,12 +1032,15 @@ func (h *deploymentHandler) GetAllReplicaSets(namespace string, name string) ([]
 		clientAllOldRSs = append(clientAllOldRSs, rs)
 	}
 
-	clientNewRSs, err := h.informerController.replicasetInformer.Lister().ReplicaSets(namespace).Get(newRS.Name)
-	if err != nil {
-		return nil, nil, err
-	}
+	if newRS != nil {
+		clientNewRSs, err := h.informerController.replicasetInformer.Lister().ReplicaSets(namespace).Get(newRS.Name)
+		if err != nil {
+			return nil, nil, err
+		}
 
-	return clientAllOldRSs, clientNewRSs, nil
+		return clientAllOldRSs, clientNewRSs, nil
+	}
+	return clientAllOldRSs, nil, nil
 }
 
 func GetCurrentDeploymentRevision(d *extensionsv1beta1.Deployment) (int64, error) {
