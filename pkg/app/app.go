@@ -24,6 +24,8 @@ import (
 	"ufleet-deploy/pkg/resource/serviceaccount"
 	"ufleet-deploy/pkg/resource/statefulset"
 	"ufleet-deploy/pkg/resource/util"
+
+	yaml "gopkg.in/yaml.v2"
 )
 
 var (
@@ -35,6 +37,7 @@ type AppController interface {
 	NewApp(group, workspace, app string, describe []byte, opt CreateOption) error
 	DeleteApp(group, workspace, app string, opt DeleteOption) error
 	RecreateApp(group, workspace, app string, describe []byte, opt UpdateOption) error
+	UpdateApp(group, workspace, app string, describe []byte, opt UpdateOption) error
 	Get(group, workspaceName, name string) (AppInterface, error)
 	List(group string, opt ListOption) ([]AppInterface, error)
 	ListGroupsApps() []AppInterface
@@ -236,7 +239,6 @@ type ResourceMetadata struct {
 }
 
 //func getKindFromRuntimeExtansion(ext)
-/*
 func (sm *AppMananger) UpdateApp(groupName, workspaceName, appName string, desc []byte, opt UpdateOption) error {
 	sm.Locker.Lock()
 	defer sm.Locker.Unlock()
@@ -257,27 +259,34 @@ func (sm *AppMananger) UpdateApp(groupName, workspaceName, appName string, desc 
 		return log.DebugPrint(err)
 	}
 
-	oldexts, err := util.ParseJsonOrYaml([]byte(ts))
-	if err != nil {
-		return log.DebugPrint("app template parse fail; %v", err)
+	if len(exts) != len(stack.Resources) {
+		return log.DebugPrint(fmt.Errorf("json/yaml resource doesn't match app [%v]", stack.Resources))
 	}
 
-	if len(exts) != len(stack.Resources) {
-		return log.DebugPrint(fmt.Errorf("json/yaml resource doesn't match app[%v]", stack.Resources))
+	rmAndTemplate := make(map[string]string)
+	for k := range ts {
+		var tmp ResourceMetadata
+		log.DebugPrint(ts[k])
+		err := yaml.Unmarshal([]byte(ts[k]), &tmp)
+		if err != nil {
+			return log.DebugPrint(err)
+		}
+
+		key := generateResourceKey(tmp.Kind, tmp.MetaData.Name)
+		rmAndTemplate[key] = ts[k]
 	}
 
 	rawDataAndMetadatas := make([]struct {
-		MetaData ResourceMetadata
-		Raw      []byte
-		Key      string
+		ResourceMetadata
+		Raw []byte
+		Key string
 	}, 0)
 
 	for k := range exts {
-
 		rdm := struct {
-			MetaData ResourceMetadata
-			Raw      []byte
-			Key      string
+			ResourceMetadata
+			Raw []byte
+			Key string
 		}{}
 
 		var tmp ResourceMetadata
@@ -292,14 +301,15 @@ func (sm *AppMananger) UpdateApp(groupName, workspaceName, appName string, desc 
 
 		key := generateResourceKey(tmp.Kind, tmp.MetaData.Name)
 		rdm.Raw = exts[k].Raw
-		rdm.MetaData = tmp
+		rdm.ResourceMetadata = tmp
 		rdm.Key = key
 		rawDataAndMetadatas = append(rawDataAndMetadatas, rdm)
 
-		_, ok := stack.Resources[key]
+		_, ok := rmAndTemplate[key]
 		if !ok {
 			return log.DebugPrint(fmt.Errorf("json/yaml resource doesn't exist in stack: Kind '%v',Name '%v'", tmp.Kind, tmp.MetaData.Name))
 		}
+
 	}
 
 	for k, r := range stack.Resources {
@@ -316,20 +326,42 @@ func (sm *AppMananger) UpdateApp(groupName, workspaceName, appName string, desc 
 	}
 
 	var e error
-	var alreadUpdateIndex int
+	var alreadyUpdateIndex int
 
 	for k, v := range rawDataAndMetadatas {
 		var rcud resource.ObjectController
-		rcud, e = resource.GetResourceController(v.MetaData.Kind)
+		rcud, e = resource.GetResourceController(v.Kind)
 		if e != nil {
-			alreadUpdateIndex = k - 1
+			alreadyUpdateIndex = k - 1
+			goto UpdateFailed
+		}
+
+		e = rcud.UpdateObject(groupName, workspaceName, v.MetaData.Name, v.Raw, resource.UpdateOption{})
+		if e != nil {
+			alreadyUpdateIndex = k - 1
+			goto UpdateFailed
+		}
+	}
+
+	return nil
+UpdateFailed:
+	for i := 0; i < alreadyUpdateIndex; i++ {
+		t, ok := rmAndTemplate[rawDataAndMetadatas[i].Key]
+		if ok {
+			rcud, _ := resource.GetResourceController(rawDataAndMetadatas[i].Kind)
+			err := rcud.UpdateObject(groupName, workspaceName, rawDataAndMetadatas[i].MetaData.Name, []byte(t), resource.UpdateOption{})
+			if err != nil {
+				log.DebugPrint("resume failed:%v", err)
+			}
+
+		} else {
+			log.ErrorPrint(".......................>")
 		}
 
 	}
 
-	return nil
+	return e
 }
-*/
 
 func (sm *AppMananger) RecreateApp(groupName, workspaceName, appName string, desc []byte, opt UpdateOption) error {
 	sm.Locker.Lock()

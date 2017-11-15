@@ -497,11 +497,21 @@ func (p *ServiceManager) UpdateObject(groupName, workspaceName string, resourceN
 	if err != nil {
 		return log.DebugPrint(err)
 	}
-	//
-	newr.ResourceVersion = ""
+	//特别注意: 更新service的操作,resource version一定不能为空!!!
+	//	newr.ResourceVersion = ""
 
 	if newr.Name != resourceName {
 		return fmt.Errorf("invalid update data, name not match")
+	}
+
+	runtime, err := res.GetRuntime()
+	if err != nil {
+		return log.DebugPrint(err)
+	}
+
+	newr.ResourceVersion = runtime.Service.ResourceVersion
+	if runtime.Service.Spec.ClusterIP != "" {
+		newr.Spec.ClusterIP = runtime.Service.Spec.ClusterIP
 	}
 
 	ph, err := cluster.NewServiceHandler(groupName, workspaceName)
