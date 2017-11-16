@@ -267,7 +267,6 @@ func (this *DaemonSetController) UpdateDaemonSetCustom() {
 		return
 	}
 
-	var found bool
 	d := runtime.DaemonSet
 	for _, j := range cis {
 		var found bool
