@@ -668,6 +668,7 @@ func (j *Deployment) GetStatus() *Status {
 
 	deployment = runtime.Deployment
 	js = &Status{ObjectMeta: j.ObjectMeta, DeploymentStatus: deployment.Status}
+	//js = &Status{ObjectMeta: j.ObjectMeta} //, DeploymentStatus: deployment.Status}
 	js.Revision = revision
 	js.Images = make([]string, 0)
 	js.PodStatus = make([]pk.Status, 0)
@@ -705,7 +706,7 @@ func (j *Deployment) GetStatus() *Status {
 		js.Desire = 1
 
 	}
-	js.Current = int(deployment.Status.AvailableReplicas)
+	js.Current = int(deployment.Status.Replicas)
 	js.Ready = int(deployment.Status.ReadyReplicas)
 	js.Available = int(deployment.Status.AvailableReplicas)
 	js.UpToDate = int(deployment.Status.UpdatedReplicas)

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"ufleet-deploy/models"
 	"ufleet-deploy/pkg/log"
 	"ufleet-deploy/pkg/resource"
 	pk "ufleet-deploy/pkg/resource/daemonset"
@@ -218,11 +219,10 @@ func (this *DaemonSetController) UpdateDaemonSet() {
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
 // @Param daemonset path string true "部署"
-// @Param container path string true "容器"
-// @Param image path string true "镜像"
+// @Param body body string true "容器镜像"
 // @Success 201 {string} create success!
 // @Failure 500
-// @router /:daemonset/group/:group/workspace/:workspace/container/:container/image/:image [Put]
+// @router /:daemonset/group/:group/workspace/:workspace/custom [Put]
 func (this *DaemonSetController) UpdateDaemonSetCustom() {
 	token := this.Ctx.Request.Header.Get("token")
 	aerr := this.checkRouteControllerAbility()
@@ -235,8 +235,22 @@ func (this *DaemonSetController) UpdateDaemonSetCustom() {
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
 	daemonset := this.Ctx.Input.Param(":daemonset")
-	container := this.Ctx.Input.Param(":container")
-	image := this.Ctx.Input.Param(":image")
+
+	if this.Ctx.Input.RequestBody == nil {
+		err := fmt.Errorf("must commit container&image info")
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+
+	cis := make([]models.ContainerImage, 0)
+	err := json.Unmarshal(this.Ctx.Input.RequestBody, &cis)
+	if err != nil {
+		err = fmt.Errorf("parse container&image fail for  fail for ", err)
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
 
 	v, err := pk.Controller.GetObject(group, workspace, daemonset)
 	if err != nil {
@@ -255,17 +269,21 @@ func (this *DaemonSetController) UpdateDaemonSetCustom() {
 
 	var found bool
 	d := runtime.DaemonSet
-	for k, v := range d.Spec.Template.Spec.Containers {
-		if v.Name == container {
-			found = true
-			d.Spec.Template.Spec.Containers[k].Image = image
+	for _, j := range cis {
+		var found bool
+		for k, v := range d.Spec.Template.Spec.Containers {
+			if v.Name == j.Container {
+				d.Spec.Template.Spec.Containers[k].Image = j.Image
+				found = true
+				break
+			}
 		}
-	}
-	if !found {
-		err := fmt.Errorf("container '%v' not found in deploy '%v'", container, daemonset)
-		this.audit(token, "", true)
-		this.errReturn(err, 500)
-		return
+		if !found {
+			err := fmt.Errorf("container '%v' not found in daemonset '%v'", j.Container, daemonset)
+			this.audit(token, "", true)
+			this.errReturn(err, 500)
+			return
+		}
 	}
 
 	byteContent, err := json.Marshal(d)

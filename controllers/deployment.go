@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"ufleet-deploy/models"
+	"ufleet-deploy/pkg/log"
 	"ufleet-deploy/pkg/resource"
 	pk "ufleet-deploy/pkg/resource/deployment"
 	"ufleet-deploy/pkg/user"
@@ -215,11 +217,10 @@ func (this *DeploymentController) UpdateDeployment() {
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
 // @Param deployment path string true "部署"
-// @Param container path string true "容器"
-// @Param image path string true "镜像"
+// @Param body body string true "容器镜像"
 // @Success 201 {string} create success!
 // @Failure 500
-// @router /:deployment/group/:group/workspace/:workspace/container/:container/image/:image [Put]
+// @router /:deployment/group/:group/workspace/:workspace/custom [Put]
 func (this *DeploymentController) UpdateDeploymentCustom() {
 	token := this.Ctx.Request.Header.Get("token")
 	aerr := this.checkRouteControllerAbility()
@@ -232,9 +233,22 @@ func (this *DeploymentController) UpdateDeploymentCustom() {
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
 	deployment := this.Ctx.Input.Param(":deployment")
-	container := this.Ctx.Input.Param(":container")
-	image := this.Ctx.Input.Param(":image")
 
+	if this.Ctx.Input.RequestBody == nil {
+		err := fmt.Errorf("must commit container&image info")
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+
+	cis := make([]models.ContainerImage, 0)
+	err := json.Unmarshal(this.Ctx.Input.RequestBody, &cis)
+	if err != nil {
+		err = fmt.Errorf("parse container&image fail for  fail for ", err)
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
 	v, err := pk.Controller.GetObject(group, workspace, deployment)
 	if err != nil {
 		this.audit(token, "", true)
@@ -250,19 +264,22 @@ func (this *DeploymentController) UpdateDeploymentCustom() {
 		return
 	}
 
-	var found bool
 	d := runtime.Deployment
-	for k, v := range d.Spec.Template.Spec.Containers {
-		if v.Name == container {
-			found = true
-			d.Spec.Template.Spec.Containers[k].Image = image
+	for _, j := range cis {
+		var found bool
+		for k, v := range d.Spec.Template.Spec.Containers {
+			if v.Name == j.Container {
+				d.Spec.Template.Spec.Containers[k].Image = j.Image
+				found = true
+				break
+			}
 		}
-	}
-	if !found {
-		err := fmt.Errorf("container '%v' not found in deploy '%v'", container, deployment)
-		this.audit(token, "", true)
-		this.errReturn(err, 500)
-		return
+		if !found {
+			err := fmt.Errorf("container '%v' not found in deployment '%v'", j.Container, deployment)
+			this.audit(token, "", true)
+			this.errReturn(err, 500)
+			return
+		}
 	}
 
 	byteContent, err := json.Marshal(d)
@@ -1294,6 +1311,7 @@ func (this *DeploymentController) DeleteDeploymentContainerSpecVolume() {
 		return
 	}
 
+	log.DebugPrint(string(byteContent))
 	err = pk.Controller.UpdateObject(group, workspace, deployment, byteContent, resource.UpdateOption{})
 	if err != nil {
 		this.audit(token, "", true)

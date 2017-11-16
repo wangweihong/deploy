@@ -3,6 +3,7 @@ package controllers
 import (
 	"encoding/json"
 	"fmt"
+	"ufleet-deploy/models"
 	"ufleet-deploy/pkg/resource"
 	pk "ufleet-deploy/pkg/resource/statefulset"
 	"ufleet-deploy/pkg/user"
@@ -256,11 +257,10 @@ func (this *StatefulSetController) UpdateStatefulSet() {
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
 // @Param statefulset path string true "部署"
-// @Param container path string true "容器"
-// @Param image path string true "镜像"
+// @Param body body string true "容器镜像"
 // @Success 201 {string} create success!
 // @Failure 500
-// @router /:statefulset/group/:group/workspace/:workspace/container/:container/image/:image [Put]
+// @router /:statefulset/group/:group/workspace/:workspace/custom [Put]
 func (this *StatefulSetController) UpdateStatefulSetCustom() {
 	token := this.Ctx.Request.Header.Get("token")
 	aerr := this.checkRouteControllerAbility()
@@ -273,8 +273,22 @@ func (this *StatefulSetController) UpdateStatefulSetCustom() {
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
 	statefulset := this.Ctx.Input.Param(":statefulset")
-	container := this.Ctx.Input.Param(":container")
-	image := this.Ctx.Input.Param(":image")
+
+	if this.Ctx.Input.RequestBody == nil {
+		err := fmt.Errorf("must commit container&image info")
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+
+	cis := make([]models.ContainerImage, 0)
+	err := json.Unmarshal(this.Ctx.Input.RequestBody, &cis)
+	if err != nil {
+		err = fmt.Errorf("parse container&image fail for  fail for ", err)
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
 
 	v, err := pk.Controller.GetObject(group, workspace, statefulset)
 	if err != nil {
@@ -291,19 +305,22 @@ func (this *StatefulSetController) UpdateStatefulSetCustom() {
 		return
 	}
 
-	var found bool
 	d := runtime.StatefulSet
-	for k, v := range d.Spec.Template.Spec.Containers {
-		if v.Name == container {
-			found = true
-			d.Spec.Template.Spec.Containers[k].Image = image
+	for _, j := range cis {
+		var found bool
+		for k, v := range d.Spec.Template.Spec.Containers {
+			if v.Name == j.Container {
+				d.Spec.Template.Spec.Containers[k].Image = j.Image
+				found = true
+				break
+			}
 		}
-	}
-	if !found {
-		err := fmt.Errorf("container '%v' not found in deploy '%v'", container, statefulset)
-		this.audit(token, "", true)
-		this.errReturn(err, 500)
-		return
+		if !found {
+			err := fmt.Errorf("container '%v' not found in statefulset '%v'", j.Container, statefulset)
+			this.audit(token, "", true)
+			this.errReturn(err, 500)
+			return
+		}
 	}
 
 	byteContent, err := json.Marshal(d)

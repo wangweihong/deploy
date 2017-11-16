@@ -1902,65 +1902,6 @@
                 }
             }
         },
-        "/daemonset/{daemonset}/group/{group}/workspace/{workspace}/container/{container}/image/{image}": {
-            "put": {
-                "tags": [
-                    "daemonset"
-                ],
-                "description": "deploymnt",
-                "operationId": "DaemonSetController.DaemonSet",
-                "parameters": [
-                    {
-                        "in": "header",
-                        "name": "Token",
-                        "description": "'Token'",
-                        "required": true,
-                        "type": "string"
-                    },
-                    {
-                        "in": "path",
-                        "name": "group",
-                        "description": "组名",
-                        "required": true,
-                        "type": "string"
-                    },
-                    {
-                        "in": "path",
-                        "name": "workspace",
-                        "description": "工作区",
-                        "required": true,
-                        "type": "string"
-                    },
-                    {
-                        "in": "path",
-                        "name": "daemonset",
-                        "description": "部署",
-                        "required": true,
-                        "type": "string"
-                    },
-                    {
-                        "in": "path",
-                        "name": "container",
-                        "description": "容器",
-                        "required": true,
-                        "type": "string"
-                    },
-                    {
-                        "in": "path",
-                        "name": "image",
-                        "description": "镜像",
-                        "required": true,
-                        "type": "string"
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "{string} create success!"
-                    },
-                    "500": {}
-                }
-            }
-        },
         "/daemonset/{daemonset}/group/{group}/workspace/{workspace}/container/{container}/volume": {
             "put": {
                 "tags": [
@@ -2008,6 +1949,58 @@
                         "in": "body",
                         "name": "body",
                         "description": "更新内容",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "{string} create success!"
+                    },
+                    "500": {}
+                }
+            }
+        },
+        "/daemonset/{daemonset}/group/{group}/workspace/{workspace}/custom": {
+            "put": {
+                "tags": [
+                    "daemonset"
+                ],
+                "description": "deploymnt",
+                "operationId": "DaemonSetController.DaemonSet",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Token",
+                        "description": "'Token'",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "group",
+                        "description": "组名",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "workspace",
+                        "description": "工作区",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "daemonset",
+                        "description": "部署",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "body",
+                        "name": "body",
+                        "description": "容器镜像",
                         "required": true,
                         "type": "string"
                     }
@@ -2874,7 +2867,7 @@
                 }
             }
         },
-        "/deployment/{deployment}/group/{group}/workspace/{workspace}/container/{container}/image/{image}": {
+        "/deployment/{deployment}/group/{group}/workspace/{workspace}/custom": {
             "put": {
                 "tags": [
                     "deployment"
@@ -2911,16 +2904,9 @@
                         "type": "string"
                     },
                     {
-                        "in": "path",
-                        "name": "container",
-                        "description": "容器",
-                        "required": true,
-                        "type": "string"
-                    },
-                    {
-                        "in": "path",
-                        "name": "image",
-                        "description": "镜像",
+                        "in": "body",
+                        "name": "body",
+                        "description": "容器镜像",
                         "required": true,
                         "type": "string"
                     }
@@ -8803,7 +8789,7 @@
                 }
             }
         },
-        "/statefulset/{statefulset}/group/{group}/workspace/{workspace}/container/{container}/image/{image}": {
+        "/statefulset/{statefulset}/group/{group}/workspace/{workspace}/custom": {
             "put": {
                 "tags": [
                     "statefulset"
@@ -8840,16 +8826,9 @@
                         "type": "string"
                     },
                     {
-                        "in": "path",
-                        "name": "container",
-                        "description": "容器",
-                        "required": true,
-                        "type": "string"
-                    },
-                    {
-                        "in": "path",
-                        "name": "image",
-                        "description": "镜像",
+                        "in": "body",
+                        "name": "body",
+                        "description": "容器镜像",
                         "required": true,
                         "type": "string"
                     }

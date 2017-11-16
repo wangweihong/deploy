@@ -656,7 +656,6 @@ func (j *ReplicaSet) GetStatus() *Status {
 	}
 	replicaset := runtime.ReplicaSet
 	js := Status{ObjectMeta: j.ObjectMeta, ReplicaSetStatus: replicaset.Status}
-	log.DebugPrint(js.ObjectMeta)
 	js.ContainerSpecs = make([]pk.ContainerSpec, 0)
 	js.Images = make([]string, 0)
 	js.PodStatus = make([]pk.Status, 0)

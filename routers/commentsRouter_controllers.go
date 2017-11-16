@@ -415,7 +415,7 @@ func init() {
 	beego.GlobalControllerRouter["ufleet-deploy/controllers:DeploymentController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:DeploymentController"],
 		beego.ControllerComments{
 			Method: "UpdateDeploymentCustom",
-			Router: `/:deployment/group/:group/workspace/:workspace/container/:container/image/:image`,
+			Router: `/:deployment/group/:group/workspace/:workspace/custom`,
 			AllowHTTPMethods: []string{"Put"},
 			Params: nil})
 

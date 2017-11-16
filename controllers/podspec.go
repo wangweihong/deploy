@@ -211,9 +211,10 @@ func deletePodSpecContainerVolume(podSpec corev1.PodSpec, container string, volu
 		err := fmt.Errorf("container not found")
 		return corev1.PodSpec{}, err
 	}
+	//没有引用volume,直接返回
 	if !volumeFound {
-		err := fmt.Errorf("volume not found")
-		return corev1.PodSpec{}, err
+		log.DebugPrint("not found volume '%v' mount in containers", volume)
+		return podSpec, nil
 	}
 
 	var newPodSpec corev1.PodSpec
@@ -291,6 +292,7 @@ func updatePodSpecVolume(podSpec corev1.PodSpec, newVolumes []corev1.Volume) (co
 		for _, j := range newVolumes {
 			if v.Name == j.Name {
 				found = true
+				break
 			}
 		}
 		if !found {
@@ -312,6 +314,7 @@ func deletePodSpecVolume(podSpec corev1.PodSpec, volumeName string) (corev1.PodS
 
 		if podSpec.Volumes[k].Name == volumeName {
 			found = true
+			break
 		}
 	}
 
@@ -399,13 +402,15 @@ func deleteVolumeAndContaienrVolumeMounts(podSpec corev1.PodSpec, volume string)
 	var err error
 	newPodSpec, err = deletePodSpecVolume(podSpec, volume)
 	if err != nil {
-		return corev1.PodSpec{}, err
+		return corev1.PodSpec{}, log.DebugPrint(err)
 	}
+
 	for _, v := range newPodSpec.Containers {
 		newPodSpec, err = deletePodSpecContainerVolume(newPodSpec, v.Name, volume)
 		if err != nil {
-			return corev1.PodSpec{}, err
+			return corev1.PodSpec{}, log.DebugPrint(err)
 		}
 	}
+
 	return newPodSpec, nil
 }
