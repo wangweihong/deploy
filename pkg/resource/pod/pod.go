@@ -778,8 +778,10 @@ func V1PodToPodStatus(pod corev1.Pod) *Status {
 			s.Phase = resource.PodReady
 		}
 	}
-	return &s
 
+	s.CreateTime = pod.CreationTimestamp.Unix()
+
+	return &s
 }
 
 func (p *Pod) ObjectStatus() resource.ObjectStatus {
@@ -819,18 +821,6 @@ func (p *Pod) GetStatus() *Status {
 	if sr != nil {
 		s.CreatorReference = &CreatorReference{SerializedReference: *sr, Group: p.Group, Workspace: p.Workspace}
 	}
-	/*
-		s.Name = p.Name
-		s.App = p.App
-		s.ObjectMeta.Comment = p.Comment
-		s.ObjectMeta.CreateTime = p.CreateTime
-		s.ObjectMeta.MemoryOnly = p.MemoryOnly
-		s.ObjectMeta.User = p.User
-		s.ObjectMeta.Template = p.Template
-		s.ObjectMeta.Kind = p.Kind
-		s.ObjectMeta.Group = p.Group
-		s.ObjectMeta.Workspace = p.Workspace
-	*/
 	s.ObjectMeta = p.ObjectMeta
 	if s.CreateTime == 0 {
 		s.CreateTime = runtime.Pod.CreationTimestamp.Unix()
