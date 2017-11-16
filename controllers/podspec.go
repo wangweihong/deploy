@@ -2,13 +2,45 @@ package controllers
 
 import (
 	"fmt"
+	"ufleet-deploy/pkg/log"
 
 	corev1 "k8s.io/client-go/pkg/api/v1"
 )
 
+var (
+	VolumeEmptyDir  = "emptydir"
+	VolumeHostPath  = "hostpath"
+	VolumePVC       = "pvc"
+	VolumeConfigMap = "configmap"
+	VolumeSecret    = "secret"
+)
+
+type VolumeMount struct {
+	Name      string `json:"name"`
+	ReadOnly  bool   `json:"readonly"`
+	MountPath string `json:"mountpath"`
+}
+
+type ContainerVolumeMount struct {
+	Name   string               `json:"name"` //容器名
+	Mounts []corev1.VolumeMount `json:"mounts"`
+}
+
+type Volume struct {
+	Type      string                                   `json:"type"`
+	Name      string                                   `json:"name"`
+	EmptyDir  corev1.EmptyDirVolumeSource              `json:"emptydir"`
+	HostPath  corev1.HostPathVolumeSource              `json:"hostpath"`
+	PVC       corev1.PersistentVolumeClaimVolumeSource `json:"pvc"`
+	ConfigMap corev1.ConfigMapVolumeSource             `json:"configmap"`
+	Secret    corev1.SecretVolumeSource                `json:"secret"`
+}
+
 type VolumeAndVolumeMounts struct {
-	Volume      corev1.Volume      `json:"volume"`
-	VolumeMount corev1.VolumeMount `json:"volumemount"`
+	//	Volume      corev1.Volume      `json:"volume"`
+	//	VolumeMount corev1.VolumeMount `json:"volumemount"`
+	Volume  Volume                 `json:"volume"`
+	CMounts []ContainerVolumeMount `json:"cmounts"`
 }
 
 func updatePodSpecContainerEnv(podSpec corev1.PodSpec, container string, envVar []corev1.EnvVar) (corev1.PodSpec, error) {
@@ -204,6 +236,7 @@ func addPodSpecContainerVolume(podSpec corev1.PodSpec, container string, volumeV
 	var containerIndex int
 
 	for k, v := range podSpec.Containers {
+		log.DebugPrint(v.Name)
 		if v.Name == container {
 			containerFound = true
 			containerIndex = k
@@ -233,7 +266,7 @@ func addPodSpecContainerVolume(podSpec corev1.PodSpec, container string, volumeV
 }
 
 func addPodSpecVolume(podSpec corev1.PodSpec, newVolumes []corev1.Volume) (corev1.PodSpec, error) {
-	var newPodSpec corev1.PodSpec
+	newPodSpec := podSpec
 
 	newPodSpec.Volumes = make([]corev1.Volume, 0)
 	for _, v := range podSpec.Volumes {
@@ -250,7 +283,7 @@ func addPodSpecVolume(podSpec corev1.PodSpec, newVolumes []corev1.Volume) (corev
 }
 
 func updatePodSpecVolume(podSpec corev1.PodSpec, newVolumes []corev1.Volume) (corev1.PodSpec, error) {
-	var newPodSpec corev1.PodSpec
+	newPodSpec := podSpec
 
 	newPodSpec.Volumes = make([]corev1.Volume, 0)
 	for _, v := range podSpec.Volumes {
@@ -270,7 +303,7 @@ func updatePodSpecVolume(podSpec corev1.PodSpec, newVolumes []corev1.Volume) (co
 }
 
 func deletePodSpecVolume(podSpec corev1.PodSpec, volumeName string) (corev1.PodSpec, error) {
-	var newPodSpec corev1.PodSpec
+	newPodSpec := podSpec
 
 	newPodSpec.Volumes = make([]corev1.Volume, 0)
 	var found bool
@@ -286,8 +319,93 @@ func deletePodSpecVolume(podSpec corev1.PodSpec, volumeName string) (corev1.PodS
 		return newPodSpec, fmt.Errorf("volume '%v' not found in old podspec", volumeName)
 	}
 
-	newPodSpec.Volumes = append(newPodSpec.Volumes, podSpec.Volumes[:k-1]...)
+	newPodSpec.Volumes = append(newPodSpec.Volumes, podSpec.Volumes[:k]...)
 	newPodSpec.Volumes = append(newPodSpec.Volumes, podSpec.Volumes[k+1:]...)
 
+	return newPodSpec, nil
+}
+
+func getSpecVolume(podSpec corev1.PodSpec) []Volume {
+	vols := make([]Volume, 0)
+	for _, v := range podSpec.Volumes {
+		var vol Volume
+		vol.Name = v.Name
+		switch {
+		case v.EmptyDir != nil:
+			vol.Type = VolumeEmptyDir
+			vol.EmptyDir = *v.EmptyDir
+		case v.HostPath != nil:
+			vol.Type = VolumeHostPath
+			vol.HostPath = *v.HostPath
+		case v.PersistentVolumeClaim != nil:
+			vol.Type = VolumePVC
+			vol.PVC = *v.PersistentVolumeClaim
+		case v.ConfigMap != nil:
+			vol.Type = VolumeConfigMap
+			vol.ConfigMap = *v.ConfigMap
+		case v.Secret != nil:
+			vol.Type = VolumeSecret
+			vol.Secret = *v.Secret
+		default:
+			continue
+		}
+		vols = append(vols, vol)
+	}
+	return vols
+}
+
+func addVolumeAndContaienrVolumeMounts(podSpec corev1.PodSpec, volumeVar VolumeAndVolumeMounts) (corev1.PodSpec, error) {
+
+	//	var newPodSpec corev1.PodSpec
+	//	newPodSpec = podSpec
+	var err error
+	var vol corev1.Volume
+	vol.Name = volumeVar.Volume.Name
+	switch volumeVar.Volume.Type {
+
+	case VolumeEmptyDir:
+		vol.EmptyDir = &volumeVar.Volume.EmptyDir
+	case VolumeHostPath:
+		vol.HostPath = &volumeVar.Volume.HostPath
+	case VolumePVC:
+		vol.PersistentVolumeClaim = &volumeVar.Volume.PVC
+	case VolumeConfigMap:
+		vol.ConfigMap = &volumeVar.Volume.ConfigMap
+	case VolumeSecret:
+		vol.Secret = &volumeVar.Volume.Secret
+	default:
+		err = fmt.Errorf("unsupported volume type: %v", volumeVar.Volume.Type)
+		return corev1.PodSpec{}, err
+	}
+
+	newPodSpec, err := addPodSpecVolume(podSpec, []corev1.Volume{vol})
+	if err != nil {
+		return newPodSpec, err
+	}
+
+	for _, v := range volumeVar.CMounts {
+		newPodSpec, err = addPodSpecContainerVolume(newPodSpec, v.Name, v.Mounts)
+		if err != nil {
+			return newPodSpec, err
+		}
+	}
+
+	return newPodSpec, nil
+}
+
+func deleteVolumeAndContaienrVolumeMounts(podSpec corev1.PodSpec, volume string) (corev1.PodSpec, error) {
+
+	newPodSpec := podSpec
+	var err error
+	newPodSpec, err = deletePodSpecVolume(podSpec, volume)
+	if err != nil {
+		return corev1.PodSpec{}, err
+	}
+	for _, v := range newPodSpec.Containers {
+		newPodSpec, err = deletePodSpecContainerVolume(newPodSpec, v.Name, volume)
+		if err != nil {
+			return corev1.PodSpec{}, err
+		}
+	}
 	return newPodSpec, nil
 }

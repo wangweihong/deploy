@@ -1042,11 +1042,10 @@ func (this *DeploymentController) UpdateDeploymentContainerSpecEnv() {
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
 // @Param deployment path string true "部署"
-// @Param container path string true "容器"
 // @Success 201 {string} create success!
 // @Failure 500
-// @router /:deployment/group/:group/workspace/:workspace/container/:container/volume [Get]
-func (this *DeploymentController) GetDeploymentContainerSpecVolume() {
+// @router /:deployment/group/:group/workspace/:workspace/volume [Get]
+func (this *DeploymentController) GetDeploymentVolumes() {
 	err := this.checkRouteControllerAbility()
 	if err != nil {
 		this.abilityErrorReturn(err)
@@ -1056,7 +1055,6 @@ func (this *DeploymentController) GetDeploymentContainerSpecVolume() {
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
 	deployment := this.Ctx.Input.Param(":deployment")
-	container := this.Ctx.Input.Param(":container")
 
 	v, err := pk.Controller.GetObject(group, workspace, deployment)
 	if err != nil {
@@ -1065,22 +1063,15 @@ func (this *DeploymentController) GetDeploymentContainerSpecVolume() {
 	}
 	pi, _ := pk.GetDeploymentInterface(v)
 
-	stat := pi.GetStatus()
+	r, err := pi.GetRuntime()
 	if err != nil {
 		this.errReturn(err, 500)
 		return
 	}
 
-	for _, v := range stat.ContainerSpecs {
-		if v.Name == container {
-			this.normalReturn(v.VolumeMounts)
-			return
-		}
-	}
+	vols := getSpecVolume(r.Deployment.Spec.Template.Spec)
 
-	err = fmt.Errorf("container not found")
-
-	this.errReturn(err, 500)
+	this.normalReturn(vols)
 }
 
 // DeploymentContainerVolume
@@ -1090,11 +1081,10 @@ func (this *DeploymentController) GetDeploymentContainerSpecVolume() {
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
 // @Param deployment path string true "部署"
-// @Param container path string true "容器"
 // @Param body body string true "更新内容"
 // @Success 201 {string} create success!
 // @Failure 500
-// @router /:deployment/group/:group/workspace/:workspace/container/:container/volume [Post]
+// @router /:deployment/group/:group/workspace/:workspace/volume [Post]
 func (this *DeploymentController) AddDeploymentContainerSpecVolume() {
 	token := this.Ctx.Request.Header.Get("token")
 	err := this.checkRouteControllerAbility()
@@ -1113,6 +1103,7 @@ func (this *DeploymentController) AddDeploymentContainerSpecVolume() {
 
 	//	volumeVar := make([]corev1.VolumeMount, 0)
 	volumeVar := VolumeAndVolumeMounts{}
+	volumeVar.CMounts = make([]ContainerVolumeMount, 0)
 	err = json.Unmarshal(this.Ctx.Input.RequestBody, &volumeVar)
 	if err != nil {
 		this.audit(token, "", true)
@@ -1123,7 +1114,6 @@ func (this *DeploymentController) AddDeploymentContainerSpecVolume() {
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
 	deployment := this.Ctx.Input.Param(":deployment")
-	container := this.Ctx.Input.Param(":container")
 
 	v, err := pk.Controller.GetObject(group, workspace, deployment)
 	if err != nil {
@@ -1143,19 +1133,14 @@ func (this *DeploymentController) AddDeploymentContainerSpecVolume() {
 	old := runtime.Deployment
 
 	podSpec := old.Spec.Template.Spec
-	newPodSpec, err := addPodSpecVolume(podSpec, []corev1.Volume{volumeVar.Volume})
+
+	newPodSpec, err := addVolumeAndContaienrVolumeMounts(podSpec, volumeVar)
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
 
-	newPodSpec, err = addPodSpecContainerVolume(podSpec, container, []corev1.VolumeMount{volumeVar.VolumeMount})
-	if err != nil {
-		this.audit(token, "", true)
-		this.errReturn(err, 500)
-		return
-	}
 	old.Spec.Template.Spec = newPodSpec
 
 	byteContent, err := json.Marshal(old)
@@ -1182,11 +1167,10 @@ func (this *DeploymentController) AddDeploymentContainerSpecVolume() {
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
 // @Param deployment path string true "部署"
-// @Param container path string true "容器"
-// @Param volume path string true "卷挂载"
+// @Param volume path string true "卷"
 // @Success 201 {string} create success!
 // @Failure 500
-// @router /:deployment/group/:group/workspace/:workspace/container/:container/volume/:volume [Delete]
+// @router /:deployment/group/:group/workspace/:workspace/volume/:volume [Delete]
 func (this *DeploymentController) DeleteDeploymentContainerSpecVolume() {
 	token := this.Ctx.Request.Header.Get("token")
 	err := this.checkRouteControllerAbility()
@@ -1199,7 +1183,6 @@ func (this *DeploymentController) DeleteDeploymentContainerSpecVolume() {
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
 	deployment := this.Ctx.Input.Param(":deployment")
-	container := this.Ctx.Input.Param(":container")
 	volume := this.Ctx.Input.Param(":volume")
 
 	v, err := pk.Controller.GetObject(group, workspace, deployment)
@@ -1220,106 +1203,19 @@ func (this *DeploymentController) DeleteDeploymentContainerSpecVolume() {
 	old := runtime.Deployment
 	podSpec := old.Spec.Template.Spec
 
-	newPodSpec, err := deletePodSpecContainerVolume(podSpec, container, volume)
+	newPodSpec, err := deleteVolumeAndContaienrVolumeMounts(podSpec, volume)
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
+
 	old.Spec.Template.Spec = newPodSpec
 
 	byteContent, err := json.Marshal(old)
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
-	}
-
-	err = pk.Controller.UpdateObject(group, workspace, deployment, byteContent, resource.UpdateOption{})
-	if err != nil {
-		this.audit(token, "", true)
-		this.errReturn(err, 500)
-		return
-	}
-	this.audit(token, "", false)
-	this.normalReturn("ok")
-
-}
-
-// DeploymentContainerVolume
-// @Title Deployment
-// @Description   更新Deployment Container volume
-// @Param Token header string true 'Token'
-// @Param group path string true "组名"
-// @Param workspace path string true "工作区"
-// @Param deployment path string true "部署"
-// @Param container path string true "容器"
-// @Param body body string true "更新内容"
-// @Success 201 {string} create success!
-// @Failure 500
-// @router /:deployment/group/:group/workspace/:workspace/container/:container/volume [Put]
-func (this *DeploymentController) UpdateDeploymentContainerSpecVolume() {
-	token := this.Ctx.Request.Header.Get("token")
-	err := this.checkRouteControllerAbility()
-	if err != nil {
-		this.abilityErrorReturn(err)
-		this.audit(token, "", true)
-		return
-	}
-
-	if this.Ctx.Input.RequestBody == nil {
-		err := fmt.Errorf("must commit groups name")
-		this.audit(token, "", true)
-		this.errReturn(err, 500)
-		return
-	}
-
-	//	volumeVar := make([]VolumeAndVolumeMounts, 0)
-	var volumeVar VolumeAndVolumeMounts
-	err = json.Unmarshal(this.Ctx.Input.RequestBody, &volumeVar)
-	if err != nil {
-		this.audit(token, "", true)
-		this.errReturn(err, 500)
-		return
-	}
-
-	group := this.Ctx.Input.Param(":group")
-	workspace := this.Ctx.Input.Param(":workspace")
-	deployment := this.Ctx.Input.Param(":deployment")
-	container := this.Ctx.Input.Param(":container")
-
-	v, err := pk.Controller.GetObject(group, workspace, deployment)
-	if err != nil {
-		this.audit(token, "", true)
-		this.errReturn(err, 500)
-		return
-	}
-	pi, _ := pk.GetDeploymentInterface(v)
-
-	runtime, err := pi.GetRuntime()
-	if err != nil {
-		this.audit(token, "", true)
-		this.errReturn(err, 500)
-		return
-	}
-
-	old := runtime.Deployment
-	podSpec := old.Spec.Template.Spec
-
-	//	newPodSpec, err := updatePodSpecVolume(podSpec, []corev1.Volume{volumeVar.Volume})
-
-	newPodSpec, err := updatePodSpecContainerVolume(podSpec, container, []corev1.VolumeMount{volumeVar.VolumeMount})
-	if err != nil {
-		this.audit(token, "", true)
-		this.errReturn(err, 500)
-		return
-	}
-	old.Spec.Template.Spec = newPodSpec
-
-	byteContent, err := json.Marshal(old)
-	if err != nil {
-		this.audit(token, "", true)
-		this.errReturn(err, 500)
-
 	}
 
 	err = pk.Controller.UpdateObject(group, workspace, deployment, byteContent, resource.UpdateOption{})
@@ -1370,25 +1266,4 @@ func (this *DeploymentController) GetDeploymentServices() {
 
 	this.normalReturn(services)
 
-}
-
-type VolumeMount struct {
-	Name      string `json:"name"`
-	ReadOnly  bool   `json:"readonly"`
-	MountPath string `json:"mountpath"`
-	SubPath   string `json:"subpath"`
-}
-
-type ContainerVolumeMount struct {
-	Container string `json:"container"`
-	VolumeMount
-}
-
-type VolumeMountDesc struct {
-	Type           string `json:"type"`
-	HostPath       string `json:"claimname"`
-	EmptyDirMedium string `json:"emptydirmedium"`
-	PVCName        string `json:"pvcname"`
-	PVCReadonly    bool   `json:"pvcreadonly"`
-	CVM            ContainerVolumeMount
 }

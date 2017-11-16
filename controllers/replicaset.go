@@ -762,11 +762,10 @@ func (this *ReplicaSetController) UpdateReplicaSetContainerSpecEnv() {
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
 // @Param replicaset path string true "副本集"
-// @Param container path string true "容器"
 // @Success 201 {string} create success!
 // @Failure 500
-// @router /:replicaset/group/:group/workspace/:workspace/container/:container/volume [Get]
-func (this *ReplicaSetController) GetReplicaSetContainerSpecVolume() {
+// @router /:replicaset/group/:group/workspace/:workspace/volume [Get]
+func (this *ReplicaSetController) GetReplicaSetVolume() {
 	err := this.checkRouteControllerAbility()
 	if err != nil {
 		this.abilityErrorReturn(err)
@@ -776,7 +775,6 @@ func (this *ReplicaSetController) GetReplicaSetContainerSpecVolume() {
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
 	replicaset := this.Ctx.Input.Param(":replicaset")
-	container := this.Ctx.Input.Param(":container")
 
 	v, err := pk.Controller.GetObject(group, workspace, replicaset)
 	if err != nil {
@@ -785,22 +783,15 @@ func (this *ReplicaSetController) GetReplicaSetContainerSpecVolume() {
 	}
 	pi, _ := pk.GetReplicaSetInterface(v)
 
-	stat := pi.GetStatus()
+	r, err := pi.GetRuntime()
 	if err != nil {
 		this.errReturn(err, 500)
 		return
 	}
 
-	for _, v := range stat.ContainerSpecs {
-		if v.Name == container {
-			this.normalReturn(v.VolumeMounts)
-			return
-		}
-	}
+	vols := getSpecVolume(r.ReplicaSet.Spec.Template.Spec)
 
-	err = fmt.Errorf("container not found")
-
-	this.errReturn(err, 500)
+	this.normalReturn(vols)
 }
 
 // ReplicaSetContainerVolume
@@ -810,11 +801,10 @@ func (this *ReplicaSetController) GetReplicaSetContainerSpecVolume() {
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
 // @Param replicaset path string true "副本集"
-// @Param container path string true "容器"
 // @Param body body string true "更新内容"
 // @Success 201 {string} create success!
 // @Failure 500
-// @router /:replicaset/group/:group/workspace/:workspace/container/:container/volume [Post]
+// @router /:replicaset/group/:group/workspace/:workspace/volume [Post]
 func (this *ReplicaSetController) AddReplicaSetContainerSpecVolume() {
 	token := this.Ctx.Request.Header.Get("token")
 	err := this.checkRouteControllerAbility()
@@ -831,7 +821,8 @@ func (this *ReplicaSetController) AddReplicaSetContainerSpecVolume() {
 		return
 	}
 
-	volumeVar := make([]corev1.VolumeMount, 0)
+	volumeVar := VolumeAndVolumeMounts{}
+	volumeVar.CMounts = make([]ContainerVolumeMount, 0)
 	err = json.Unmarshal(this.Ctx.Input.RequestBody, &volumeVar)
 	if err != nil {
 		this.audit(token, "", true)
@@ -842,7 +833,6 @@ func (this *ReplicaSetController) AddReplicaSetContainerSpecVolume() {
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
 	replicaset := this.Ctx.Input.Param(":replicaset")
-	container := this.Ctx.Input.Param(":container")
 
 	v, err := pk.Controller.GetObject(group, workspace, replicaset)
 	if err != nil {
@@ -862,7 +852,7 @@ func (this *ReplicaSetController) AddReplicaSetContainerSpecVolume() {
 	old := runtime.ReplicaSet
 	podSpec := old.Spec.Template.Spec
 
-	newPodSpec, err := addPodSpecContainerVolume(podSpec, container, volumeVar)
+	newPodSpec, err := addVolumeAndContaienrVolumeMounts(podSpec, volumeVar)
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
@@ -894,11 +884,10 @@ func (this *ReplicaSetController) AddReplicaSetContainerSpecVolume() {
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
 // @Param replicaset path string true "副本集"
-// @Param container path string true "容器"
 // @Param volume path string true "卷挂载"
 // @Success 201 {string} create success!
 // @Failure 500
-// @router /:replicaset/group/:group/workspace/:workspace/container/:container/volume/:volume [Delete]
+// @router /:replicaset/group/:group/workspace/:workspace/volume/:volume [Delete]
 func (this *ReplicaSetController) DeleteReplicaSetContainerSpecVolume() {
 	token := this.Ctx.Request.Header.Get("token")
 	err := this.checkRouteControllerAbility()
@@ -911,7 +900,6 @@ func (this *ReplicaSetController) DeleteReplicaSetContainerSpecVolume() {
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
 	replicaset := this.Ctx.Input.Param(":replicaset")
-	container := this.Ctx.Input.Param(":container")
 	volume := this.Ctx.Input.Param(":volume")
 
 	v, err := pk.Controller.GetObject(group, workspace, replicaset)
@@ -932,96 +920,13 @@ func (this *ReplicaSetController) DeleteReplicaSetContainerSpecVolume() {
 	old := runtime.ReplicaSet
 	podSpec := old.Spec.Template.Spec
 
-	newPodSpec, err := deletePodSpecContainerVolume(podSpec, container, volume)
-	if err != nil {
-		this.audit(token, "", true)
-		this.errReturn(err, 500)
-		return
-	}
-	old.Spec.Template.Spec = newPodSpec
-
-	byteContent, err := json.Marshal(old)
-	if err != nil {
-		this.audit(token, "", true)
-		this.errReturn(err, 500)
-
-	}
-
-	err = pk.Controller.UpdateObject(group, workspace, replicaset, byteContent, resource.UpdateOption{})
-	if err != nil {
-		this.audit(token, "", true)
-		this.errReturn(err, 500)
-		return
-	}
-	this.audit(token, "", false)
-	this.normalReturn("ok")
-
-}
-
-// ReplicaSetContainerVolume
-// @Title ReplicaSet
-// @Description   更新ReplicaSet Container volume
-// @Param Token header string true 'Token'
-// @Param group path string true "组名"
-// @Param workspace path string true "工作区"
-// @Param replicaset path string true "副本集"
-// @Param container path string true "容器"
-// @Param body body string true "更新内容"
-// @Success 201 {string} create success!
-// @Failure 500
-// @router /:replicaset/group/:group/workspace/:workspace/container/:container/volume [Put]
-func (this *ReplicaSetController) UpdateReplicaSetContainerSpecVolume() {
-	token := this.Ctx.Request.Header.Get("token")
-	err := this.checkRouteControllerAbility()
-	if err != nil {
-		this.abilityErrorReturn(err)
-		this.audit(token, "", true)
-		return
-	}
-
-	if this.Ctx.Input.RequestBody == nil {
-		err := fmt.Errorf("must commit groups name")
-		this.audit(token, "", true)
-		this.errReturn(err, 500)
-		return
-	}
-
-	volumeVar := make([]corev1.VolumeMount, 0)
-	err = json.Unmarshal(this.Ctx.Input.RequestBody, &volumeVar)
+	newPodSpec, err := deleteVolumeAndContaienrVolumeMounts(podSpec, volume)
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
 
-	group := this.Ctx.Input.Param(":group")
-	workspace := this.Ctx.Input.Param(":workspace")
-	replicaset := this.Ctx.Input.Param(":replicaset")
-	container := this.Ctx.Input.Param(":container")
-
-	v, err := pk.Controller.GetObject(group, workspace, replicaset)
-	if err != nil {
-		this.audit(token, "", true)
-		this.errReturn(err, 500)
-		return
-	}
-	pi, _ := pk.GetReplicaSetInterface(v)
-
-	runtime, err := pi.GetRuntime()
-	if err != nil {
-		this.audit(token, "", true)
-		this.errReturn(err, 500)
-		return
-	}
-
-	old := runtime.ReplicaSet
-	podSpec := old.Spec.Template.Spec
-	newPodSpec, err := updatePodSpecContainerVolume(podSpec, container, volumeVar)
-	if err != nil {
-		this.audit(token, "", true)
-		this.errReturn(err, 500)
-		return
-	}
 	old.Spec.Template.Spec = newPodSpec
 
 	byteContent, err := json.Marshal(old)
