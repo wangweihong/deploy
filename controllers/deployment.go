@@ -244,7 +244,7 @@ func (this *DeploymentController) UpdateDeploymentCustom() {
 	cis := make([]models.ContainerImage, 0)
 	err := json.Unmarshal(this.Ctx.Input.RequestBody, &cis)
 	if err != nil {
-		err = fmt.Errorf("parse container&image fail for  fail for ", err)
+		err = fmt.Errorf("parse container&image fail for  fail for %v", err)
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return

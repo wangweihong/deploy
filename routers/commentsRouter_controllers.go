@@ -275,7 +275,7 @@ func init() {
 	beego.GlobalControllerRouter["ufleet-deploy/controllers:DaemonSetController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:DaemonSetController"],
 		beego.ControllerComments{
 			Method: "UpdateDaemonSetCustom",
-			Router: `/:daemonset/group/:group/workspace/:workspace/container/:container/image/:image`,
+			Router: `/:daemonset/group/:group/workspace/:workspace/custom`,
 			AllowHTTPMethods: []string{"Put"},
 			Params: nil})
 
@@ -1395,7 +1395,7 @@ func init() {
 	beego.GlobalControllerRouter["ufleet-deploy/controllers:StatefulSetController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:StatefulSetController"],
 		beego.ControllerComments{
 			Method: "UpdateStatefulSetCustom",
-			Router: `/:statefulset/group/:group/workspace/:workspace/container/:container/image/:image`,
+			Router: `/:statefulset/group/:group/workspace/:workspace/custom`,
 			AllowHTTPMethods: []string{"Put"},
 			Params: nil})
 

@@ -230,6 +230,10 @@ var (
 			object:  operateObjectDeployment,
 			operate: operateTypeUpdate,
 		},
+		"UpdateDeploymentCustom": audit{
+			object:  operateObjectDeployment,
+			operate: operateTypeUpdate,
+		},
 		"DeleteDeployment": audit{
 			object:  operateObjectDeployment,
 			operate: operateTypeDelete,
@@ -285,6 +289,10 @@ var (
 			operate: operateTypeCreate,
 		},
 		"UpdateDaemonSet": audit{
+			object:  operateObjectDaemonSet,
+			operate: operateTypeUpdate,
+		},
+		"UpdateDaemonSetCustom": audit{
 			object:  operateObjectDaemonSet,
 			operate: operateTypeUpdate,
 		},
@@ -403,6 +411,24 @@ var (
 		"PauseOrResumeCronJob": audit{
 			object:  operateObjectCronJob,
 			operate: operateTypePauseOrResume,
+		},
+
+		//StatefulSet
+		"CreateStatefulSet": audit{
+			object:  operateObjectStatefulSet,
+			operate: operateTypeCreate,
+		},
+		"UpdateStatefulSet": audit{
+			object:  operateObjectStatefulSet,
+			operate: operateTypeUpdate,
+		},
+		"UpdateStatefulSetCustom": audit{
+			object:  operateObjectStatefulSet,
+			operate: operateTypeUpdate,
+		},
+		"DeleteStatefulSet": audit{
+			object:  operateObjectStatefulSet,
+			operate: operateTypeDelete,
 		},
 	}
 )
