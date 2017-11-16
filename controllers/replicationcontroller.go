@@ -763,11 +763,10 @@ func (this *ReplicationControllerController) UpdateReplicationControllerContaine
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
 // @Param replicationcontroller path string true "副本控制器"
-// @Param container path string true "容器"
 // @Success 201 {string} create success!
 // @Failure 500
-// @router /:replicationcontroller/group/:group/workspace/:workspace/container/:container/volume [Get]
-func (this *ReplicationControllerController) GetReplicationControllerContainerSpecVolume() {
+// @router /:replicationcontroller/group/:group/workspace/:workspace/volume [Get]
+func (this *ReplicationControllerController) GetReplicationControllerVolume() {
 	err := this.checkRouteControllerAbility()
 	if err != nil {
 		this.abilityErrorReturn(err)
@@ -777,7 +776,6 @@ func (this *ReplicationControllerController) GetReplicationControllerContainerSp
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
 	replicationcontroller := this.Ctx.Input.Param(":replicationcontroller")
-	container := this.Ctx.Input.Param(":container")
 
 	v, err := pk.Controller.GetObject(group, workspace, replicationcontroller)
 	if err != nil {
@@ -786,22 +784,15 @@ func (this *ReplicationControllerController) GetReplicationControllerContainerSp
 	}
 	pi, _ := pk.GetReplicationControllerInterface(v)
 
-	stat := pi.GetStatus()
+	r, err := pi.GetRuntime()
 	if err != nil {
 		this.errReturn(err, 500)
 		return
 	}
 
-	for _, v := range stat.ContainerSpecs {
-		if v.Name == container {
-			this.normalReturn(v.VolumeMounts)
-			return
-		}
-	}
+	vols := getSpecVolume(r.ReplicationController.Spec.Template.Spec)
 
-	err = fmt.Errorf("container not found")
-
-	this.errReturn(err, 500)
+	this.normalReturn(vols)
 }
 
 // ReplicationControllerContainerVolume
@@ -815,8 +806,8 @@ func (this *ReplicationControllerController) GetReplicationControllerContainerSp
 // @Param body body string true "更新内容"
 // @Success 201 {string} create success!
 // @Failure 500
-// @router /:replicationcontroller/group/:group/workspace/:workspace/container/:container/volume [Post]
-func (this *ReplicationControllerController) AddReplicationControllerContainerSpecVolume() {
+// @router /:replicationcontroller/group/:group/workspace/:workspace/volume [Post]
+func (this *ReplicationControllerController) AddReplicationControllerVolume() {
 	token := this.Ctx.Request.Header.Get("token")
 	err := this.checkRouteControllerAbility()
 	if err != nil {
@@ -832,7 +823,8 @@ func (this *ReplicationControllerController) AddReplicationControllerContainerSp
 		return
 	}
 
-	volumeVar := make([]corev1.VolumeMount, 0)
+	var volumeVar VolumeAndVolumeMounts
+	volumeVar.CMounts = make([]ContainerVolumeMount, 0)
 	err = json.Unmarshal(this.Ctx.Input.RequestBody, &volumeVar)
 	if err != nil {
 		this.audit(token, "", true)
@@ -843,7 +835,6 @@ func (this *ReplicationControllerController) AddReplicationControllerContainerSp
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
 	replicationcontroller := this.Ctx.Input.Param(":replicationcontroller")
-	container := this.Ctx.Input.Param(":container")
 
 	v, err := pk.Controller.GetObject(group, workspace, replicationcontroller)
 	if err != nil {
@@ -863,12 +854,13 @@ func (this *ReplicationControllerController) AddReplicationControllerContainerSp
 	old := runtime.ReplicationController
 	podSpec := old.Spec.Template.Spec
 
-	newPodSpec, err := addPodSpecVolume(podSpec, container, volumeVar)
+	newPodSpec, err := addVolumeAndContaienrVolumeMounts(podSpec, volumeVar)
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
+
 	old.Spec.Template.Spec = newPodSpec
 
 	byteContent, err := json.Marshal(old)
@@ -895,12 +887,11 @@ func (this *ReplicationControllerController) AddReplicationControllerContainerSp
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
 // @Param replicationcontroller path string true "副本控制器"
-// @Param container path string true "容器"
 // @Param volume path string true "卷挂载"
 // @Success 201 {string} create success!
 // @Failure 500
-// @router /:replicationcontroller/group/:group/workspace/:workspace/container/:container/volume/:volume [Delete]
-func (this *ReplicationControllerController) DeleteReplicationControllerContainerSpecVolume() {
+// @router /:replicationcontroller/group/:group/workspace/:workspace/volume/:volume [Delete]
+func (this *ReplicationControllerController) DeleteReplicationControllerVolume() {
 	token := this.Ctx.Request.Header.Get("token")
 	err := this.checkRouteControllerAbility()
 	if err != nil {
@@ -912,7 +903,6 @@ func (this *ReplicationControllerController) DeleteReplicationControllerContaine
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
 	replicationcontroller := this.Ctx.Input.Param(":replicationcontroller")
-	container := this.Ctx.Input.Param(":container")
 	volume := this.Ctx.Input.Param(":volume")
 
 	v, err := pk.Controller.GetObject(group, workspace, replicationcontroller)
@@ -933,14 +923,14 @@ func (this *ReplicationControllerController) DeleteReplicationControllerContaine
 	old := runtime.ReplicationController
 	podSpec := old.Spec.Template.Spec
 
-	newPodSpec, err := deletePodSpecVolume(podSpec, container, volume)
+	newPodSpec, err := deleteVolumeAndContaienrVolumeMounts(podSpec, volume)
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
-	old.Spec.Template.Spec = newPodSpec
 
+	old.Spec.Template.Spec = newPodSpec
 	byteContent, err := json.Marshal(old)
 	if err != nil {
 		this.audit(token, "", true)
@@ -1017,7 +1007,7 @@ func (this *ReplicationControllerController) UpdateReplicationControllerContaine
 
 	old := runtime.ReplicationController
 	podSpec := old.Spec.Template.Spec
-	newPodSpec, err := updatePodSpecVolume(podSpec, container, volumeVar)
+	newPodSpec, err := updatePodSpecContainerVolume(podSpec, container, volumeVar)
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)

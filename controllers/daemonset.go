@@ -759,11 +759,10 @@ func (this *DaemonSetController) UpdateDaemonSetContainerSpecEnv() {
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
 // @Param daemonset path string true "守护进程"
-// @Param container path string true "容器"
 // @Success 201 {string} create success!
 // @Failure 500
-// @router /:daemonset/group/:group/workspace/:workspace/container/:container/volume [Get]
-func (this *DaemonSetController) GetDaemonSetContainerSpecVolume() {
+// @router /:daemonset/group/:group/workspace/:workspace/volume [Get]
+func (this *DaemonSetController) GetDaemonSetVolumes() {
 	err := this.checkRouteControllerAbility()
 	if err != nil {
 		this.abilityErrorReturn(err)
@@ -773,7 +772,6 @@ func (this *DaemonSetController) GetDaemonSetContainerSpecVolume() {
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
 	daemonset := this.Ctx.Input.Param(":daemonset")
-	container := this.Ctx.Input.Param(":container")
 
 	v, err := pk.Controller.GetObject(group, workspace, daemonset)
 	if err != nil {
@@ -782,22 +780,15 @@ func (this *DaemonSetController) GetDaemonSetContainerSpecVolume() {
 	}
 	pi, _ := pk.GetDaemonSetInterface(v)
 
-	stat := pi.GetStatus()
+	r, err := pi.GetRuntime()
 	if err != nil {
 		this.errReturn(err, 500)
 		return
 	}
+	vols := getSpecVolume(r.DaemonSet.Spec.Template.Spec)
 
-	for _, v := range stat.ContainerSpecs {
-		if v.Name == container {
-			this.normalReturn(v.VolumeMounts)
-			return
-		}
-	}
+	this.normalReturn(vols)
 
-	err = fmt.Errorf("container not found")
-
-	this.errReturn(err, 500)
 }
 
 // DaemonSetContainerVolume
@@ -807,11 +798,10 @@ func (this *DaemonSetController) GetDaemonSetContainerSpecVolume() {
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
 // @Param daemonset path string true "守护进程"
-// @Param container path string true "容器"
 // @Param body body string true "更新内容"
 // @Success 201 {string} create success!
 // @Failure 500
-// @router /:daemonset/group/:group/workspace/:workspace/container/:container/volume [Post]
+// @router /:daemonset/group/:group/workspace/:workspace/volume [Post]
 func (this *DaemonSetController) AddDaemonSetContainerSpecVolume() {
 	token := this.Ctx.Request.Header.Get("token")
 	err := this.checkRouteControllerAbility()
@@ -828,7 +818,8 @@ func (this *DaemonSetController) AddDaemonSetContainerSpecVolume() {
 		return
 	}
 
-	volumeVar := make([]corev1.VolumeMount, 0)
+	volumeVar := VolumeAndVolumeMounts{}
+	volumeVar.CMounts = make([]ContainerVolumeMount, 0)
 	err = json.Unmarshal(this.Ctx.Input.RequestBody, &volumeVar)
 	if err != nil {
 		this.audit(token, "", true)
@@ -839,7 +830,6 @@ func (this *DaemonSetController) AddDaemonSetContainerSpecVolume() {
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
 	daemonset := this.Ctx.Input.Param(":daemonset")
-	container := this.Ctx.Input.Param(":container")
 
 	v, err := pk.Controller.GetObject(group, workspace, daemonset)
 	if err != nil {
@@ -859,12 +849,13 @@ func (this *DaemonSetController) AddDaemonSetContainerSpecVolume() {
 	old := runtime.DaemonSet
 	podSpec := old.Spec.Template.Spec
 
-	newPodSpec, err := addPodSpecVolume(podSpec, container, volumeVar)
+	newPodSpec, err := addVolumeAndContaienrVolumeMounts(podSpec, volumeVar)
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
+
 	old.Spec.Template.Spec = newPodSpec
 
 	byteContent, err := json.Marshal(old)
@@ -891,11 +882,10 @@ func (this *DaemonSetController) AddDaemonSetContainerSpecVolume() {
 // @Param group path string true "组名"
 // @Param workspace path string true "工作区"
 // @Param daemonset path string true "守护进程"
-// @Param container path string true "容器"
 // @Param volume path string true "卷挂载"
 // @Success 201 {string} create success!
 // @Failure 500
-// @router /:daemonset/group/:group/workspace/:workspace/container/:container/volume/:volume [Delete]
+// @router /:daemonset/group/:group/workspace/:workspace/volume/:volume [Delete]
 func (this *DaemonSetController) DeleteDaemonSetContainerSpecVolume() {
 	token := this.Ctx.Request.Header.Get("token")
 	err := this.checkRouteControllerAbility()
@@ -908,7 +898,6 @@ func (this *DaemonSetController) DeleteDaemonSetContainerSpecVolume() {
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
 	daemonset := this.Ctx.Input.Param(":daemonset")
-	container := this.Ctx.Input.Param(":container")
 	volume := this.Ctx.Input.Param(":volume")
 
 	v, err := pk.Controller.GetObject(group, workspace, daemonset)
@@ -929,7 +918,7 @@ func (this *DaemonSetController) DeleteDaemonSetContainerSpecVolume() {
 	old := runtime.DaemonSet
 	podSpec := old.Spec.Template.Spec
 
-	newPodSpec, err := deletePodSpecVolume(podSpec, container, volume)
+	newPodSpec, err := deleteVolumeAndContaienrVolumeMounts(podSpec, volume)
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
@@ -1013,7 +1002,7 @@ func (this *DaemonSetController) UpdateDaemonSetContainerSpecVolume() {
 
 	old := runtime.DaemonSet
 	podSpec := old.Spec.Template.Spec
-	newPodSpec, err := updatePodSpecVolume(podSpec, container, volumeVar)
+	newPodSpec, err := updatePodSpecContainerVolume(podSpec, container, volumeVar)
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
