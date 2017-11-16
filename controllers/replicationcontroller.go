@@ -547,6 +547,7 @@ func (this *ReplicationControllerController) AddReplicationControllerContainerSp
 		err = fmt.Errorf("container not found")
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
+		return
 	}
 
 	podSpec.Containers[containerIndex].Env = append(podSpec.Containers[containerIndex].Env, envVar...)
@@ -555,7 +556,7 @@ func (this *ReplicationControllerController) AddReplicationControllerContainerSp
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
-
+		return
 	}
 
 	err = pk.Controller.UpdateObject(group, workspace, replicationcontroller, byteContent, resource.UpdateOption{})
@@ -566,7 +567,6 @@ func (this *ReplicationControllerController) AddReplicationControllerContainerSp
 	}
 	this.audit(token, "", false)
 	this.normalReturn("ok")
-
 }
 
 // DeleteReplicationControllerContainerEnv
@@ -595,7 +595,6 @@ func (this *ReplicationControllerController) DeleteReplicationControllerContaine
 	replicationcontroller := this.Ctx.Input.Param(":replicationcontroller")
 	container := this.Ctx.Input.Param(":container")
 	env := this.Ctx.Input.Param(":env")
-	log.DebugPrint(env)
 
 	v, err := pk.Controller.GetObject(group, workspace, replicationcontroller)
 	if err != nil {
@@ -642,14 +641,14 @@ func (this *ReplicationControllerController) DeleteReplicationControllerContaine
 		err = fmt.Errorf("env not found")
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
-
+		return
 	}
 
 	byteContent, err := json.Marshal(old)
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
-
+		return
 	}
 
 	err = pk.Controller.UpdateObject(group, workspace, replicationcontroller, byteContent, resource.UpdateOption{})
@@ -736,13 +735,14 @@ func (this *ReplicationControllerController) UpdateReplicationControllerContaine
 		err = fmt.Errorf("container not found")
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
+		return
 	}
 
 	byteContent, err := json.Marshal(old)
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
-
+		return
 	}
 
 	err = pk.Controller.UpdateObject(group, workspace, replicationcontroller, byteContent, resource.UpdateOption{})
@@ -791,7 +791,6 @@ func (this *ReplicationControllerController) GetReplicationControllerVolume() {
 	}
 
 	vols := getSpecVolume(r.ReplicationController.Spec.Template.Spec)
-
 	this.normalReturn(vols)
 }
 
@@ -867,6 +866,7 @@ func (this *ReplicationControllerController) AddReplicationControllerVolume() {
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
+		return
 	}
 
 	err = pk.Controller.UpdateObject(group, workspace, replicationcontroller, byteContent, resource.UpdateOption{})
@@ -935,7 +935,7 @@ func (this *ReplicationControllerController) DeleteReplicationControllerVolume()
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
-
+		return
 	}
 
 	err = pk.Controller.UpdateObject(group, workspace, replicationcontroller, byteContent, resource.UpdateOption{})
@@ -1019,7 +1019,7 @@ func (this *ReplicationControllerController) UpdateReplicationControllerContaine
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
-
+		return
 	}
 
 	err = pk.Controller.UpdateObject(group, workspace, replicationcontroller, byteContent, resource.UpdateOption{})
@@ -1030,7 +1030,6 @@ func (this *ReplicationControllerController) UpdateReplicationControllerContaine
 	}
 	this.audit(token, "", false)
 	this.normalReturn("ok")
-
 }
 
 // GetReplicationControllerServices
@@ -1065,9 +1064,7 @@ func (this *ReplicationControllerController) GetReplicationControllerServices() 
 	if err != nil {
 		this.errReturn(err, 500)
 		return
-
 	}
 
 	this.normalReturn(services)
-
 }

@@ -249,6 +249,81 @@ func (this *StatefulSetController) UpdateStatefulSet() {
 	this.normalReturn("ok")
 }
 
+// UpdateStatefulSet
+// @Title StatefulSet
+// @Description  deploymnt
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Param workspace path string true "工作区"
+// @Param statefulset path string true "部署"
+// @Param container path string true "容器"
+// @Param image path string true "镜像"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /:statefulset/group/:group/workspace/:workspace/container/:container/image/:image [Put]
+func (this *StatefulSetController) UpdateStatefulSetCustom() {
+	token := this.Ctx.Request.Header.Get("token")
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.audit(token, "", true)
+		this.abilityErrorReturn(aerr)
+		return
+	}
+
+	group := this.Ctx.Input.Param(":group")
+	workspace := this.Ctx.Input.Param(":workspace")
+	statefulset := this.Ctx.Input.Param(":statefulset")
+	container := this.Ctx.Input.Param(":container")
+	image := this.Ctx.Input.Param(":image")
+
+	v, err := pk.Controller.GetObject(group, workspace, statefulset)
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+	pi, _ := pk.GetStatefulSetInterface(v)
+
+	runtime, err := pi.GetRuntime()
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+
+	var found bool
+	d := runtime.StatefulSet
+	for k, v := range d.Spec.Template.Spec.Containers {
+		if v.Name == container {
+			found = true
+			d.Spec.Template.Spec.Containers[k].Image = image
+		}
+	}
+	if !found {
+		err := fmt.Errorf("container '%v' not found in deploy '%v'", container, statefulset)
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+
+	byteContent, err := json.Marshal(d)
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+
+	err = pk.Controller.UpdateObject(group, workspace, statefulset, byteContent, resource.UpdateOption{})
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+
+	this.audit(token, "", false)
+	this.normalReturn("ok")
+}
+
 // DeleteStatefulSet
 // @Title StatefulSet
 // @Description   StatefulSet

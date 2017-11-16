@@ -187,7 +187,6 @@ func (this *DeploymentController) UpdateDeployment() {
 		return
 	}
 
-	//token := this.Ctx.Request.Header.Get("token")
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
 	deployment := this.Ctx.Input.Param(":deployment")
@@ -199,6 +198,81 @@ func (this *DeploymentController) UpdateDeployment() {
 	}
 
 	err := pk.Controller.UpdateObject(group, workspace, deployment, this.Ctx.Input.RequestBody, resource.UpdateOption{})
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+
+	this.audit(token, "", false)
+	this.normalReturn("ok")
+}
+
+// UpdateDeployment
+// @Title Deployment
+// @Description  deploymnt
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Param workspace path string true "工作区"
+// @Param deployment path string true "部署"
+// @Param container path string true "容器"
+// @Param image path string true "镜像"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /:deployment/group/:group/workspace/:workspace/container/:container/image/:image [Put]
+func (this *DeploymentController) UpdateDeploymentCustom() {
+	token := this.Ctx.Request.Header.Get("token")
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.audit(token, "", true)
+		this.abilityErrorReturn(aerr)
+		return
+	}
+
+	group := this.Ctx.Input.Param(":group")
+	workspace := this.Ctx.Input.Param(":workspace")
+	deployment := this.Ctx.Input.Param(":deployment")
+	container := this.Ctx.Input.Param(":container")
+	image := this.Ctx.Input.Param(":image")
+
+	v, err := pk.Controller.GetObject(group, workspace, deployment)
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+	pi, _ := pk.GetDeploymentInterface(v)
+
+	runtime, err := pi.GetRuntime()
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+
+	var found bool
+	d := runtime.Deployment
+	for k, v := range d.Spec.Template.Spec.Containers {
+		if v.Name == container {
+			found = true
+			d.Spec.Template.Spec.Containers[k].Image = image
+		}
+	}
+	if !found {
+		err := fmt.Errorf("container '%v' not found in deploy '%v'", container, deployment)
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+
+	byteContent, err := json.Marshal(d)
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+
+	err = pk.Controller.UpdateObject(group, workspace, deployment, byteContent, resource.UpdateOption{})
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
@@ -866,7 +940,7 @@ func (this *DeploymentController) AddDeploymentContainerSpecEnv() {
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
-
+		return
 	}
 
 	err = pk.Controller.UpdateObject(group, workspace, deployment, byteContent, resource.UpdateOption{})
@@ -937,7 +1011,7 @@ func (this *DeploymentController) DeleteDeploymentContainerSpecEnv() {
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
-
+		return
 	}
 
 	err = pk.Controller.UpdateObject(group, workspace, deployment, byteContent, resource.UpdateOption{})
@@ -1021,7 +1095,7 @@ func (this *DeploymentController) UpdateDeploymentContainerSpecEnv() {
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
-
+		return
 	}
 
 	err = pk.Controller.UpdateObject(group, workspace, deployment, byteContent, resource.UpdateOption{})
@@ -1147,6 +1221,7 @@ func (this *DeploymentController) AddDeploymentContainerSpecVolume() {
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
+		return
 	}
 
 	err = pk.Controller.UpdateObject(group, workspace, deployment, byteContent, resource.UpdateOption{})
@@ -1216,6 +1291,7 @@ func (this *DeploymentController) DeleteDeploymentContainerSpecVolume() {
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
+		return
 	}
 
 	err = pk.Controller.UpdateObject(group, workspace, deployment, byteContent, resource.UpdateOption{})

@@ -211,6 +211,81 @@ func (this *DaemonSetController) UpdateDaemonSet() {
 	this.normalReturn("ok")
 }
 
+// UpdateDaemonSet
+// @Title DaemonSet
+// @Description  deploymnt
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Param workspace path string true "工作区"
+// @Param daemonset path string true "部署"
+// @Param container path string true "容器"
+// @Param image path string true "镜像"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /:daemonset/group/:group/workspace/:workspace/container/:container/image/:image [Put]
+func (this *DaemonSetController) UpdateDaemonSetCustom() {
+	token := this.Ctx.Request.Header.Get("token")
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.audit(token, "", true)
+		this.abilityErrorReturn(aerr)
+		return
+	}
+
+	group := this.Ctx.Input.Param(":group")
+	workspace := this.Ctx.Input.Param(":workspace")
+	daemonset := this.Ctx.Input.Param(":daemonset")
+	container := this.Ctx.Input.Param(":container")
+	image := this.Ctx.Input.Param(":image")
+
+	v, err := pk.Controller.GetObject(group, workspace, daemonset)
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+	pi, _ := pk.GetDaemonSetInterface(v)
+
+	runtime, err := pi.GetRuntime()
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+
+	var found bool
+	d := runtime.DaemonSet
+	for k, v := range d.Spec.Template.Spec.Containers {
+		if v.Name == container {
+			found = true
+			d.Spec.Template.Spec.Containers[k].Image = image
+		}
+	}
+	if !found {
+		err := fmt.Errorf("container '%v' not found in deploy '%v'", container, daemonset)
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+
+	byteContent, err := json.Marshal(d)
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+
+	err = pk.Controller.UpdateObject(group, workspace, daemonset, byteContent, resource.UpdateOption{})
+	if err != nil {
+		this.audit(token, "", true)
+		this.errReturn(err, 500)
+		return
+	}
+
+	this.audit(token, "", false)
+	this.normalReturn("ok")
+}
+
 // DeleteDaemonSet
 // @Title DaemonSet
 // @Description   DaemonSet
@@ -534,7 +609,6 @@ func (this *DaemonSetController) AddDaemonSetContainerSpecEnv() {
 		if v.Name == container {
 			containerFound = true
 			containerIndex = k
-
 			break
 		}
 	}
@@ -543,6 +617,7 @@ func (this *DaemonSetController) AddDaemonSetContainerSpecEnv() {
 		err = fmt.Errorf("container not found")
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
+		return
 	}
 
 	podSpec.Containers[containerIndex].Env = append(podSpec.Containers[containerIndex].Env, envVar...)
@@ -551,7 +626,7 @@ func (this *DaemonSetController) AddDaemonSetContainerSpecEnv() {
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
-
+		return
 	}
 
 	err = pk.Controller.UpdateObject(group, workspace, daemonset, byteContent, resource.UpdateOption{})
@@ -562,7 +637,6 @@ func (this *DaemonSetController) AddDaemonSetContainerSpecEnv() {
 	}
 	this.audit(token, "", false)
 	this.normalReturn("ok")
-
 }
 
 // DeleteDaemonSetContainerEnv
@@ -638,14 +712,14 @@ func (this *DaemonSetController) DeleteDaemonSetContainerSpecEnv() {
 		err = fmt.Errorf("env not found")
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
-
+		return
 	}
 
 	byteContent, err := json.Marshal(old)
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
-
+		return
 	}
 
 	err = pk.Controller.UpdateObject(group, workspace, daemonset, byteContent, resource.UpdateOption{})
@@ -723,7 +797,6 @@ func (this *DaemonSetController) UpdateDaemonSetContainerSpecEnv() {
 		if v.Name == container {
 			containerFound = true
 			podSpec.Containers[k].Env = envVar
-
 			break
 		}
 	}
@@ -738,7 +811,7 @@ func (this *DaemonSetController) UpdateDaemonSetContainerSpecEnv() {
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
-
+		return
 	}
 
 	err = pk.Controller.UpdateObject(group, workspace, daemonset, byteContent, resource.UpdateOption{})
@@ -749,7 +822,6 @@ func (this *DaemonSetController) UpdateDaemonSetContainerSpecEnv() {
 	}
 	this.audit(token, "", false)
 	this.normalReturn("ok")
-
 }
 
 // GetDaemonSetContainerVolume
@@ -788,7 +860,6 @@ func (this *DaemonSetController) GetDaemonSetVolumes() {
 	vols := getSpecVolume(r.DaemonSet.Spec.Template.Spec)
 
 	this.normalReturn(vols)
-
 }
 
 // DaemonSetContainerVolume
@@ -862,6 +933,7 @@ func (this *DaemonSetController) AddDaemonSetContainerSpecVolume() {
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
+		return
 	}
 
 	err = pk.Controller.UpdateObject(group, workspace, daemonset, byteContent, resource.UpdateOption{})
@@ -872,7 +944,6 @@ func (this *DaemonSetController) AddDaemonSetContainerSpecVolume() {
 	}
 	this.audit(token, "", false)
 	this.normalReturn("ok")
-
 }
 
 // DeleteDaemonSetContainerVolume
@@ -930,7 +1001,7 @@ func (this *DaemonSetController) DeleteDaemonSetContainerSpecVolume() {
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
-
+		return
 	}
 
 	err = pk.Controller.UpdateObject(group, workspace, daemonset, byteContent, resource.UpdateOption{})
@@ -1014,7 +1085,7 @@ func (this *DaemonSetController) UpdateDaemonSetContainerSpecVolume() {
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
-
+		return
 	}
 
 	err = pk.Controller.UpdateObject(group, workspace, daemonset, byteContent, resource.UpdateOption{})
@@ -1025,7 +1096,6 @@ func (this *DaemonSetController) UpdateDaemonSetContainerSpecVolume() {
 	}
 	this.audit(token, "", false)
 	this.normalReturn("ok")
-
 }
 
 // GetDaemonSetServices
@@ -1060,9 +1130,7 @@ func (this *DaemonSetController) GetDaemonSetServices() {
 	if err != nil {
 		this.errReturn(err, 500)
 		return
-
 	}
 
 	this.normalReturn(services)
-
 }

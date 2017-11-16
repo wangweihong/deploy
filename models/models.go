@@ -12,3 +12,8 @@ type CreateOption struct {
 	Comment string `json:"comment"`
 	Data    string `json:"data"`
 }
+
+type ContainerImage struct {
+	Container string `json:"container"`
+	Image     string `json:"image"`
+}
