@@ -494,10 +494,10 @@ func (p *SecretManager) UpdateObject(groupName, workspaceName string, resourceNa
 	}
 	//
 	newr.ResourceVersion = ""
-	if newr.Annotations == nil {
-		newr.Annotations = make(map[string]string)
-	}
 	if !res.MemoryOnly {
+		if newr.Annotations == nil {
+			newr.Annotations = make(map[string]string)
+		}
 		newr.Annotations[sign.SignFromUfleetKey] = sign.SignFromUfleetValue
 	}
 

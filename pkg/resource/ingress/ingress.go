@@ -493,10 +493,10 @@ func (p *IngressManager) UpdateObject(groupName, workspaceName string, resourceN
 	}
 	//
 	newr.ResourceVersion = ""
-	if newr.Annotations == nil {
-		newr.Annotations = make(map[string]string)
-	}
 	if !res.MemoryOnly {
+		if newr.Annotations == nil {
+			newr.Annotations = make(map[string]string)
+		}
 		newr.Annotations[sign.SignFromUfleetKey] = sign.SignFromUfleetValue
 	}
 

@@ -435,8 +435,6 @@ func (p *PodManager) UpdateObject(groupName, workspaceName string, resourceName 
 
 	//说明是主动创建的..
 	var newr corev1.Pod
-	//	err = util.GetObjectFromYamlTemplate(data, &newr)
-	//	err = util.GetObjectFromYamlTemplate(exts[0].Raw, &newr)
 	err = json.Unmarshal(exts[0].Raw, &newr)
 	if err != nil {
 		return log.DebugPrint(err)

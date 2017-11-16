@@ -513,6 +513,12 @@ func (p *ServiceManager) UpdateObject(groupName, workspaceName string, resourceN
 	if runtime.Service.Spec.ClusterIP != "" {
 		newr.Spec.ClusterIP = runtime.Service.Spec.ClusterIP
 	}
+	if !res.MemoryOnly {
+		if newr.Annotations == nil {
+			newr.Annotations = make(map[string]string)
+		}
+		newr.Annotations[sign.SignFromUfleetKey] = sign.SignFromUfleetValue
+	}
 
 	ph, err := cluster.NewServiceHandler(groupName, workspaceName)
 	if err != nil {
