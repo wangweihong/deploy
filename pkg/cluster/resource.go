@@ -235,7 +235,7 @@ func (h *serviceHandler) GetPods(namespace, name string) ([]*corev1.Pod, error) 
 
 	selectorStr := svc.Spec.Selector
 	selector := labels.Set(selectorStr).AsSelector()
-	pods, err := h.informerController.podInformer.Lister().List(selector)
+	pods, err := h.informerController.podInformer.Lister().Pods(namespace).List(selector)
 	if err != nil {
 		return nil, err
 	}
@@ -498,9 +498,20 @@ func (h *replicationcontrollerHandler) GetPods(namespace, name string) ([]*corev
 	selector := labels.Set(rsSelector).AsSelector()
 	//opts := corev1.ListOptions{LabelSelector: selector.String()}
 	//po, err := h.clientset.CoreV1().Pods(namespace).List(opts)
-	pos, err := h.informerController.podInformer.Lister().List(selector)
+	allpos, err := h.informerController.podInformer.Lister().Pods(namespace).List(selector)
 	if err != nil {
 		return nil, err
+	}
+	pos := make([]*corev1.Pod, 0)
+	for k := range allpos {
+		controllerRef := controller.GetControllerOf(allpos[k])
+		if controllerRef == nil {
+			continue
+		}
+
+		if controllerRef.UID == d.UID {
+			pos = append(pos, allpos[k])
+		}
 	}
 
 	return pos, nil
@@ -882,7 +893,7 @@ func (h *deploymentHandler) GetPods(namespace, name string) ([]*corev1.Pod, erro
 	selector := labels.Set(rsSelector).AsSelector()
 	//opts := corev1.ListOptions{LabelSelector: selector.String()}
 	//po, err := h.clientset.CoreV1().Pods(namespace).List(opts)
-	pos, err := h.informerController.podInformer.Lister().List(selector)
+	pos, err := h.informerController.podInformer.Lister().Pods(namespace).List(selector)
 	if err != nil {
 		return nil, err
 	}
@@ -1201,7 +1212,7 @@ func (h *replicasetHandler) GetPods(namespace, name string) ([]*corev1.Pod, erro
 	//	selector := labels.Set(rsSelector).AsSelector()
 	//opts := corev1.ListOptions{LabelSelector: selector.String()}
 	//po, err := h.clientset.ExtensionsV1beta1().Pods(namespace).List(opts)
-	allpos, err := h.informerController.podInformer.Lister().List(selector)
+	allpos, err := h.informerController.podInformer.Lister().Pods(namespace).List(selector)
 	if err != nil {
 		return nil, err
 	}
@@ -1352,7 +1363,7 @@ func (h *daemonsetHandler) GetPods(namespace, name string) ([]*corev1.Pod, error
 	selector := labels.Set(rsSelector).AsSelector()
 	//opts := corev1.ListOptions{LabelSelector: selector.String()}
 	//po, err := h.clientset.CoreV1().Pods(namespace).List(opts)
-	pos, err := h.informerController.podInformer.Lister().List(selector)
+	pos, err := h.informerController.podInformer.Lister().Pods(namespace).List(selector)
 	if err != nil {
 		return nil, err
 	}
@@ -1656,7 +1667,7 @@ func (h *statefulsetHandler) GetPods(namespace, name string) ([]*corev1.Pod, err
 	selector := labels.Set(rsSelector).AsSelector()
 	//opts := corev1.ListOptions{LabelSelector: selector.String()}
 	//po, err := h.clientset.CoreV1().Pods(namespace).List(opts)
-	pos, err := h.informerController.podInformer.Lister().List(selector)
+	pos, err := h.informerController.podInformer.Lister().Pods(namespace).List(selector)
 	if err != nil {
 		return nil, err
 	}
