@@ -810,39 +810,47 @@ func (h *deploymentHandler) Update(namespace string, resource *extensionsv1beta1
 
 func (h *deploymentHandler) Delete(namespace, deploymentName string) error {
 	//	return h.clientset.ExtensionsV1beta1().Deployments(namespace).Delete(deploymentName, nil)
-	d, err := h.Get(namespace, deploymentName)
-	if err != nil {
-		return err
-	}
-	allOldRSs, newRs, err := h.GetAllReplicaSets(namespace, deploymentName)
+	var e error
+	allOldRSs, newRs, rsErr := h.GetAllReplicaSets(namespace, deploymentName)
 	allRSs := allOldRSs
 	if newRs != nil {
 		allRSs = append(allRSs, newRs)
 	}
 
-	err = h.clientset.ExtensionsV1beta1().Deployments(namespace).Delete(deploymentName, nil)
+	allpods, podErr := h.GetPods(namespace, deploymentName)
+
+	err := h.clientset.ExtensionsV1beta1().Deployments(namespace).Delete(deploymentName, nil)
 	if err != nil {
 		return err
 	}
 
-	for _, v := range allRSs {
-		err := h.clientset.ExtensionsV1beta1().ReplicaSets(namespace).Delete(v.Name, nil)
-		if err != nil {
-			if !apierrors.IsNotFound(err) {
-				log.ErrorPrint(fmt.Sprintf("try to delete rs %v fail for %v", v.Name, err))
+	if rsErr == nil {
+		for _, v := range allRSs {
+			err := h.clientset.ExtensionsV1beta1().ReplicaSets(namespace).Delete(v.Name, nil)
+			if err != nil {
+				if !apierrors.IsNotFound(err) {
+					e = log.ErrorPrint(fmt.Sprintf("try to delete rs %v fail for %v", v.Name, err))
+				}
+			}
+		}
+
+		if podErr == nil {
+
+			if allpods != nil {
+				for _, v := range allpods {
+					err := h.clientset.CoreV1().Pods(namespace).Delete(v.Name, nil)
+					if err != nil {
+						if !apierrors.IsNotFound(err) {
+							e = log.ErrorPrint("try to delete po %v fail for %v", v.Name, err)
+						}
+					}
+				}
 			}
 		}
 	}
 
-	selector, err := metav1.LabelSelectorAsSelector(d.Spec.Selector)
-	if err != nil {
-		log.ErrorPrint(fmt.Sprintf("try to delete pods fail for %v", err))
-	}
-
-	opt := metav1.ListOptions{LabelSelector: selector.String()}
-	err = h.clientset.CoreV1().Pods(namespace).DeleteCollection(nil, opt)
-	if err != nil {
-		log.ErrorPrint(fmt.Sprintf("try to delete pods fail for %v", err))
+	if e != nil || rsErr != nil || podErr != nil {
+		return fmt.Errorf("delete deployment success, but resources owned by this deployment still exists, please delete them manually")
 	}
 	return nil
 }
@@ -1393,9 +1401,20 @@ func (h *daemonsetHandler) GetPods(namespace, name string) ([]*corev1.Pod, error
 	selector := labels.Set(rsSelector).AsSelector()
 	//opts := corev1.ListOptions{LabelSelector: selector.String()}
 	//po, err := h.clientset.CoreV1().Pods(namespace).List(opts)
-	pos, err := h.informerController.podInformer.Lister().Pods(namespace).List(selector)
+	allpos, err := h.informerController.podInformer.Lister().Pods(namespace).List(selector)
 	if err != nil {
 		return nil, err
+	}
+	pos := make([]*corev1.Pod, 0)
+	for k := range allpos {
+		controllerRef := controller.GetControllerOf(allpos[k])
+		if controllerRef == nil {
+			continue
+		}
+
+		if controllerRef.UID == d.UID {
+			pos = append(pos, allpos[k])
+		}
 	}
 
 	return pos, nil
@@ -1697,9 +1716,20 @@ func (h *statefulsetHandler) GetPods(namespace, name string) ([]*corev1.Pod, err
 	selector := labels.Set(rsSelector).AsSelector()
 	//opts := corev1.ListOptions{LabelSelector: selector.String()}
 	//po, err := h.clientset.CoreV1().Pods(namespace).List(opts)
-	pos, err := h.informerController.podInformer.Lister().Pods(namespace).List(selector)
+	allpos, err := h.informerController.podInformer.Lister().Pods(namespace).List(selector)
 	if err != nil {
 		return nil, err
+	}
+	pos := make([]*corev1.Pod, 0)
+	for k := range allpos {
+		controllerRef := controller.GetControllerOf(allpos[k])
+		if controllerRef == nil {
+			continue
+		}
+
+		if controllerRef.UID == d.UID {
+			pos = append(pos, allpos[k])
+		}
 	}
 
 	return pos, nil
@@ -1772,9 +1802,6 @@ func (h *cronjobHandler) Delete(namespace, cronjobName string) error {
 	if err != nil {
 		return err
 	}
-	for _, v := range jobs {
-		log.DebugPrint(v.Name)
-	}
 
 	err = h.clientset.BatchV2alpha1().CronJobs(namespace).Delete(cronjobName, nil)
 	if err != nil {
@@ -1813,10 +1840,20 @@ func (h *cronjobHandler) GetJobs(namespace, cronjobName string) ([]*batchv1.Job,
 		//	selector, err := metav1.LabelSelectorAsSelector(job.Spec.Selector)
 		//selector := fields.SelectorFromSet(cj.Spec.JobTemplate.Labels)
 		selector := labels.SelectorFromSet(cj.Spec.JobTemplate.Labels)
-		var err error
-		jobs, err = h.informerController.jobInformer.Lister().Jobs(namespace).List(selector)
+		alljobs, err := h.informerController.jobInformer.Lister().Jobs(namespace).List(selector)
 		if err != nil {
 			return nil, err
+		}
+
+		for k := range alljobs {
+			controllerRef := controller.GetControllerOf(alljobs[k])
+			if controllerRef == nil {
+				continue
+			}
+
+			if controllerRef.UID == cj.UID {
+				jobs = append(jobs, alljobs[k])
+			}
 		}
 	}
 	sort.Sort(SortableJobs(jobs))
@@ -1916,12 +1953,23 @@ func (h *jobHandler) GetPods(namespace, jobName string) ([]*corev1.Pod, error) {
 		return nil, err
 	}
 
-	pods, err := h.informerController.podInformer.Lister().Pods(namespace).List(selector)
+	allpos, err := h.informerController.podInformer.Lister().Pods(namespace).List(selector)
 	if err != nil {
 		return nil, err
 	}
+	pos := make([]*corev1.Pod, 0)
+	for k := range allpos {
+		controllerRef := controller.GetControllerOf(allpos[k])
+		if controllerRef == nil {
+			continue
+		}
 
-	return pods, nil
+		if controllerRef.UID == job.UID {
+			pos = append(pos, allpos[k])
+		}
+	}
+
+	return pos, nil
 }
 func (h *jobHandler) Event(namespace, resourceName string) ([]corev1.Event, error) {
 	//	pod, err := h.clientset.Pods(namespace).Get(podName, metav1.GetOptions{})
