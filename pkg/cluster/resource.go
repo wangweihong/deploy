@@ -32,6 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	watch "k8s.io/apimachinery/pkg/watch"
 	kubernetesapi "k8s.io/kubernetes/pkg/api"
+	//"k8s.io/kubernetes/pkg/controller"
 	deploymentutil "k8s.io/kubernetes/pkg/controller/deployment/util"
 )
 
@@ -1200,9 +1201,20 @@ func (h *replicasetHandler) GetPods(namespace, name string) ([]*corev1.Pod, erro
 	//	selector := labels.Set(rsSelector).AsSelector()
 	//opts := corev1.ListOptions{LabelSelector: selector.String()}
 	//po, err := h.clientset.ExtensionsV1beta1().Pods(namespace).List(opts)
-	pos, err := h.informerController.podInformer.Lister().List(selector)
+	allpos, err := h.informerController.podInformer.Lister().List(selector)
 	if err != nil {
 		return nil, err
+	}
+	pos := make([]*corev1.Pod, 0)
+	for k := range allpos {
+		controllerRef := controller.GetControllerOf(allpos[k])
+		if controllerRef == nil {
+			continue
+		}
+
+		if controllerRef.UID == d.UID {
+			pos = append(pos, allpos[k])
+		}
 	}
 
 	return pos, nil
