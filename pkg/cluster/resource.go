@@ -893,9 +893,39 @@ func (h *deploymentHandler) GetPods(namespace, name string) ([]*corev1.Pod, erro
 	selector := labels.Set(rsSelector).AsSelector()
 	//opts := corev1.ListOptions{LabelSelector: selector.String()}
 	//po, err := h.clientset.CoreV1().Pods(namespace).List(opts)
-	pos, err := h.informerController.podInformer.Lister().Pods(namespace).List(selector)
+	allpos, err := h.informerController.podInformer.Lister().Pods(namespace).List(selector)
 	if err != nil {
 		return nil, err
+	}
+
+	//当deployment修改podtemplate selectors时, deployment将会和之前的Replicaset脱离Owner关系
+	//deployment将会创建的replicaset,同时生成新的Pod.对于已经脱离Owner的Replicaset,除非
+	//deployment修改回之前的selectors,否则互不影响.
+	allOldRSs, newRs, err := h.GetAllReplicaSets(namespace, name)
+	if err != nil {
+		return nil, err
+	}
+
+	rsList := allOldRSs
+	if newRs != nil {
+		rsList = append(rsList, newRs)
+	}
+
+	podMap := make(map[types.UID]struct{}, len(rsList))
+	for _, v := range rsList {
+		podMap[v.UID] = struct{}{}
+	}
+
+	pos := make([]*corev1.Pod, 0)
+	for k := range allpos {
+		controllerRef := controller.GetControllerOf(allpos[k])
+		if controllerRef == nil {
+			continue
+		}
+
+		if _, ok := podMap[controllerRef.UID]; ok {
+			pos = append(pos, allpos[k])
+		}
 	}
 
 	return pos, nil
