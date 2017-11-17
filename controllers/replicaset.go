@@ -241,7 +241,6 @@ func (this *ReplicaSetController) UpdateReplicaSet() {
 		return
 	}
 
-	//token := this.Ctx.Request.Header.Get("token")
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
 	replicaset := this.Ctx.Input.Param(":replicaset")
@@ -253,7 +252,26 @@ func (this *ReplicaSetController) UpdateReplicaSet() {
 		return
 	}
 
-	err := pk.Controller.UpdateObject(group, workspace, replicaset, this.Ctx.Input.RequestBody, resource.UpdateOption{})
+	v, err := pk.Controller.GetObject(group, workspace, replicaset)
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+	pi, _ := pk.GetReplicaSetInterface(v)
+	stat := pi.GetStatus()
+	if stat.Reason != "" {
+		err = fmt.Errorf(stat.Reason)
+		this.errReturn(err, 500)
+		return
+	}
+
+	if len(stat.OwnerReferences) != 0 {
+		err := fmt.Errorf("replicaset '%v' has owner referene, don't support update", replicaset)
+		this.errReturn(err, 500)
+		return
+	}
+
+	err = pk.Controller.UpdateObject(group, workspace, replicaset, this.Ctx.Input.RequestBody, resource.UpdateOption{})
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
@@ -455,7 +473,8 @@ func (this *ReplicaSetController) GetReplicaSetContainerSpecEnv() {
 	pi, _ := pk.GetReplicaSetInterface(v)
 
 	stat := pi.GetStatus()
-	if err != nil {
+	if stat.Reason != "" {
+		err = fmt.Errorf(stat.Reason)
 		this.errReturn(err, 500)
 		return
 	}
@@ -520,6 +539,19 @@ func (this *ReplicaSetController) AddReplicaSetContainerSpecEnv() {
 		return
 	}
 	pi, _ := pk.GetReplicaSetInterface(v)
+
+	stat := pi.GetStatus()
+	if stat.Reason != "" {
+		err = fmt.Errorf(stat.Reason)
+		this.errReturn(err, 500)
+		return
+	}
+
+	if len(stat.OwnerReferences) != 0 {
+		err := fmt.Errorf("replicaset '%v' has owner referene, don't support update", replicaset)
+		this.errReturn(err, 500)
+		return
+	}
 
 	runtime, err := pi.GetRuntime()
 	if err != nil {
@@ -602,6 +634,19 @@ func (this *ReplicaSetController) DeleteReplicaSetContainerSpecEnv() {
 		return
 	}
 	pi, _ := pk.GetReplicaSetInterface(v)
+
+	stat := pi.GetStatus()
+	if stat.Reason != "" {
+		err = fmt.Errorf(stat.Reason)
+		this.errReturn(err, 500)
+		return
+	}
+
+	if len(stat.OwnerReferences) != 0 {
+		err := fmt.Errorf("replicaset '%v' has owner referene, don't support update", replicaset)
+		this.errReturn(err, 500)
+		return
+	}
 
 	runtime, err := pi.GetRuntime()
 	if err != nil {
@@ -709,6 +754,19 @@ func (this *ReplicaSetController) UpdateReplicaSetContainerSpecEnv() {
 		return
 	}
 	pi, _ := pk.GetReplicaSetInterface(v)
+
+	stat := pi.GetStatus()
+	if stat.Reason != "" {
+		err = fmt.Errorf(stat.Reason)
+		this.errReturn(err, 500)
+		return
+	}
+
+	if len(stat.OwnerReferences) != 0 {
+		err := fmt.Errorf("replicaset '%v' has owner referene, don't support update", replicaset)
+		this.errReturn(err, 500)
+		return
+	}
 
 	runtime, err := pi.GetRuntime()
 	if err != nil {
@@ -840,6 +898,19 @@ func (this *ReplicaSetController) AddReplicaSetContainerSpecVolume() {
 	}
 	pi, _ := pk.GetReplicaSetInterface(v)
 
+	stat := pi.GetStatus()
+	if stat.Reason != "" {
+		err = fmt.Errorf(stat.Reason)
+		this.errReturn(err, 500)
+		return
+	}
+
+	if len(stat.OwnerReferences) != 0 {
+		err := fmt.Errorf("replicaset '%v' has owner referene, don't support update", replicaset)
+		this.errReturn(err, 500)
+		return
+	}
+
 	runtime, err := pi.GetRuntime()
 	if err != nil {
 		this.audit(token, "", true)
@@ -908,6 +979,18 @@ func (this *ReplicaSetController) DeleteReplicaSetContainerSpecVolume() {
 	}
 	pi, _ := pk.GetReplicaSetInterface(v)
 
+	stat := pi.GetStatus()
+	if stat.Reason != "" {
+		err = fmt.Errorf(stat.Reason)
+		this.errReturn(err, 500)
+		return
+	}
+
+	if len(stat.OwnerReferences) != 0 {
+		err := fmt.Errorf("replicaset '%v' has owner referene, don't support update", replicaset)
+		this.errReturn(err, 500)
+		return
+	}
 	runtime, err := pi.GetRuntime()
 	if err != nil {
 		this.audit(token, "", true)

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sync"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1 "k8s.io/client-go/pkg/api/v1"
 )
 
@@ -129,6 +130,12 @@ type EnvVar struct {
 
 type ObjectReference struct {
 	corev1.ObjectReference
+	Group     string `group`
+	Namespace string `json:"workspace"`
+}
+
+type OwnerReference struct {
+	metav1.OwnerReference
 	Group     string `group`
 	Namespace string `json:"workspace"`
 }

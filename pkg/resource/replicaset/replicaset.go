@@ -33,6 +33,7 @@ type ReplicaSetInterface interface {
 	Event() ([]corev1.Event, error)
 	GetTemplate() (string, error)
 	GetServices() ([]*corev1.Service, error)
+
 	//	Runtime()
 }
 
@@ -577,65 +578,21 @@ type Status struct {
 	ClusterIP  string   `json:"clusterip"`
 	CreateTime int64    `json:"createtime"`
 	//Replicas    int32             `json:"replicas"`
-	Desire      int               `json:"desire"`
-	Current     int               `json:"current"`
-	Available   int               `json:"available"`
-	Ready       int               `json:"ready"`
-	Labels      map[string]string `json:"labels"`
-	Annotations map[string]string `json:"annotations"`
-	Selectors   map[string]string `json:"selector"`
-	Reason      string            `json:"reason"`
+	Desire          int                       `json:"desire"`
+	Current         int                       `json:"current"`
+	Available       int                       `json:"available"`
+	Ready           int                       `json:"ready"`
+	Labels          map[string]string         `json:"labels"`
+	Annotations     map[string]string         `json:"annotations"`
+	Selectors       map[string]string         `json:"selector"`
+	Reason          string                    `json:"reason"`
+	OwnerReferences []resource.OwnerReference `json:"ownerreferences"`
+
 	//	Pods       []string `json:"pods"`
 	ContainerSpecs []pk.ContainerSpec `json:"containerspec"`
 	PodStatus      []pk.Status        `json:"podstatus"`
 	PodsCount      resource.PodsCount `json:"podscount"`
 	extensionsv1beta1.ReplicaSetStatus
-}
-
-//不包含PodStatus的信息
-func K8sReplicaSetToReplicaSetStatus(replicaset *extensionsv1beta1.ReplicaSet) *Status {
-	js := Status{ReplicaSetStatus: replicaset.Status}
-	js.ContainerSpecs = make([]pk.ContainerSpec, 0)
-	js.Name = replicaset.Name
-	js.Images = make([]string, 0)
-	js.PodStatus = make([]pk.Status, 0)
-	js.CreateTime = replicaset.CreationTimestamp.Unix()
-	if replicaset.Spec.Replicas != nil {
-		js.Replicas = *replicaset.Spec.Replicas
-	}
-
-	js.Labels = make(map[string]string)
-	if replicaset.Labels != nil {
-		js.Labels = replicaset.Labels
-	}
-
-	js.Annotations = make(map[string]string)
-	if replicaset.Annotations != nil {
-		js.Labels = replicaset.Annotations
-	}
-
-	js.Selectors = make(map[string]string)
-	if replicaset.Spec.Selector != nil {
-		js.Selectors = replicaset.Spec.Selector.MatchLabels
-	}
-
-	if replicaset.Spec.Replicas != nil {
-		js.Desire = int(*replicaset.Spec.Replicas)
-	} else {
-		js.Desire = 1
-
-	}
-	js.Current = int(replicaset.Status.AvailableReplicas)
-	js.Ready = int(replicaset.Status.ReadyReplicas)
-	js.Available = int(replicaset.Status.AvailableReplicas)
-
-	for _, v := range replicaset.Spec.Template.Spec.Containers {
-		js.Containers = append(js.Containers, v.Name)
-		js.Images = append(js.Images, v.Image)
-		js.ContainerSpecs = append(js.ContainerSpecs, *pk.K8sContainerSpecTran(&v))
-	}
-	return &js
-
 }
 
 func (j *ReplicaSet) ObjectStatus() resource.ObjectStatus {
@@ -665,6 +622,17 @@ func (j *ReplicaSet) GetStatus() *Status {
 
 	if js.CreateTime == 0 {
 		js.CreateTime = runtime.ReplicaSet.CreationTimestamp.Unix()
+	}
+	js.OwnerReferences = make([]resource.OwnerReference, 0)
+
+	if runtime.ReplicaSet.OwnerReferences != nil {
+
+		//var cr resource.ObjectReference
+		for k := range replicaset.OwnerReferences {
+			cr := resource.OwnerReference{OwnerReference: replicaset.OwnerReferences[k], Group: j.Group, Namespace: j.Workspace}
+			js.OwnerReferences = append(js.OwnerReferences, cr)
+		}
+
 	}
 
 	if replicaset.Spec.Replicas != nil {
@@ -696,7 +664,6 @@ func (j *ReplicaSet) GetStatus() *Status {
 		js.Images = append(js.Images, v.Image)
 		js.ContainerSpecs = append(js.ContainerSpecs, *pk.K8sContainerSpecTran(&v))
 	}
-	//	js := K8sReplicaSetToReplicaSetStatus(runtime.ReplicaSet)
 	js.PodNum = len(runtime.Pods)
 	if js.PodNum != 0 {
 		pod := runtime.Pods[0]
@@ -715,6 +682,7 @@ func (j *ReplicaSet) GetStatus() *Status {
 	js.PodsCount = *resource.GetPodsCount(runtime.Pods)
 	return &js
 }
+
 func (j *ReplicaSet) Scale(num int) error {
 
 	jh, err := cluster.NewReplicaSetHandler(j.Group, j.Workspace)
