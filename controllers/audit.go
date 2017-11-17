@@ -154,15 +154,15 @@ var (
 			object:  operateObjectReplicationController,
 			operate: operateTypeUpdate,
 		},
-		"UpdateReplicationControllerContainerSpecVolume": audit{
+		"UpdateReplicationControllerVolume": audit{
 			object:  operateObjectReplicationController,
 			operate: operateTypeUpdate,
 		},
-		"AddReplicationControllerContainerSpecVolume": audit{
+		"AddReplicationControllerVolume": audit{
 			object:  operateObjectReplicationController,
 			operate: operateTypeUpdate,
 		},
-		"DeleteReplicationControllerContainerSpecVolume": audit{
+		"DeleteReplicationControllerVolume": audit{
 			object:  operateObjectReplicationController,
 			operate: operateTypeUpdate,
 		},
