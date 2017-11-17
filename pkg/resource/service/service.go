@@ -606,6 +606,7 @@ type Status struct {
 func (s *Service) ObjectStatus() resource.ObjectStatus {
 	return s.GetStatus()
 }
+
 func (s *Service) GetStatus() *Status {
 	js := Status{ObjectMeta: s.ObjectMeta}
 	js.Containers = make([]string, 0)
@@ -648,6 +649,23 @@ func (s *Service) GetStatus() *Status {
 	}
 
 	return &js
+}
+
+func GetStatus(group, workspace, name string) (*Status, error) {
+	obj, err := Controller.GetObject(group, workspace, name)
+	if err != nil {
+		return nil, err
+	}
+
+	si, err := GetServiceInterface(obj)
+	if err != nil {
+		return nil, err
+	}
+	status := si.GetStatus()
+	if status.Reason != "" {
+		return nil, err
+	}
+	return status, nil
 }
 
 func (s *Service) Event() ([]corev1.Event, error) {

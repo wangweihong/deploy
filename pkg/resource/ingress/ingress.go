@@ -13,6 +13,8 @@ import (
 	"ufleet-deploy/pkg/resource/util"
 	"ufleet-deploy/pkg/sign"
 
+	"ufleet-deploy/pkg/resource/service"
+
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	corev1 "k8s.io/client-go/pkg/api/v1"
 	extensionsv1beta1 "k8s.io/client-go/pkg/apis/extensions/v1beta1"
@@ -29,6 +31,7 @@ type IngressInterface interface {
 	GetTemplate() (string, error)
 	GetStatus() *Status
 	Event() ([]corev1.Event, error)
+	GetServices() ([]service.Status, error)
 }
 
 type IngressManager struct {
@@ -565,7 +568,30 @@ func (s *Ingress) GetTemplate() (string, error) {
 	prefix := "apiVersion: extensions/v1beta1\nkind: Ingress"
 	*t = fmt.Sprintf("%v\n%v", prefix, *t)
 	return *t, nil
+}
 
+func (s *Ingress) GetServices() ([]service.Status, error) {
+	ph, err := cluster.NewIngressHandler(s.Group, s.Workspace)
+	if err != nil {
+		return nil, err
+	}
+
+	svcs, err := ph.GetServices(s.Workspace, s.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	serviceStatuses := make([]service.Status, 0)
+	for _, v := range svcs {
+		stat, err := service.GetStatus(s.Group, s.Workspace, v.Name)
+		if err != nil {
+			return nil, err
+		}
+
+		serviceStatuses = append(serviceStatuses, *stat)
+	}
+
+	return serviceStatuses, nil
 }
 
 type Status struct {
@@ -574,8 +600,9 @@ type Status struct {
 	Ports         []int    `json:"ports"`
 	IngressSpec   `json:"ingressspec"`
 	IngressStatus `json:"ingressstatus"`
-	Reason        string            `json:"reason"`
-	Labels        map[string]string `json:"labels"`
+
+	Reason string            `json:"reason"`
+	Labels map[string]string `json:"labels"`
 }
 
 type IngressSpec struct {
@@ -615,6 +642,7 @@ func (s *Ingress) GetStatus() *Status {
 		js.Reason = err.Error()
 		return &js
 	}
+
 	if js.CreateTime == 0 {
 		js.CreateTime = runtime.Ingress.CreationTimestamp.Unix()
 	}

@@ -671,6 +671,13 @@ func init() {
 			AllowHTTPMethods: []string{"Get"},
 			Params: nil})
 
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:IngressController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:IngressController"],
+		beego.ControllerComments{
+			Method: "GetGroupWorkspaceIngressServices",
+			Router: `/:ingress/group/:group/workspace/:workspace/services`,
+			AllowHTTPMethods: []string{"Get"},
+			Params: nil})
+
 	beego.GlobalControllerRouter["ufleet-deploy/controllers:JobController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:JobController"],
 		beego.ControllerComments{
 			Method: "ListGroupWorkspaceJobs",

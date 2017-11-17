@@ -363,3 +363,38 @@ func (this *IngressController) GetIngressTemplate() {
 
 	this.normalReturn(t)
 }
+
+// GetIngresss
+// @Title Ingress
+// @Description  Ingress
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Param workspace path string true "工作区"
+// @Param ingress path string true "服务"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /:ingress/group/:group/workspace/:workspace/services [Get]
+func (this *IngressController) GetGroupWorkspaceIngressServices() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
+
+	group := this.Ctx.Input.Param(":group")
+	workspace := this.Ctx.Input.Param(":workspace")
+	ingress := this.Ctx.Input.Param(":ingress")
+
+	pi, err := pk.Controller.GetObject(group, workspace, ingress)
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+	v, _ := pk.GetIngressInterface(pi)
+	ss, err := v.GetServices()
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+	this.normalReturn(ss)
+}

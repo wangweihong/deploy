@@ -194,6 +194,7 @@ type ServiceHandler interface {
 	GetPods(namespace, name string) ([]*corev1.Pod, error)
 	List(namespace string) ([]*corev1.Service, error)
 	GetReferenceResources(namespace, name string) ([]corev1.ObjectReference, error)
+	GetIngresses(namespace, name string) ([]*extensionsv1beta1.Ingress, error)
 }
 
 func NewServiceHandler(group, workspace string) (ServiceHandler, error) {
@@ -244,6 +245,42 @@ func (h *serviceHandler) GetPods(namespace, name string) ([]*corev1.Pod, error) 
 
 func (h *serviceHandler) List(namespace string) ([]*corev1.Service, error) {
 	return h.informerController.serviceInformer.Lister().Services(namespace).List(labels.Everything())
+}
+
+func (h *serviceHandler) GetIngresses(namespace, name string) ([]*extensionsv1beta1.Ingress, error) {
+	_, err := h.Get(namespace, name)
+	if err != nil {
+		return nil, err
+	}
+
+	allings, err := h.informerController.ingressInformer.Lister().Ingresses(namespace).List(labels.Everything())
+	if err != nil {
+		return nil, err
+	}
+
+	ings := make([]*extensionsv1beta1.Ingress, 0)
+	for k := range allings {
+		ing := allings[k]
+		if ing.Spec.Backend != nil {
+			if ing.Spec.Backend.ServiceName == name {
+				ings = append(ings, ing)
+				continue
+			}
+		}
+
+		for _, v := range ing.Spec.Rules {
+			if v.HTTP != nil {
+				for _, j := range v.HTTP.Paths {
+					if j.Backend.ServiceName == name {
+						ings = append(ings, ing)
+						goto out
+					}
+				}
+			}
+		}
+	out:
+	}
+	return ings, nil
 }
 
 func (h *serviceHandler) GetReferenceResources(namespace, name string) ([]corev1.ObjectReference, error) {
@@ -1625,6 +1662,7 @@ type IngressHandler interface {
 	Create(namespace string, ing *extensionsv1beta1.Ingress) error
 	Delete(namespace string, name string) error
 	Update(namespace string, resource *extensionsv1beta1.Ingress) error
+	GetServices(namespace string, name string) ([]*corev1.Service, error)
 }
 
 func NewIngressHandler(group, workspace string) (IngressHandler, error) {
@@ -1659,6 +1697,41 @@ func (h *ingressHandler) Delete(namespace string, ingressName string) error {
 func (h *ingressHandler) Update(namespace string, resource *extensionsv1beta1.Ingress) error {
 	_, err := h.clientset.ExtensionsV1beta1().Ingresses(namespace).Update(resource)
 	return err
+}
+
+func (h *ingressHandler) GetServices(namespace string, name string) ([]*corev1.Service, error) {
+	ing, err := h.Get(namespace, name)
+	if err != nil {
+		return nil, err
+	}
+
+	svcList := make(map[string]struct{})
+	if ing.Spec.Backend != nil {
+		svcList[ing.Spec.Backend.ServiceName] = struct{}{}
+	}
+
+	for _, v := range ing.Spec.Rules {
+		if v.HTTP != nil {
+			for _, j := range v.HTTP.Paths {
+				svcList[j.Backend.ServiceName] = struct{}{}
+			}
+		}
+	}
+
+	svcs := make([]*corev1.Service, 0)
+	for k, _ := range svcList {
+		svc, err := h.informerController.serviceInformer.Lister().Services(namespace).Get(k)
+		if err != nil {
+			if !apierrors.IsNotFound(err) {
+				return nil, err
+			} else {
+				continue
+			}
+		}
+		svcs = append(svcs, svc)
+	}
+
+	return svcs, nil
 }
 
 /* --------------- StatefulSet --------------*/
