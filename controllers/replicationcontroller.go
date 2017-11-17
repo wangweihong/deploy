@@ -456,7 +456,8 @@ func (this *ReplicationControllerController) GetReplicationControllerContainerSp
 	pi, _ := pk.GetReplicationControllerInterface(v)
 
 	stat := pi.GetStatus()
-	if err != nil {
+	if stat.Reason != "" {
+		err := fmt.Errorf(stat.Reason)
 		this.errReturn(err, 500)
 		return
 	}

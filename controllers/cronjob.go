@@ -5,25 +5,11 @@ import (
 	"fmt"
 	"ufleet-deploy/pkg/resource"
 	pk "ufleet-deploy/pkg/resource/cronjob"
-	sk "ufleet-deploy/pkg/resource/job"
 	"ufleet-deploy/pkg/user"
 )
 
 type CronJobController struct {
 	baseController
-}
-
-type CronJobState struct {
-	Name             string      `json:"name"`
-	User             string      `json:"user"`
-	Workspace        string      `json:"workspace"`
-	Group            string      `json:"group"`
-	Total            int         `json:"total"`
-	Running          int         `json:"running"`
-	LastScheduleTime int64       `json:"lastscheduletime"`
-	period           string      `json:"period"`
-	JobStatus        []sk.Status `json:"jobtatus"`
-	//	Pods       []string `json:"pods"`
 }
 
 // ListCronJobs

@@ -544,7 +544,8 @@ func (this *DaemonSetController) GetDaemonSetContainerSpecEnv() {
 	pi, _ := pk.GetDaemonSetInterface(v)
 
 	stat := pi.GetStatus()
-	if err != nil {
+	if stat.Reason != "" {
+		err := fmt.Errorf(stat.Reason)
 		this.errReturn(err, 500)
 		return
 	}
