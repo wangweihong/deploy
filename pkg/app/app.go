@@ -675,6 +675,7 @@ func (s *App) addResources(desc []byte, flush bool) error {
 
 		opt := resource.CreateOption{}
 		opt.App = &appName
+		opt.User = s.User
 		e = rcud.CreateObject(groupName, workspaceName, exts[k].Raw, opt)
 		if e != nil {
 			alreadCreateIndex = k - 1
