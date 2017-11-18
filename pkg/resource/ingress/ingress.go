@@ -628,6 +628,24 @@ func (s *Ingress) ObjectStatus() resource.ObjectStatus {
 	return s.GetStatus()
 }
 
+func GetStatus(group, workspace, name string) (*Status, error) {
+	obj, err := Controller.GetObject(group, workspace, name)
+	if err != nil {
+		return nil, err
+	}
+
+	ini, err := GetIngressInterface(obj)
+	if err != nil {
+		return nil, err
+	}
+
+	s := ini.GetStatus()
+	if s.Reason != "" {
+		return nil, fmt.Errorf(s.Reason)
+	}
+	return s, nil
+}
+
 func (s *Ingress) GetStatus() *Status {
 	js := Status{ObjectMeta: s.ObjectMeta}
 	js.Hosts = make([]string, 0)

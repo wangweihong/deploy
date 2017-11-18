@@ -8000,6 +8000,51 @@
                 }
             }
         },
+        "/service/{service}/group/{group}/workspace/{workspace}/ingresses": {
+            "get": {
+                "tags": [
+                    "service"
+                ],
+                "description": "获取引用该service的ingress",
+                "operationId": "ServiceController.Service",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Token",
+                        "description": "'Token'",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "group",
+                        "description": "组名",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "workspace",
+                        "description": "工作区",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "service",
+                        "description": "服务",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "{string} create success!"
+                    },
+                    "500": {}
+                }
+            }
+        },
         "/service/{service}/group/{group}/workspace/{workspace}/reference": {
             "get": {
                 "tags": [

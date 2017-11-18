@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"ufleet-deploy/pkg/resource"
+	sk "ufleet-deploy/pkg/resource/ingress"
 	pk "ufleet-deploy/pkg/resource/service"
 	"ufleet-deploy/pkg/user"
 )
@@ -404,4 +405,50 @@ func (this *ServiceController) GetServiceReferenceObject() {
 	}
 
 	this.normalReturn(es)
+}
+
+// GetServiceReferencObjects
+// @Title Service
+// @Description  获取引用该service的ingress
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Param workspace path string true "工作区"
+// @Param service path string true "服务"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /:service/group/:group/workspace/:workspace/ingresses [Get]
+func (this *ServiceController) GetServiceReferenceIngresses() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
+
+	group := this.Ctx.Input.Param(":group")
+	workspace := this.Ctx.Input.Param(":workspace")
+	service := this.Ctx.Input.Param(":service")
+
+	v, err := pk.Controller.GetObject(group, workspace, service)
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+	pi, _ := pk.GetServiceInterface(v)
+	es, err := pi.GetIngresses()
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+
+	ings := make([]sk.Status, 0)
+	for _, v := range es {
+		is, err := sk.GetStatus(group, workspace, v.Name)
+		if err != nil {
+			this.errReturn(err, 500)
+			return
+		}
+		ings = append(ings, *is)
+	}
+
+	this.normalReturn(ings)
 }

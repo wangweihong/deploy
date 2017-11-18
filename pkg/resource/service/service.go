@@ -16,6 +16,7 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	corev1 "k8s.io/client-go/pkg/api/v1"
+	extensionsv1beta1 "k8s.io/client-go/pkg/apis/extensions/v1beta1"
 )
 
 var (
@@ -30,6 +31,7 @@ type ServiceInterface interface {
 	GetStatus() *Status
 	Event() ([]corev1.Event, error)
 	GetReferenceObjects() ([]ObjectReference, error)
+	GetIngresses() ([]*extensionsv1beta1.Ingress, error)
 }
 
 type ServiceManager struct {
@@ -704,6 +706,20 @@ func (s *Service) GetReferenceObjects() ([]ObjectReference, error) {
 
 	}
 	return ors, nil
+}
+
+func (s *Service) GetIngresses() ([]*extensionsv1beta1.Ingress, error) {
+	ph, err := cluster.NewServiceHandler(s.Group, s.Workspace)
+	if err != nil {
+		return nil, log.DebugPrint(err)
+	}
+
+	ings, err := ph.GetIngresses(s.Workspace, s.Name)
+	if err != nil {
+		return nil, err
+	}
+	return ings, err
+
 }
 
 func InitServiceController(be backend.BackendHandler) (resource.ObjectController, error) {
