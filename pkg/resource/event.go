@@ -25,21 +25,36 @@ func HandleEventWatchFromK8sCluster(echan chan cluster.Event, kind string, oc Ob
 		pe := <-echan
 
 		go func(e cluster.Event) {
-			if e.FromUfleet {
-				return
-			}
+			/*
+				if e.FromUfleet {
+					return
+				}
+			*/
+
 			switch e.Action {
 			case cluster.ActionDelete:
 				//清除内存中的数据即可
-				err := oc.DeleteObject(e.Group, e.Workspace, e.Name, DeleteOption{MemoryOnly: true})
+				obj, err := oc.GetObject(e.Group, e.Workspace, e.Name)
 				if err != nil {
-					if err != ErrGroupNotFound || err != ErrWorkspaceNotFound {
-						log.ErrorPrint("%v:  event handler delete 'group:%v,Workspace:%v,resource:%v':%v ", kind, e.Group, e.Workspace, e.Name, err)
+					log.ErrorPrint("%v:  event handler delete 'group:%v,Workspace:%v,resource:%v':%v ", kind, e.Group, e.Workspace, e.Name, err)
+					return
+				}
+
+				//如果memoryOnly不为true,内存中的数据由etcd去清理
+				if obj.Metadata().MemoryOnly {
+					err := oc.DeleteObject(e.Group, e.Workspace, e.Name, DeleteOption{MemoryOnly: true})
+					if err != nil {
+						if err != ErrGroupNotFound || err != ErrWorkspaceNotFound {
+							log.ErrorPrint("%v:  event handler delete 'group:%v,Workspace:%v,resource:%v':%v ", kind, e.Group, e.Workspace, e.Name, err)
+						}
 					}
 				}
 				return
 
 			case cluster.ActionCreate:
+				if e.FromUfleet {
+					return
+				}
 				oc.Lock()
 				defer oc.Unlock()
 
