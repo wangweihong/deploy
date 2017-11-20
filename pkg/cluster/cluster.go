@@ -28,6 +28,7 @@ type ClusterController interface {
 	//只有在集群全部相关的workspace都被移除时,cluster才会真正被移除
 	DeleteCluster(group, workspace string) error
 	GetCluster(group, workspace string) (*Cluster, error)
+	GetClusterIP(group, workspace string) (*string, error)
 }
 
 type Workspace struct {
@@ -175,8 +176,21 @@ func (c *clusterController) GetCluster(group, workspace string) (*Cluster, error
 		return nil, ErrClusterNotFound
 	}
 	return ci, nil
-
 }
+
+func (c *clusterController) GetClusterIP(group, workspace string) (*string, error) {
+	cluster, err := c.GetCluster(group, workspace)
+	if err != nil {
+		return nil, err
+	}
+
+	if cluster.Config != nil {
+		return &cluster.Config.Host, nil
+	}
+
+	return nil, fmt.Errorf("cannot find cluster ip")
+}
+
 func (c *clusterController) DeleteCluster(group, workspace string) error {
 
 	c.locker.Lock()

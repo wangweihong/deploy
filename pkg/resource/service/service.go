@@ -594,6 +594,7 @@ func (s *Service) GetTemplate() (string, error) {
 type Status struct {
 	resource.ObjectMeta
 	ClusterIP   string                       `json:"clusterip"`
+	MasterIP    string                       `json:"masterip"`
 	ExternalIPs []string                     `json:"externalips"`
 	Reason      string                       `json:"reason"`
 	Selector    map[string]string            `json:"selector"`
@@ -624,6 +625,13 @@ func (s *Service) GetStatus() *Status {
 		js.Reason = err.Error()
 		return &js
 	}
+
+	masterip, err := cluster.Controller.GetClusterIP(s.Group, s.Workspace)
+	if err != nil {
+		js.Reason = err.Error()
+		return &js
+	}
+	js.MasterIP = *masterip
 
 	if js.CreateTime == 0 {
 		js.CreateTime = runtime.Service.CreationTimestamp.Unix()
