@@ -373,7 +373,7 @@ func (p *StatefulSetManager) CreateObject(groupName, workspaceName string, data 
 	obj.Annotations[sign.SignFromUfleetKey] = sign.SignFromUfleetValue
 
 	if opt.App != nil {
-		obj.Annotationso[sign.SignUfleetAppKey] = *opt.App
+		obj.Annotations[sign.SignUfleetAppKey] = *opt.App
 		if obj.Spec.Template.Annotations == nil {
 			obj.Spec.Template.Annotations = make(map[string]string)
 		}
