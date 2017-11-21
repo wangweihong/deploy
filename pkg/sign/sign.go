@@ -5,5 +5,6 @@ const (
 	SignFromUfleetKey   = "resource-come-from"
 	SignFromUfleetValue = "com.appsoar.ufleet"
 
-	SignUfleetAppKey = "com.appsoar.ufleet.app"
+	SignUfleetAppKey             = "com.appsoar.ufleet.app"
+	SignUfleetAutoScaleSupported = "com.appsoar.ufleet.autoscale"
 )

@@ -373,6 +373,7 @@ func (p *ReplicaSetManager) CreateObject(groupName, workspaceName string, data [
 	obj.Annotations[sign.SignFromUfleetKey] = sign.SignFromUfleetValue
 
 	if opt.App != nil {
+		obj.Annotations[sign.SignUfleetAppKey] = *opt.App
 		if obj.Spec.Template.Annotations == nil {
 			obj.Spec.Template.Annotations = make(map[string]string)
 		}
@@ -508,6 +509,9 @@ func (p *ReplicaSetManager) UpdateObject(groupName, workspaceName string, resour
 			newr.Annotations = make(map[string]string)
 		}
 		newr.Annotations[sign.SignFromUfleetKey] = sign.SignFromUfleetValue
+	}
+	if res.App != "" {
+		newr.Annotations[sign.SignUfleetAppKey] = res.App
 	}
 
 	if newr.Name != resourceName {

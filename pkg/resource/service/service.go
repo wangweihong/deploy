@@ -373,6 +373,9 @@ func (p *ServiceManager) CreateObject(groupName, workspaceName string, data []by
 		obj.Annotations = make(map[string]string)
 	}
 	obj.Annotations[sign.SignFromUfleetKey] = sign.SignFromUfleetValue
+	if opt.App != nil {
+		obj.Annotations[sign.SignUfleetAppKey] = *opt.App
+	}
 
 	var cp Service
 	cp.CreateTime = time.Now().Unix()
@@ -520,6 +523,9 @@ func (p *ServiceManager) UpdateObject(groupName, workspaceName string, resourceN
 			newr.Annotations = make(map[string]string)
 		}
 		newr.Annotations[sign.SignFromUfleetKey] = sign.SignFromUfleetValue
+	}
+	if res.App != "" {
+		newr.Annotations[sign.SignUfleetAppKey] = res.App
 	}
 
 	ph, err := cluster.NewServiceHandler(groupName, workspaceName)

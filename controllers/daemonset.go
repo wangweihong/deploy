@@ -875,7 +875,7 @@ func (this *DaemonSetController) GetDaemonSetVolumes() {
 		this.errReturn(err, 500)
 		return
 	}
-	vols := getSpecVolume(r.DaemonSet.Spec.Template.Spec)
+	vols := getSpecVolumeAndVolumeMounts(r.DaemonSet.Spec.Template.Spec)
 
 	this.normalReturn(vols)
 }

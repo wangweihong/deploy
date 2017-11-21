@@ -367,6 +367,9 @@ func (p *ServiceAccountManager) CreateObject(groupName, workspaceName string, da
 		obj.Annotations = make(map[string]string)
 	}
 	obj.Annotations[sign.SignFromUfleetKey] = sign.SignFromUfleetValue
+	if opt.App != nil {
+		obj.Annotations[sign.SignUfleetAppKey] = *opt.App
+	}
 
 	var cp ServiceAccount
 	cp.CreateTime = time.Now().Unix()
@@ -495,6 +498,9 @@ func (p *ServiceAccountManager) UpdateObject(groupName, workspaceName string, re
 			newr.Annotations = make(map[string]string)
 		}
 		newr.Annotations[sign.SignFromUfleetKey] = sign.SignFromUfleetValue
+	}
+	if res.App != "" {
+		newr.Annotations[sign.SignUfleetAppKey] = res.App
 	}
 
 	if newr.Name != resourceName {

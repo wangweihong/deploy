@@ -395,6 +395,7 @@ func (p *DeploymentManager) CreateObject(groupName, workspaceName string, data [
 			obj.Spec.Template.Annotations = make(map[string]string)
 		}
 		obj.Spec.Template.Annotations[sign.SignUfleetAppKey] = *opt.App
+		obj.Spec.Template.Annotations[sign.SignUfleetAutoScaleSupported] = "true"
 	}
 
 	var cp Deployment
@@ -555,6 +556,7 @@ func (p *DeploymentManager) UpdateObject(groupName, workspaceName string, resour
 			newr.Spec.Template.Annotations = make(map[string]string)
 		}
 		newr.Spec.Template.Annotations[sign.SignUfleetAppKey] = res.App
+		newr.Spec.Template.Annotations[sign.SignUfleetAutoScaleSupported] = "true"
 	}
 
 	if newr.Name != resourceName {

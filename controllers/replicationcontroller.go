@@ -791,7 +791,7 @@ func (this *ReplicationControllerController) GetReplicationControllerVolume() {
 		return
 	}
 
-	vols := getSpecVolume(r.ReplicationController.Spec.Template.Spec)
+	vols := getSpecVolumeAndVolumeMounts(r.ReplicationController.Spec.Template.Spec)
 	this.normalReturn(vols)
 }
 

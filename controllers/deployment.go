@@ -1161,7 +1161,8 @@ func (this *DeploymentController) GetDeploymentVolumes() {
 		return
 	}
 
-	vols := getSpecVolume(r.Deployment.Spec.Template.Spec)
+	//vols := getSpecVolume(r.Deployment.Spec.Template.Spec)
+	vols := getSpecVolumeAndVolumeMounts(r.Deployment.Spec.Template.Spec)
 
 	this.normalReturn(vols)
 }

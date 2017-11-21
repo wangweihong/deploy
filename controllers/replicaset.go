@@ -846,7 +846,7 @@ func (this *ReplicaSetController) GetReplicaSetVolume() {
 		return
 	}
 
-	vols := getSpecVolume(r.ReplicaSet.Spec.Template.Spec)
+	vols := getSpecVolumeAndVolumeMounts(r.ReplicaSet.Spec.Template.Spec)
 	this.normalReturn(vols)
 }
 

@@ -367,6 +367,9 @@ func (p *EndpointManager) CreateObject(groupName, workspaceName string, data []b
 		obj.Annotations = make(map[string]string)
 	}
 	obj.Annotations[sign.SignFromUfleetKey] = sign.SignFromUfleetValue
+	if opt.App != nil {
+		obj.Annotations[sign.SignUfleetAppKey] = *opt.App
+	}
 
 	var cp Endpoint
 	cp.CreateTime = time.Now().Unix()
@@ -496,6 +499,9 @@ func (p *EndpointManager) UpdateObject(groupName, workspaceName string, resource
 			newr.Annotations = make(map[string]string)
 		}
 		newr.Annotations[sign.SignFromUfleetKey] = sign.SignFromUfleetValue
+	}
+	if res.App != "" {
+		newr.Annotations[sign.SignUfleetAppKey] = res.App
 	}
 
 	if newr.Name != resourceName {

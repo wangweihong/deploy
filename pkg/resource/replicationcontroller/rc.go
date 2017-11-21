@@ -371,6 +371,7 @@ func (p *ReplicationControllerManager) CreateObject(groupName, workspaceName str
 	obj.Annotations[sign.SignFromUfleetKey] = sign.SignFromUfleetValue
 
 	if opt.App != nil {
+		obj.Annotations[sign.SignUfleetAppKey] = *opt.App
 		if obj.Spec.Template.Annotations == nil {
 			obj.Spec.Template.Annotations = make(map[string]string)
 		}
@@ -507,6 +508,7 @@ func (p *ReplicationControllerManager) UpdateObject(groupName, workspaceName str
 	}
 
 	if res.App != "" {
+		newr.Annotations[sign.SignUfleetAppKey] = res.App
 		if newr.Spec.Template.Annotations == nil {
 			newr.Spec.Template.Annotations = make(map[string]string)
 		}

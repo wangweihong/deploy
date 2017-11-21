@@ -368,6 +368,9 @@ func (p *JobManager) CreateObject(groupName, workspaceName string, data []byte, 
 		obj.Annotations = make(map[string]string)
 	}
 	obj.Annotations[sign.SignFromUfleetKey] = sign.SignFromUfleetValue
+	if opt.App != nil {
+		obj.Annotations[sign.SignUfleetAppKey] = *opt.App
+	}
 
 	var cp Job
 	cp.CreateTime = time.Now().Unix()
@@ -498,6 +501,9 @@ func (p *JobManager) UpdateObject(groupName, workspaceName string, resourceName 
 			newr.Annotations = make(map[string]string)
 		}
 		newr.Annotations[sign.SignFromUfleetKey] = sign.SignFromUfleetValue
+		if res.App != "" {
+			newr.Annotations[sign.SignUfleetAppKey] = res.App
+		}
 	}
 
 	if newr.Name != resourceName {

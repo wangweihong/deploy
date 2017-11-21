@@ -392,6 +392,7 @@ func (p *ConfigMapManager) CreateObject(groupName, workspaceName string, data []
 	cp.App = resource.DefaultAppBelong
 	if opt.App != nil {
 		cp.App = *opt.App
+		obj.Annotations[sign.SignUfleetAppKey] = *opt.App
 	}
 	cp.User = opt.User
 	//因为pod创建时,触发informer,所以优先创建etcd
@@ -434,6 +435,10 @@ func (p *ConfigMapManager) UpdateObject(groupName, workspaceName string, resourc
 			newr.Annotations = make(map[string]string)
 		}
 		newr.Annotations[sign.SignFromUfleetKey] = sign.SignFromUfleetValue
+	}
+
+	if res.App != "" {
+		newr.Annotations[sign.SignUfleetAppKey] = res.App
 	}
 
 	if newr.Name != resourceName {

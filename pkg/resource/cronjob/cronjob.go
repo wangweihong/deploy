@@ -358,6 +358,9 @@ func (p *CronJobManager) CreateObject(groupName, workspaceName string, data []by
 		obj.Annotations = make(map[string]string)
 	}
 	obj.Annotations[sign.SignFromUfleetKey] = sign.SignFromUfleetValue
+	if opt.App != nil {
+		obj.Annotations[sign.SignUfleetAppKey] = *opt.App
+	}
 
 	var cp CronJob
 	cp.Name = obj.Name
@@ -412,6 +415,9 @@ func (p *CronJobManager) UpdateObject(groupName, workspaceName string, resourceN
 			newr.Annotations = make(map[string]string)
 		}
 		newr.Annotations[sign.SignFromUfleetKey] = sign.SignFromUfleetValue
+	}
+	if res.App != "" {
+		newr.Annotations[sign.SignUfleetAppKey] = res.App
 	}
 
 	if newr.Name != resourceName {

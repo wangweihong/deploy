@@ -371,6 +371,9 @@ func (p *SecretManager) CreateObject(groupName, workspaceName string, data []byt
 		obj.Annotations = make(map[string]string)
 	}
 	obj.Annotations[sign.SignFromUfleetKey] = sign.SignFromUfleetValue
+	if opt.App != nil {
+		obj.Annotations[sign.SignUfleetAppKey] = *opt.App
+	}
 
 	var cp Secret
 	cp.CreateTime = time.Now().Unix()
@@ -499,6 +502,9 @@ func (p *SecretManager) UpdateObject(groupName, workspaceName string, resourceNa
 			newr.Annotations = make(map[string]string)
 		}
 		newr.Annotations[sign.SignFromUfleetKey] = sign.SignFromUfleetValue
+	}
+	if res.App != "" {
+		newr.Annotations[sign.SignUfleetAppKey] = res.App
 	}
 
 	if newr.Name != resourceName {

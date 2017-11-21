@@ -357,6 +357,31 @@ func getSpecVolume(podSpec corev1.PodSpec) []Volume {
 	return vols
 }
 
+func getSpecVolumeAndVolumeMounts(podSpec corev1.PodSpec) []VolumeAndVolumeMounts {
+	volumes := getSpecVolume(podSpec)
+	vavms := make([]VolumeAndVolumeMounts, 0)
+	for k, v := range volumes {
+		vms := make([]ContainerVolumeMount, 0)
+
+		for _, c := range podSpec.Containers {
+			var cvm ContainerVolumeMount
+			cvm.Name = c.Name
+			for i, j := range c.VolumeMounts {
+				if j.Name == v.Name {
+					cvm.Mounts = append(cvm.Mounts, c.VolumeMounts[i])
+
+				}
+			}
+			vms = append(vms, cvm)
+		}
+		var vavm VolumeAndVolumeMounts
+		vavm.Volume = volumes[k]
+		vavm.CMounts = vms
+		vavms = append(vavms, vavm)
+	}
+	return vavms
+}
+
 func addVolumeAndContaienrVolumeMounts(podSpec corev1.PodSpec, volumeVar VolumeAndVolumeMounts) (corev1.PodSpec, error) {
 
 	//	var newPodSpec corev1.PodSpec
