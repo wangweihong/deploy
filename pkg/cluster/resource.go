@@ -809,6 +809,7 @@ type DeploymentHandler interface {
 	Revision(namespace, name string) (*int64, error)
 	GetRevisionsAndDescribe(namespace, name string) (map[int64]*corev1.PodTemplateSpec, error)
 	GetRevisionsAndReplicas(namespace, name string) (map[int64]*extensionsv1beta1.ReplicaSet, error)
+	GetCurrentRevisionAndReplicaSet(namespace, name string) (*int64, *extensionsv1beta1.ReplicaSet, error)
 	Rollback(namespace, name string, revision int64) (*string, error)
 	ResumeRollout(namespace, name string) error
 	PauseRollout(namespace, name string) error
@@ -1164,6 +1165,42 @@ func (h *deploymentHandler) GetRevisionsAndDescribe(namespace, name string) (map
 		revisionToSpec[v] = &rs.Spec.Template
 	}
 	return revisionToSpec, nil
+}
+
+func (h *deploymentHandler) GetCurrentRevisionAndReplicaSet(namespace, name string) (*int64, *extensionsv1beta1.ReplicaSet, error) {
+	d, err := h.Get(namespace, name)
+	if err != nil {
+		return nil, nil, err
+	}
+	rev, err := GetCurrentDeploymentRevision(d)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	allOldRSs, newRs, err := h.GetAllReplicaSets(namespace, name)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	allRSs := allOldRSs
+	if newRs != nil {
+		allRSs = append(allRSs, newRs)
+	}
+
+	revisionToReplicas := make(map[int64]*extensionsv1beta1.ReplicaSet)
+	for _, rs := range allRSs {
+		v, err := deploymentutil.Revision(rs)
+		if err != nil {
+			continue
+		}
+		revisionToReplicas[v] = rs
+	}
+	rs, ok := revisionToReplicas[rev]
+	if !ok {
+		return nil, nil, nil
+	}
+
+	return &rev, rs, nil
 }
 
 func (h *deploymentHandler) GetRevisionsAndReplicas(namespace, name string) (map[int64]*extensionsv1beta1.ReplicaSet, error) {

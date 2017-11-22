@@ -642,6 +642,7 @@ type Status struct {
 	timeout     int64              `json:"timemout"`
 	Paused      bool               `json:"paused"`
 	Revision    int64              `json:"revision"`
+	ReplicaSet  string             `json:"replicaset"`
 	PodsCount   resource.PodsCount `json:"podscount"`
 	//	Pods       []string `json:"pods"`
 	PodStatus               []pk.Status        `json:"podstatus"`
@@ -659,21 +660,34 @@ func (j *Deployment) GetStatus() *Status {
 	var revision int64
 	var js *Status
 	var deployment *extensionsv1beta1.Deployment
+	var rev *int64
+	var rs *extensionsv1beta1.ReplicaSet
+	var ph cluster.DeploymentHandler
 	runtime, err := j.GetRuntime()
 	if err != nil {
 		e = err
 		goto faileReturn
 	}
 
-	revision, e = cluster.GetCurrentDeploymentRevision(runtime.Deployment)
-	if e != nil {
+	ph, err = cluster.NewDeploymentHandler(j.Group, j.Workspace)
+	if err != nil {
+		e = err
+		goto faileReturn
+	}
+	rev, rs, err = ph.GetCurrentRevisionAndReplicaSet(j.Workspace, j.Name)
+	if err != nil {
+		e = err
 		goto faileReturn
 	}
 
 	deployment = runtime.Deployment
 	js = &Status{ObjectMeta: j.ObjectMeta, DeploymentStatus: deployment.Status}
 	//js = &Status{ObjectMeta: j.ObjectMeta} //, DeploymentStatus: deployment.Status}
-	js.Revision = revision
+	if rev != nil {
+		js.Revision = revision
+	} else {
+		js.Revision = 0
+	}
 	js.Images = make([]string, 0)
 	js.PodStatus = make([]pk.Status, 0)
 	js.ContainerSpecs = make([]pk.ContainerSpec, 0)
@@ -682,6 +696,9 @@ func (j *Deployment) GetStatus() *Status {
 	js.Selectors = make(map[string]string)
 	js.Paused = deployment.Spec.Paused
 	js.Strategy = string(deployment.Spec.Strategy.Type)
+	if rs != nil {
+		js.ReplicaSet = rs.Name
+	}
 
 	if js.CreateTime == 0 {
 		js.CreateTime = deployment.CreationTimestamp.Unix()
