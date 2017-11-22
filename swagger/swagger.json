@@ -1902,65 +1902,6 @@
                 }
             }
         },
-        "/daemonset/{daemonset}/group/{group}/workspace/{workspace}/container/{container}/volume": {
-            "put": {
-                "tags": [
-                    "daemonset"
-                ],
-                "description": "更新DaemonSet Container volume",
-                "operationId": "DaemonSetController.DaemonSet",
-                "parameters": [
-                    {
-                        "in": "header",
-                        "name": "Token",
-                        "description": "'Token'",
-                        "required": true,
-                        "type": "string"
-                    },
-                    {
-                        "in": "path",
-                        "name": "group",
-                        "description": "组名",
-                        "required": true,
-                        "type": "string"
-                    },
-                    {
-                        "in": "path",
-                        "name": "workspace",
-                        "description": "工作区",
-                        "required": true,
-                        "type": "string"
-                    },
-                    {
-                        "in": "path",
-                        "name": "daemonset",
-                        "description": "守护进程",
-                        "required": true,
-                        "type": "string"
-                    },
-                    {
-                        "in": "path",
-                        "name": "container",
-                        "description": "容器",
-                        "required": true,
-                        "type": "string"
-                    },
-                    {
-                        "in": "body",
-                        "name": "body",
-                        "description": "更新内容",
-                        "required": true,
-                        "type": "string"
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "{string} create success!"
-                    },
-                    "500": {}
-                }
-            }
-        },
         "/daemonset/{daemonset}/group/{group}/workspace/{workspace}/custom": {
             "put": {
                 "tags": [
@@ -6844,65 +6785,6 @@
                         "in": "path",
                         "name": "env",
                         "description": "环境变量",
-                        "required": true,
-                        "type": "string"
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "{string} create success!"
-                    },
-                    "500": {}
-                }
-            }
-        },
-        "/replicationcontroller/{replicationcontroller}/group/{group}/workspace/{workspace}/container/{container}/volume": {
-            "put": {
-                "tags": [
-                    "replicationcontroller"
-                ],
-                "description": "更新ReplicationController Container volume",
-                "operationId": "ReplicationControllerController.ReplicationController",
-                "parameters": [
-                    {
-                        "in": "header",
-                        "name": "Token",
-                        "description": "'Token'",
-                        "required": true,
-                        "type": "string"
-                    },
-                    {
-                        "in": "path",
-                        "name": "group",
-                        "description": "组名",
-                        "required": true,
-                        "type": "string"
-                    },
-                    {
-                        "in": "path",
-                        "name": "workspace",
-                        "description": "工作区",
-                        "required": true,
-                        "type": "string"
-                    },
-                    {
-                        "in": "path",
-                        "name": "replicationcontroller",
-                        "description": "副本控制器",
-                        "required": true,
-                        "type": "string"
-                    },
-                    {
-                        "in": "path",
-                        "name": "container",
-                        "description": "容器",
-                        "required": true,
-                        "type": "string"
-                    },
-                    {
-                        "in": "body",
-                        "name": "body",
-                        "description": "更新内容",
                         "required": true,
                         "type": "string"
                     }

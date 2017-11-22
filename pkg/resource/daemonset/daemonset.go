@@ -14,6 +14,7 @@ import (
 	"ufleet-deploy/pkg/resource/util"
 	"ufleet-deploy/pkg/sign"
 
+	"k8s.io/client-go/pkg/api"
 	corev1 "k8s.io/client-go/pkg/api/v1"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -29,6 +30,7 @@ type DaemonSetInterface interface {
 	Info() *DaemonSet
 	GetRuntime() (*Runtime, error)
 	GetStatus() *Status
+	GetRuntimeObjectCopy() (*extensionsv1beta1.DaemonSet, error)
 	ObjectStatus() resource.ObjectStatus
 	Event() ([]corev1.Event, error)
 	GetTemplate() (string, error)
@@ -733,6 +735,26 @@ func (p *DaemonSet) GetServices() ([]*corev1.Service, error) {
 
 func (s *DaemonSet) Metadata() resource.ObjectMeta {
 	return s.ObjectMeta
+}
+
+func (p *DaemonSet) GetRuntimeObjectCopy() (*extensionsv1beta1.DaemonSet, error) {
+	r, err := p.GetRuntime()
+	if err != nil {
+		return nil, err
+	}
+
+	newobj, err := api.Scheme.Copy(r.DaemonSet)
+	if err != nil {
+		return nil, err
+	}
+
+	newd, ok := newobj.(*extensionsv1beta1.DaemonSet)
+	if !ok {
+		err := fmt.Errorf("deep copy object fail, object type doesn't match")
+		return nil, err
+	}
+
+	return newd, nil
 }
 
 func InitDaemonSetController(be backend.BackendHandler) (resource.ObjectController, error) {

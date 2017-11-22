@@ -611,14 +611,13 @@ func (this *DaemonSetController) AddDaemonSetContainerSpecEnv() {
 	}
 	pi, _ := pk.GetDaemonSetInterface(v)
 
-	runtime, err := pi.GetRuntime()
+	old, err := pi.GetRuntimeObjectCopy()
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
 
-	old := runtime.DaemonSet
 	var containerFound bool
 	var containerIndex int
 	podSpec := old.Spec.Template.Spec
@@ -693,14 +692,13 @@ func (this *DaemonSetController) DeleteDaemonSetContainerSpecEnv() {
 	}
 	pi, _ := pk.GetDaemonSetInterface(v)
 
-	runtime, err := pi.GetRuntime()
+	old, err := pi.GetRuntimeObjectCopy()
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
 
-	old := runtime.DaemonSet
 	var containerFound bool
 	var envFound bool
 	podSpec := old.Spec.Template.Spec
@@ -800,14 +798,13 @@ func (this *DaemonSetController) UpdateDaemonSetContainerSpecEnv() {
 	}
 	pi, _ := pk.GetDaemonSetInterface(v)
 
-	runtime, err := pi.GetRuntime()
+	old, err := pi.GetRuntimeObjectCopy()
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
 
-	old := runtime.DaemonSet
 	var containerFound bool
 	podSpec := old.Spec.Template.Spec
 
@@ -928,14 +925,13 @@ func (this *DaemonSetController) AddDaemonSetContainerSpecVolume() {
 	}
 	pi, _ := pk.GetDaemonSetInterface(v)
 
-	runtime, err := pi.GetRuntime()
+	old, err := pi.GetRuntimeObjectCopy()
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
 
-	old := runtime.DaemonSet
 	podSpec := old.Spec.Template.Spec
 
 	newPodSpec, err := addVolumeAndContaienrVolumeMounts(podSpec, volumeVar)
@@ -997,14 +993,13 @@ func (this *DaemonSetController) DeleteDaemonSetContainerSpecVolume() {
 	}
 	pi, _ := pk.GetDaemonSetInterface(v)
 
-	runtime, err := pi.GetRuntime()
+	old, err := pi.GetRuntimeObjectCopy()
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
 
-	old := runtime.DaemonSet
 	podSpec := old.Spec.Template.Spec
 
 	newPodSpec, err := deleteVolumeAndContaienrVolumeMounts(podSpec, volume)
@@ -1031,89 +1026,6 @@ func (this *DaemonSetController) DeleteDaemonSetContainerSpecVolume() {
 	this.audit(token, "", false)
 	this.normalReturn("ok")
 
-}
-
-// DaemonSetContainerVolume
-// @Title DaemonSet
-// @Description   更新DaemonSet Container volume
-// @Param Token header string true 'Token'
-// @Param group path string true "组名"
-// @Param workspace path string true "工作区"
-// @Param daemonset path string true "守护进程"
-// @Param container path string true "容器"
-// @Param body body string true "更新内容"
-// @Success 201 {string} create success!
-// @Failure 500
-// @router /:daemonset/group/:group/workspace/:workspace/container/:container/volume [Put]
-func (this *DaemonSetController) UpdateDaemonSetContainerSpecVolume() {
-	token := this.Ctx.Request.Header.Get("token")
-	err := this.checkRouteControllerAbility()
-	if err != nil {
-		this.abilityErrorReturn(err)
-		this.audit(token, "", true)
-		return
-	}
-
-	if this.Ctx.Input.RequestBody == nil {
-		err := fmt.Errorf("must commit groups name")
-		this.audit(token, "", true)
-		this.errReturn(err, 500)
-		return
-	}
-
-	volumeVar := make([]corev1.VolumeMount, 0)
-	err = json.Unmarshal(this.Ctx.Input.RequestBody, &volumeVar)
-	if err != nil {
-		this.audit(token, "", true)
-		this.errReturn(err, 500)
-		return
-	}
-
-	group := this.Ctx.Input.Param(":group")
-	workspace := this.Ctx.Input.Param(":workspace")
-	daemonset := this.Ctx.Input.Param(":daemonset")
-	container := this.Ctx.Input.Param(":container")
-
-	v, err := pk.Controller.GetObject(group, workspace, daemonset)
-	if err != nil {
-		this.audit(token, "", true)
-		this.errReturn(err, 500)
-		return
-	}
-	pi, _ := pk.GetDaemonSetInterface(v)
-
-	runtime, err := pi.GetRuntime()
-	if err != nil {
-		this.audit(token, "", true)
-		this.errReturn(err, 500)
-		return
-	}
-
-	old := runtime.DaemonSet
-	podSpec := old.Spec.Template.Spec
-	newPodSpec, err := updatePodSpecContainerVolume(podSpec, container, volumeVar)
-	if err != nil {
-		this.audit(token, "", true)
-		this.errReturn(err, 500)
-		return
-	}
-	old.Spec.Template.Spec = newPodSpec
-
-	byteContent, err := json.Marshal(old)
-	if err != nil {
-		this.audit(token, "", true)
-		this.errReturn(err, 500)
-		return
-	}
-
-	err = pk.Controller.UpdateObject(group, workspace, daemonset, byteContent, resource.UpdateOption{})
-	if err != nil {
-		this.audit(token, "", true)
-		this.errReturn(err, 500)
-		return
-	}
-	this.audit(token, "", false)
-	this.normalReturn("ok")
 }
 
 // GetDaemonSetServices

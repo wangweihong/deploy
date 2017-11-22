@@ -14,6 +14,8 @@ import (
 	"ufleet-deploy/pkg/resource/util"
 	"ufleet-deploy/pkg/sign"
 
+	"k8s.io/client-go/pkg/api"
+
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 
 	corev1 "k8s.io/client-go/pkg/api/v1"
@@ -33,8 +35,7 @@ type ReplicaSetInterface interface {
 	Event() ([]corev1.Event, error)
 	GetTemplate() (string, error)
 	GetServices() ([]*corev1.Service, error)
-
-	//	Runtime()
+	GetRuntimeObjectCopy() (*extensionsv1beta1.ReplicaSet, error)
 }
 
 type ReplicaSetManager struct {
@@ -739,6 +740,27 @@ func (p *ReplicaSet) GetServices() ([]*corev1.Service, error) {
 func (s *ReplicaSet) Metadata() resource.ObjectMeta {
 	return s.ObjectMeta
 }
+
+func (s *ReplicaSet) GetRuntimeObjectCopy() (*extensionsv1beta1.ReplicaSet, error) {
+	r, err := s.GetRuntime()
+	if err != nil {
+		return nil, err
+	}
+
+	newobj, err := api.Scheme.Copy(r.ReplicaSet)
+	if err != nil {
+		return nil, err
+	}
+
+	newd, ok := newobj.(*extensionsv1beta1.ReplicaSet)
+	if !ok {
+		err := fmt.Errorf("deep copy object fail, object type doesn't match")
+		return nil, err
+	}
+
+	return newd, nil
+}
+
 func InitReplicaSetController(be backend.BackendHandler) (resource.ObjectController, error) {
 	rm = &ReplicaSetManager{}
 	rm.Groups = make(map[string]ReplicaSetGroup)

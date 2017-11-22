@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strconv"
 	"ufleet-deploy/models"
-	"ufleet-deploy/pkg/log"
 	"ufleet-deploy/pkg/resource"
 	pk "ufleet-deploy/pkg/resource/deployment"
 	"ufleet-deploy/pkg/user"
@@ -936,15 +935,14 @@ func (this *DeploymentController) AddDeploymentContainerSpecEnv() {
 	}
 	pi, _ := pk.GetDeploymentInterface(v)
 
-	runtime, err := pi.GetRuntime()
+	d, err := pi.GetRuntimeObjectCopy()
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
 
-	old := runtime.Deployment
-	podSpec := old.Spec.Template.Spec
+	podSpec := d.Spec.Template.Spec
 
 	newPodSpec, err := addPodSpecContainerEnv(podSpec, container, envVar)
 	if err != nil {
@@ -952,9 +950,9 @@ func (this *DeploymentController) AddDeploymentContainerSpecEnv() {
 		this.errReturn(err, 500)
 		return
 	}
-	old.Spec.Template.Spec = newPodSpec
+	d.Spec.Template.Spec = newPodSpec
 
-	byteContent, err := json.Marshal(old)
+	byteContent, err := json.Marshal(d)
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
@@ -969,7 +967,6 @@ func (this *DeploymentController) AddDeploymentContainerSpecEnv() {
 	}
 	this.audit(token, "", false)
 	this.normalReturn("ok")
-
 }
 
 // DeleteDeploymentContainerEnv
@@ -1007,15 +1004,14 @@ func (this *DeploymentController) DeleteDeploymentContainerSpecEnv() {
 	}
 	pi, _ := pk.GetDeploymentInterface(v)
 
-	runtime, err := pi.GetRuntime()
+	d, err := pi.GetRuntimeObjectCopy()
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
 
-	old := runtime.Deployment
-	podSpec := old.Spec.Template.Spec
+	podSpec := d.Spec.Template.Spec
 
 	newPodSpec, err := deletePodSpecContainerEnv(podSpec, container, env)
 	if err != nil {
@@ -1023,9 +1019,9 @@ func (this *DeploymentController) DeleteDeploymentContainerSpecEnv() {
 		this.errReturn(err, 500)
 		return
 	}
-	old.Spec.Template.Spec = newPodSpec
+	d.Spec.Template.Spec = newPodSpec
 
-	byteContent, err := json.Marshal(old)
+	byteContent, err := json.Marshal(d)
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
@@ -1092,24 +1088,23 @@ func (this *DeploymentController) UpdateDeploymentContainerSpecEnv() {
 	}
 	pi, _ := pk.GetDeploymentInterface(v)
 
-	runtime, err := pi.GetRuntime()
+	d, err := pi.GetRuntimeObjectCopy()
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
 
-	old := runtime.Deployment
-	podSpec := old.Spec.Template.Spec
+	podSpec := d.Spec.Template.Spec
 	newPodSpec, err := updatePodSpecContainerEnv(podSpec, container, envVar)
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
-	old.Spec.Template.Spec = newPodSpec
+	d.Spec.Template.Spec = newPodSpec
 
-	byteContent, err := json.Marshal(old)
+	byteContent, err := json.Marshal(d)
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
@@ -1216,16 +1211,15 @@ func (this *DeploymentController) AddDeploymentContainerSpecVolume() {
 	}
 	pi, _ := pk.GetDeploymentInterface(v)
 
-	runtime, err := pi.GetRuntime()
+	d, err := pi.GetRuntimeObjectCopy()
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
 
-	old := runtime.Deployment
-
-	podSpec := old.Spec.Template.Spec
+	//	podSpec := old.Spec.Template.Spec
+	podSpec := d.Spec.Template.Spec
 
 	newPodSpec, err := addVolumeAndContaienrVolumeMounts(podSpec, volumeVar)
 	if err != nil {
@@ -1234,9 +1228,10 @@ func (this *DeploymentController) AddDeploymentContainerSpecVolume() {
 		return
 	}
 
-	old.Spec.Template.Spec = newPodSpec
+	//old.Spec.Template.Spec = newPodSpec
+	d.Spec.Template.Spec = newPodSpec
 
-	byteContent, err := json.Marshal(old)
+	byteContent, err := json.Marshal(d)
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
@@ -1249,6 +1244,7 @@ func (this *DeploymentController) AddDeploymentContainerSpecVolume() {
 		this.errReturn(err, 500)
 		return
 	}
+
 	this.audit(token, "", false)
 	this.normalReturn("ok")
 
@@ -1287,15 +1283,14 @@ func (this *DeploymentController) DeleteDeploymentContainerSpecVolume() {
 	}
 	pi, _ := pk.GetDeploymentInterface(v)
 
-	runtime, err := pi.GetRuntime()
+	d, err := pi.GetRuntimeObjectCopy()
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
 
-	old := runtime.Deployment
-	podSpec := old.Spec.Template.Spec
+	podSpec := d.Spec.Template.Spec
 
 	newPodSpec, err := deleteVolumeAndContaienrVolumeMounts(podSpec, volume)
 	if err != nil {
@@ -1304,16 +1299,15 @@ func (this *DeploymentController) DeleteDeploymentContainerSpecVolume() {
 		return
 	}
 
-	old.Spec.Template.Spec = newPodSpec
+	d.Spec.Template.Spec = newPodSpec
 
-	byteContent, err := json.Marshal(old)
+	byteContent, err := json.Marshal(d)
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
 
-	log.DebugPrint(string(byteContent))
 	err = pk.Controller.UpdateObject(group, workspace, deployment, byteContent, resource.UpdateOption{})
 	if err != nil {
 		this.audit(token, "", true)

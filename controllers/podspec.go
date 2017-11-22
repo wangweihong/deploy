@@ -365,14 +365,18 @@ func getSpecVolumeAndVolumeMounts(podSpec corev1.PodSpec) []VolumeAndVolumeMount
 
 		for _, c := range podSpec.Containers {
 			var cvm ContainerVolumeMount
+			cvm.Mounts = make([]corev1.VolumeMount, 0)
 			cvm.Name = c.Name
+			var found bool
 			for i, j := range c.VolumeMounts {
 				if j.Name == v.Name {
 					cvm.Mounts = append(cvm.Mounts, c.VolumeMounts[i])
-
+					found = true
 				}
 			}
-			vms = append(vms, cvm)
+			if found {
+				vms = append(vms, cvm)
+			}
 		}
 		var vavm VolumeAndVolumeMounts
 		vavm.Volume = volumes[k]

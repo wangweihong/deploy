@@ -553,17 +553,16 @@ func (this *ReplicaSetController) AddReplicaSetContainerSpecEnv() {
 		return
 	}
 
-	runtime, err := pi.GetRuntime()
+	r, err := pi.GetRuntimeObjectCopy()
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
 
-	old := runtime.ReplicaSet
 	var containerFound bool
 	var containerIndex int
-	podSpec := old.Spec.Template.Spec
+	podSpec := r.Spec.Template.Spec
 
 	for k, v := range podSpec.Containers {
 		if v.Name == container {
@@ -583,7 +582,7 @@ func (this *ReplicaSetController) AddReplicaSetContainerSpecEnv() {
 
 	podSpec.Containers[containerIndex].Env = append(podSpec.Containers[containerIndex].Env, envVar...)
 
-	byteContent, err := json.Marshal(old)
+	byteContent, err := json.Marshal(r)
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
@@ -648,17 +647,16 @@ func (this *ReplicaSetController) DeleteReplicaSetContainerSpecEnv() {
 		return
 	}
 
-	runtime, err := pi.GetRuntime()
+	r, err := pi.GetRuntimeObjectCopy()
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
 
-	old := runtime.ReplicaSet
 	var containerFound bool
 	var envFound bool
-	podSpec := old.Spec.Template.Spec
+	podSpec := r.Spec.Template.Spec
 
 	for k, v := range podSpec.Containers {
 		if v.Name == container {
@@ -689,7 +687,7 @@ func (this *ReplicaSetController) DeleteReplicaSetContainerSpecEnv() {
 		return
 	}
 
-	byteContent, err := json.Marshal(old)
+	byteContent, err := json.Marshal(r)
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
@@ -911,15 +909,14 @@ func (this *ReplicaSetController) AddReplicaSetContainerSpecVolume() {
 		return
 	}
 
-	runtime, err := pi.GetRuntime()
+	r, err := pi.GetRuntimeObjectCopy()
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
 
-	old := runtime.ReplicaSet
-	podSpec := old.Spec.Template.Spec
+	podSpec := r.Spec.Template.Spec
 
 	newPodSpec, err := addVolumeAndContaienrVolumeMounts(podSpec, volumeVar)
 	if err != nil {
@@ -927,9 +924,9 @@ func (this *ReplicaSetController) AddReplicaSetContainerSpecVolume() {
 		this.errReturn(err, 500)
 		return
 	}
-	old.Spec.Template.Spec = newPodSpec
+	r.Spec.Template.Spec = newPodSpec
 
-	byteContent, err := json.Marshal(old)
+	byteContent, err := json.Marshal(r)
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
@@ -991,15 +988,14 @@ func (this *ReplicaSetController) DeleteReplicaSetContainerSpecVolume() {
 		this.errReturn(err, 500)
 		return
 	}
-	runtime, err := pi.GetRuntime()
+	r, err := pi.GetRuntimeObjectCopy()
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
 		return
 	}
 
-	old := runtime.ReplicaSet
-	podSpec := old.Spec.Template.Spec
+	podSpec := r.Spec.Template.Spec
 
 	newPodSpec, err := deleteVolumeAndContaienrVolumeMounts(podSpec, volume)
 	if err != nil {
@@ -1008,9 +1004,9 @@ func (this *ReplicaSetController) DeleteReplicaSetContainerSpecVolume() {
 		return
 	}
 
-	old.Spec.Template.Spec = newPodSpec
+	r.Spec.Template.Spec = newPodSpec
 
-	byteContent, err := json.Marshal(old)
+	byteContent, err := json.Marshal(r)
 	if err != nil {
 		this.audit(token, "", true)
 		this.errReturn(err, 500)
