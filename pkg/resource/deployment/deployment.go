@@ -662,7 +662,6 @@ func (j *Deployment) ObjectStatus() resource.ObjectStatus {
 
 func (j *Deployment) GetStatus() *Status {
 	var e error
-	var revision int64
 	var js *Status
 	var deployment *extensionsv1beta1.Deployment
 	var rev *int64
@@ -680,6 +679,7 @@ func (j *Deployment) GetStatus() *Status {
 		goto faileReturn
 	}
 
+	log.DebugPrint("get current revesion and rs")
 	rev, rs, err = ph.GetCurrentRevisionAndReplicaSet(j.Workspace, j.Name)
 	if err != nil {
 		e = err
@@ -690,7 +690,7 @@ func (j *Deployment) GetStatus() *Status {
 	js = &Status{ObjectMeta: j.ObjectMeta, DeploymentStatus: deployment.Status}
 	//js = &Status{ObjectMeta: j.ObjectMeta} //, DeploymentStatus: deployment.Status}
 	if rev != nil {
-		js.Revision = revision
+		js.Revision = *rev
 	} else {
 		js.Revision = 0
 	}

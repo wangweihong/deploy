@@ -1219,30 +1219,36 @@ func (h *deploymentHandler) GetCurrentRevisionAndReplicaSet(namespace, name stri
 		return nil, nil, err
 	}
 
-	allOldRSs, newRs, err := h.GetAllReplicaSets(namespace, name)
+	_, newRs, err := h.GetAllReplicaSets(namespace, name)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	allRSs := allOldRSs
-	if newRs != nil {
-		allRSs = append(allRSs, newRs)
-	}
-
-	revisionToReplicas := make(map[int64]*extensionsv1beta1.ReplicaSet)
-	for _, rs := range allRSs {
-		v, err := deploymentutil.Revision(rs)
-		if err != nil {
-			continue
+	/*
+		allRSs := allOldRSs
+		if newRs != nil {
+			allRSs = append(allRSs, newRs)
 		}
-		revisionToReplicas[v] = rs
-	}
-	rs, ok := revisionToReplicas[rev]
-	if !ok {
-		return nil, nil, nil
+
+		revisionToReplicas := make(map[int64]*extensionsv1beta1.ReplicaSet)
+		for _, rs := range allRSs {
+			v, err := deploymentutil.Revision(rs)
+			if err != nil {
+				log.DebugPrint(err)
+				continue
+			}
+			revisionToReplicas[v] = rs
+		}
+		rs, ok := revisionToReplicas[rev]
+		if !ok {
+			return nil, nil, nil
+		}
+	*/
+	if newRs != nil {
+		return &rev, newRs, nil
 	}
 
-	return &rev, rs, nil
+	return nil, nil, nil
 }
 
 func (h *deploymentHandler) GetRevisionsAndReplicas(namespace, name string) (map[int64]*extensionsv1beta1.ReplicaSet, error) {
