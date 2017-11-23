@@ -17,17 +17,18 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/kubernetes/pkg/controller"
 
+	apiequality "k8s.io/apimachinery/pkg/api/equality"
+
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/selection"
+	"k8s.io/client-go/pkg/api"
 	corev1 "k8s.io/client-go/pkg/api/v1"
 	appv1beta1 "k8s.io/client-go/pkg/apis/apps/v1beta1"
 	batchv1 "k8s.io/client-go/pkg/apis/batch/v1"
 	batchv2alpha1 "k8s.io/client-go/pkg/apis/batch/v2alpha1"
+	"k8s.io/client-go/pkg/apis/extensions"
 	extensionsv1beta1 "k8s.io/client-go/pkg/apis/extensions/v1beta1"
-	externalclientset "k8s.io/kubernetes/pkg/client/clientset_generated/clientset"
-	core "k8s.io/kubernetes/pkg/client/clientset_generated/clientset/typed/core/v1"
-	extensions "k8s.io/kubernetes/pkg/client/clientset_generated/clientset/typed/extensions/v1beta1"
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -1090,45 +1091,86 @@ func (h *deploymentHandler) Revision(namespace, name string) (*int64, error) {
 	return &revision, nil
 }
 
+func EqualIgnoreHash(template1, template2 *corev1.PodTemplateSpec) (bool, error) {
+	cp, err := api.Scheme.DeepCopy(template1)
+	if err != nil {
+		return false, err
+	}
+	t1Copy := cp.(*corev1.PodTemplateSpec)
+	cp, err = api.Scheme.DeepCopy(template2)
+	if err != nil {
+		return false, err
+	}
+	t2Copy := cp.(*corev1.PodTemplateSpec)
+	// First, compare template.Labels (ignoring hash)
+	labels1, labels2 := t1Copy.Labels, t2Copy.Labels
+	if len(labels1) > len(labels2) {
+		labels1, labels2 = labels2, labels1
+	}
+	// We make sure len(labels2) >= len(labels1)
+	for k, v := range labels2 {
+		if labels1[k] != v && k != extensions.DefaultDeploymentUniqueLabelKey {
+			return false, nil
+		}
+	}
+	// Then, compare the templates without comparing their labels
+	t1Copy.Labels, t2Copy.Labels = nil, nil
+	return apiequality.Semantic.DeepEqual(t1Copy, t2Copy), nil
+}
+
 func (h *deploymentHandler) GetAllReplicaSets(namespace string, name string) ([]*extensionsv1beta1.ReplicaSet, *extensionsv1beta1.ReplicaSet, error) {
-	//func (h *deploymentHandler) GetAllReplicaSets(namespace string, name string) ([]*k8sextensions.ReplicaSet, *k8sextensions.ReplicaSet, error) {
-
-	internalExtensionClientset := extensions.New(h.clientset.ExtensionsV1beta1().RESTClient())
-	internalCoreClientset := core.New(h.clientset.CoreV1().RESTClient())
-	versionedClient := &externalclientset.Clientset{
-		CoreV1Client:            internalCoreClientset,
-		ExtensionsV1beta1Client: internalExtensionClientset,
-	}
-
-	deployment, err := versionedClient.Extensions().Deployments(namespace).Get(name, metav1.GetOptions{})
+	d, err := h.Get(namespace, name)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to retrieve deployment %s: %v", name, err)
+		return nil, nil, err
 	}
-
-	//特别注意:在对deployment执行pause后,直接更改deployment的podSpec升级deployment,将不会生成新的Replicaset,从而导致newRs为空.
-	_, allOldRSs, newRS, err := deploymentutil.GetAllReplicaSets(deployment, versionedClient)
+	deploymentSelector, err := metav1.LabelSelectorAsSelector(d.Spec.Selector)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to retrieve replica sets from deployment %s: %v", name, err)
+		return nil, nil, fmt.Errorf("deployment %s/%s has invalid label selector: %v", d.Namespace, d.Name, err)
 	}
 
-	clientAllOldRSs := make([]*extensionsv1beta1.ReplicaSet, 0)
-	for _, v := range allOldRSs {
-		rs, err := h.informerController.replicasetInformer.Lister().ReplicaSets(namespace).Get(v.Name)
+	rsList, err := h.informerController.replicasetInformer.Lister().ReplicaSets(namespace).List(deploymentSelector)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	owned := make([]*extensionsv1beta1.ReplicaSet, 0)
+
+	for _, v := range rsList {
+		controllerRef := controller.GetControllerOf(v)
+		if controllerRef != nil && controllerRef.UID == d.UID {
+			owned = append(owned, v)
+		}
+	}
+
+	var newRS *extensionsv1beta1.ReplicaSet
+	for i := range owned {
+		equal, err := EqualIgnoreHash(&rsList[i].Spec.Template, &d.Spec.Template)
 		if err != nil {
 			return nil, nil, err
 		}
-		clientAllOldRSs = append(clientAllOldRSs, rs)
-	}
-
-	if newRS != nil {
-		clientNewRSs, err := h.informerController.replicasetInformer.Lister().ReplicaSets(namespace).Get(newRS.Name)
-		if err != nil {
-			return nil, nil, err
+		if equal {
+			// In rare cases, such as after cluster upgrades, Deployment may end up with
+			// having more than one new ReplicaSets that have the same template as its template,
+			// see https://github.com/kubernetes/kubernetes/issues/40415
+			// We deterministically choose the oldest new ReplicaSet.
+			newRS = owned[i]
+			break
 		}
-
-		return clientAllOldRSs, clientNewRSs, nil
 	}
-	return clientAllOldRSs, nil, nil
+	var allOldRSs []*extensionsv1beta1.ReplicaSet
+
+	for _, rs := range owned {
+		// Filter out new replica set
+		//过滤掉当前deployment的RS
+		if newRS != nil && rs.UID == newRS.UID {
+			continue
+		}
+		allOldRSs = append(allOldRSs, rs)
+	}
+
+	// new ReplicaSet does not exist.
+	return allOldRSs, newRS, nil
+
 }
 
 func GetCurrentDeploymentRevision(d *extensionsv1beta1.Deployment) (int64, error) {
