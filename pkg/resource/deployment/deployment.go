@@ -391,14 +391,16 @@ func (p *DeploymentManager) CreateObject(groupName, workspaceName string, data [
 		obj.Annotations = make(map[string]string)
 	}
 	obj.Annotations[sign.SignFromUfleetKey] = sign.SignFromUfleetValue
+	obj.Annotations[sign.SignUfleetAutoScaleSupported] = "true"
 
-	if opt.App != nil {
-		if obj.Spec.Template.Annotations == nil {
-			obj.Spec.Template.Annotations = make(map[string]string)
-		}
-		obj.Spec.Template.Annotations[sign.SignUfleetAppKey] = *opt.App
-		obj.Spec.Template.Annotations[sign.SignUfleetAutoScaleSupported] = "true"
+	if obj.Spec.Template.Annotations == nil {
+		obj.Spec.Template.Annotations = make(map[string]string)
 	}
+	if opt.App != nil {
+		obj.Spec.Template.Annotations[sign.SignUfleetAppKey] = *opt.App
+	}
+	obj.Spec.Template.Annotations[sign.SignUfleetAutoScaleSupported] = "true"
+	obj.Spec.Template.Annotations[sign.SignUfleetDeployment] = obj.Name
 
 	var cp Deployment
 	cp.CreateTime = time.Now().Unix()
@@ -528,6 +530,7 @@ func (p *DeploymentManager) update(groupName, workspaceName string, resourceName
 	rm.Groups[groupName] = group
 	return nil
 }
+
 func (p *DeploymentManager) UpdateObject(groupName, workspaceName string, resourceName string, data []byte, opt resource.UpdateOption) error {
 	p.locker.Lock()
 	defer p.locker.Unlock()
@@ -551,15 +554,17 @@ func (p *DeploymentManager) UpdateObject(groupName, workspaceName string, resour
 			newr.Annotations = make(map[string]string)
 		}
 		newr.Annotations[sign.SignFromUfleetKey] = sign.SignFromUfleetValue
+		newr.Annotations[sign.SignUfleetAutoScaleSupported] = "true"
 	}
 
-	if res.App != "" {
-		if newr.Spec.Template.Annotations == nil {
-			newr.Spec.Template.Annotations = make(map[string]string)
-		}
-		newr.Spec.Template.Annotations[sign.SignUfleetAppKey] = res.App
-		newr.Spec.Template.Annotations[sign.SignUfleetAutoScaleSupported] = "true"
+	if newr.Spec.Template.Annotations == nil {
+		newr.Spec.Template.Annotations = make(map[string]string)
 	}
+	if res.App != "" {
+		newr.Spec.Template.Annotations[sign.SignUfleetAppKey] = res.App
+	}
+	newr.Spec.Template.Annotations[sign.SignUfleetDeployment] = newr.Name
+	newr.Spec.Template.Annotations[sign.SignUfleetAutoScaleSupported] = "true"
 
 	if newr.Name != resourceName {
 		return fmt.Errorf("invalid update data, name not match")

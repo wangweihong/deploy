@@ -7,4 +7,5 @@ const (
 
 	SignUfleetAppKey             = "com.appsoar.ufleet.app"
 	SignUfleetAutoScaleSupported = "com.appsoar.ufleet.autoscale"
+	SignUfleetDeployment         = "com.appsoar.ufleet.deploy"
 )

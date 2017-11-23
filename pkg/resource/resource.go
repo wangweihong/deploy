@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	DefaultAppBelong = "standalone"
+	DefaultAppBelong = "" //"standalone"
 
 	PodReady = "ready"
 )
