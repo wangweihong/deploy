@@ -176,7 +176,6 @@ func (this *EndpointController) CreateEndpoint() {
 	token := this.Ctx.Request.Header.Get("token")
 	aerr := this.checkRouteControllerAbility()
 	if aerr != nil {
-		this.audit(token, "", true)
 		this.abilityErrorReturn(aerr)
 		return
 	}
@@ -236,7 +235,6 @@ func (this *EndpointController) UpdateEndpoint() {
 	token := this.Ctx.Request.Header.Get("token")
 	aerr := this.checkRouteControllerAbility()
 	if aerr != nil {
-		this.audit(token, "", true)
 		this.abilityErrorReturn(aerr)
 		return
 	}
@@ -248,19 +246,19 @@ func (this *EndpointController) UpdateEndpoint() {
 
 	if this.Ctx.Input.RequestBody == nil {
 		err := fmt.Errorf("must commit resource json/yaml data")
-		this.audit(token, "", true)
+		this.audit(token, endpoint, true)
 		this.errReturn(err, 500)
 		return
 	}
 
 	err := pk.Controller.UpdateObject(group, workspace, endpoint, this.Ctx.Input.RequestBody, resource.UpdateOption{})
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, endpoint, true)
 		this.errReturn(err, 500)
 		return
 	}
 
-	this.audit(token, "", false)
+	this.audit(token, endpoint, false)
 	this.normalReturn("ok")
 }
 
@@ -278,7 +276,6 @@ func (this *EndpointController) DeleteEndpoint() {
 	token := this.Ctx.Request.Header.Get("token")
 	aerr := this.checkRouteControllerAbility()
 	if aerr != nil {
-		this.audit(token, "", true)
 		this.abilityErrorReturn(aerr)
 		return
 	}
@@ -289,12 +286,12 @@ func (this *EndpointController) DeleteEndpoint() {
 
 	err := pk.Controller.DeleteObject(group, workspace, endpoint, resource.DeleteOption{})
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, endpoint, true)
 		this.errReturn(err, 500)
 		return
 	}
 
-	this.audit(token, "", false)
+	this.audit(token, endpoint, false)
 	this.normalReturn("ok")
 }
 

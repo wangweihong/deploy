@@ -27,7 +27,6 @@ func (this *AppController) NewApp() {
 	token := this.Ctx.Request.Header.Get("token")
 	aerr := this.checkRouteControllerAbility()
 	if aerr != nil {
-		this.audit(token, "", true)
 		this.abilityErrorReturn(aerr)
 		return
 	}
@@ -39,7 +38,7 @@ func (this *AppController) NewApp() {
 	ui := user.NewUserClient(token)
 	who, err := ui.GetUserName()
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, appName, true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -48,7 +47,7 @@ func (this *AppController) NewApp() {
 
 	err = app.Controller.NewApp(group, workspace, appName, this.Ctx.Input.RequestBody, opt)
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, appName, true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -70,7 +69,6 @@ func (this *AppController) DeleteApp() {
 	token := this.Ctx.Request.Header.Get("token")
 	aerr := this.checkRouteControllerAbility()
 	if aerr != nil {
-		this.audit(token, "", true)
 		this.abilityErrorReturn(aerr)
 		return
 	}
@@ -81,7 +79,7 @@ func (this *AppController) DeleteApp() {
 
 	err := app.Controller.DeleteApp(group, workspace, appName, app.DeleteOption{})
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, appName, true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -114,7 +112,7 @@ func (this *AppController) RecreateApp() {
 
 	if this.Ctx.Input.RequestBody == nil {
 		err := fmt.Errorf("must commit resource json/yaml data")
-		this.audit(token, "", true)
+		this.audit(token, appName, true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -126,7 +124,7 @@ func (this *AppController) RecreateApp() {
 		return
 	}
 
-	this.audit(token, "", false)
+	this.audit(token, appName, false)
 	this.normalReturn("ok")
 }
 
@@ -155,7 +153,7 @@ func (this *AppController) UpdateApp() {
 
 	if this.Ctx.Input.RequestBody == nil {
 		err := fmt.Errorf("must commit resource json/yaml data")
-		this.audit(token, "", true)
+		this.audit(token, appName, true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -166,7 +164,7 @@ func (this *AppController) UpdateApp() {
 		return
 	}
 
-	this.audit(token, "", false)
+	this.audit(token, appName, false)
 	this.normalReturn("ok")
 }
 
@@ -399,7 +397,7 @@ func (this *AppController) AppAddResource() {
 
 	if this.Ctx.Input.RequestBody == nil {
 		err := fmt.Errorf("must commit resource json/yaml data")
-		this.audit(token, "", true)
+		this.audit(token, appName, true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -410,7 +408,7 @@ func (this *AppController) AppAddResource() {
 		return
 	}
 
-	this.audit(token, "", false)
+	this.audit(token, appName, false)
 	this.normalReturn("ok")
 
 }
@@ -431,7 +429,6 @@ func (this *AppController) AppRemoveResource() {
 	token := this.Ctx.Request.Header.Get("token")
 	err := this.checkRouteControllerAbility()
 	if err != nil {
-		this.audit(token, "", true)
 		this.abilityErrorReturn(err)
 		return
 	}
@@ -444,12 +441,12 @@ func (this *AppController) AppRemoveResource() {
 
 	err = app.Controller.RemoveAppResource(group, workspace, appName, kind, resource)
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, appName, true)
 		this.errReturn(err, 500)
 		return
 	}
 
-	this.audit(token, "", false)
+	this.audit(token, appName, false)
 	this.normalReturn("ok")
 
 }

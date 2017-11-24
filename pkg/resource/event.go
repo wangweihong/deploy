@@ -36,6 +36,9 @@ func HandleEventWatchFromK8sCluster(echan chan cluster.Event, kind string, oc Ob
 				//清除内存中的数据即可
 				obj, err := oc.GetObject(e.Group, e.Workspace, e.Name)
 				if err != nil {
+					if err == ErrResourceNotFound {
+						return
+					}
 					log.ErrorPrint("%v:  event handler delete 'group:%v,Workspace:%v,resource:%v':%v ", kind, e.Group, e.Workspace, e.Name, err)
 					return
 				}

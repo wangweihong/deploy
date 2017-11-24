@@ -267,7 +267,6 @@ func (this *PodController) CreatePod() {
 	token := this.Ctx.Request.Header.Get("token")
 	err := this.checkRouteControllerAbility()
 	if err != nil {
-		this.audit(token, "", true)
 		this.abilityErrorReturn(err)
 		return
 	}
@@ -319,7 +318,6 @@ func (this *PodController) DeletePod() {
 	token := this.Ctx.Request.Header.Get("token")
 	err := this.checkRouteControllerAbility()
 	if err != nil {
-		this.audit(token, "", true)
 		this.abilityErrorReturn(err)
 		return
 	}
@@ -330,12 +328,12 @@ func (this *PodController) DeletePod() {
 
 	err = pk.Controller.DeleteObject(group, workspace, pod, resource.DeleteOption{})
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, pod, true)
 		this.errReturn(err, 500)
 		return
 	}
 
-	this.audit(token, "", false)
+	this.audit(token, pod, false)
 	this.normalReturn("ok")
 }
 
@@ -354,7 +352,6 @@ func (this *PodController) UpdatePod() {
 	token := this.Ctx.Request.Header.Get("token")
 	err := this.checkRouteControllerAbility()
 	if err != nil {
-		this.audit(token, "", true)
 		this.abilityErrorReturn(err)
 		return
 	}
@@ -366,19 +363,19 @@ func (this *PodController) UpdatePod() {
 
 	if this.Ctx.Input.RequestBody == nil {
 		err := fmt.Errorf("must commit resource json/yaml data")
-		this.audit(token, "", true)
+		this.audit(token, pod, true)
 		this.errReturn(err, 500)
 		return
 	}
 
 	err = pk.Controller.UpdateObject(group, workspace, pod, this.Ctx.Input.RequestBody, resource.UpdateOption{})
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, pod, true)
 		this.errReturn(err, 500)
 		return
 	}
 
-	this.audit(token, "", false)
+	this.audit(token, pod, false)
 	this.normalReturn("ok")
 }
 

@@ -181,7 +181,6 @@ func (this *CronJobController) CreateCronJob() {
 	token := this.Ctx.Request.Header.Get("token")
 	aerr := this.checkRouteControllerAbility()
 	if aerr != nil {
-		this.audit(token, "", true)
 		this.abilityErrorReturn(aerr)
 		return
 	}
@@ -233,7 +232,6 @@ func (this *CronJobController) UpdateCronJob() {
 	token := this.Ctx.Request.Header.Get("token")
 	aerr := this.checkRouteControllerAbility()
 	if aerr != nil {
-		this.audit(token, "", true)
 		this.abilityErrorReturn(aerr)
 		return
 	}
@@ -245,19 +243,19 @@ func (this *CronJobController) UpdateCronJob() {
 
 	if this.Ctx.Input.RequestBody == nil {
 		err := fmt.Errorf("must commit resource json/yaml data")
-		this.audit(token, "", true)
+		this.audit(token, cronjob, true)
 		this.errReturn(err, 500)
 		return
 	}
 
 	err := pk.Controller.UpdateObject(group, workspace, cronjob, this.Ctx.Input.RequestBody, resource.UpdateOption{})
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, cronjob, true)
 		this.errReturn(err, 500)
 		return
 	}
 
-	this.audit(token, "", false)
+	this.audit(token, cronjob, false)
 	this.normalReturn("ok")
 }
 
@@ -275,7 +273,6 @@ func (this *CronJobController) DeleteCronJob() {
 	token := this.Ctx.Request.Header.Get("token")
 	aerr := this.checkRouteControllerAbility()
 	if aerr != nil {
-		this.audit(token, "", true)
 		this.abilityErrorReturn(aerr)
 		return
 	}
@@ -286,12 +283,12 @@ func (this *CronJobController) DeleteCronJob() {
 
 	err := pk.Controller.DeleteObject(group, workspace, cronjob, resource.DeleteOption{})
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, cronjob, true)
 		this.errReturn(err, 500)
 		return
 	}
 
-	this.audit(token, "", false)
+	this.audit(token, cronjob, false)
 	this.normalReturn("ok")
 }
 
@@ -382,7 +379,6 @@ func (this *CronJobController) SuspendOrResumeCronJob() {
 	token := this.Ctx.Request.Header.Get("token")
 	aerr := this.checkRouteControllerAbility()
 	if aerr != nil {
-		this.audit(token, "", true)
 		this.abilityErrorReturn(aerr)
 		return
 	}
@@ -394,19 +390,19 @@ func (this *CronJobController) SuspendOrResumeCronJob() {
 
 	v, err := pk.Controller.GetObject(group, workspace, cronjob)
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, cronjob, true)
 		this.errReturn(err, 500)
 		return
 	}
 	pi, _ := pk.GetCronJobInterface(v)
 	err = pi.SuspendOrResume()
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, cronjob, true)
 		this.errReturn(err, 500)
 		return
 
 	}
 
-	this.audit(token, "", false)
+	this.audit(token, cronjob, false)
 	this.normalReturn("ok")
 }

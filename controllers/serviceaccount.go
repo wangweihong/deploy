@@ -145,7 +145,6 @@ func (this *ServiceAccountController) CreateServiceAccount() {
 	token := this.Ctx.Request.Header.Get("token")
 	aerr := this.checkRouteControllerAbility()
 	if aerr != nil {
-		this.audit(token, "", true)
 		this.abilityErrorReturn(aerr)
 		return
 	}
@@ -211,7 +210,6 @@ func (this *ServiceAccountController) CreateServiceAccountCustom() {
 	token := this.Ctx.Request.Header.Get("token")
 	aerr := this.checkRouteControllerAbility()
 	if aerr != nil {
-		this.audit(token, "", true)
 		this.abilityErrorReturn(aerr)
 		return
 	}
@@ -288,7 +286,6 @@ func (this *ServiceAccountController) UpdateServiceAccount() {
 	token := this.Ctx.Request.Header.Get("token")
 	aerr := this.checkRouteControllerAbility()
 	if aerr != nil {
-		this.audit(token, "", true)
 		this.abilityErrorReturn(aerr)
 		return
 	}
@@ -300,19 +297,19 @@ func (this *ServiceAccountController) UpdateServiceAccount() {
 
 	if this.Ctx.Input.RequestBody == nil {
 		err := fmt.Errorf("must commit resource json/yaml data")
-		this.audit(token, "", true)
+		this.audit(token, serviceaccount, true)
 		this.errReturn(err, 500)
 		return
 	}
 
 	err := pk.Controller.UpdateObject(group, workspace, serviceaccount, this.Ctx.Input.RequestBody, resource.UpdateOption{})
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, serviceaccount, true)
 		this.errReturn(err, 500)
 		return
 	}
 
-	this.audit(token, "", false)
+	this.audit(token, serviceaccount, false)
 	this.normalReturn("ok")
 }
 
@@ -330,14 +327,13 @@ func (this *ServiceAccountController) UpdateServiceAccountCustom() {
 	token := this.Ctx.Request.Header.Get("token")
 	aerr := this.checkRouteControllerAbility()
 	if aerr != nil {
-		this.audit(token, "", true)
 		this.abilityErrorReturn(aerr)
 		return
 	}
 
 	group := this.Ctx.Input.Param(":group")
 	workspace := this.Ctx.Input.Param(":workspace")
-	sa := this.Ctx.Input.Param(":serviceaccount")
+	serviceaccount := this.Ctx.Input.Param(":serviceaccount")
 
 	if this.Ctx.Input.RequestBody == nil {
 		err := fmt.Errorf("must commit resource json/yaml data")
@@ -348,7 +344,7 @@ func (this *ServiceAccountController) UpdateServiceAccountCustom() {
 	var co ServiceAccountCustomOption
 	err := json.Unmarshal(this.Ctx.Input.RequestBody, &co)
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, serviceaccount, true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -356,7 +352,7 @@ func (this *ServiceAccountController) UpdateServiceAccountCustom() {
 	cm := corev1.ServiceAccount{}
 	cm.Kind = "ServiceAccount"
 	cm.APIVersion = "v1"
-	cm.Name = sa
+	cm.Name = serviceaccount
 	cm.Secrets = make([]corev1.ObjectReference, 0)
 	for _, v := range co.Secrets {
 		var or corev1.ObjectReference
@@ -366,21 +362,21 @@ func (this *ServiceAccountController) UpdateServiceAccountCustom() {
 
 	bytedata, err := json.Marshal(cm)
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, serviceaccount, true)
 		this.errReturn(err, 500)
 		return
 	}
 
 	var opt resource.UpdateOption
 	opt.Comment = co.Comment
-	err = pk.Controller.UpdateObject(group, workspace, sa, bytedata, opt)
+	err = pk.Controller.UpdateObject(group, workspace, serviceaccount, bytedata, opt)
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, serviceaccount, true)
 		this.errReturn(err, 500)
 		return
 	}
 
-	this.audit(token, "", false)
+	this.audit(token, serviceaccount, false)
 	this.normalReturn("ok")
 }
 
@@ -398,7 +394,6 @@ func (this *ServiceAccountController) DeleteServiceAccount() {
 	token := this.Ctx.Request.Header.Get("token")
 	aerr := this.checkRouteControllerAbility()
 	if aerr != nil {
-		this.audit(token, "", true)
 		this.abilityErrorReturn(aerr)
 		return
 	}
@@ -409,11 +404,11 @@ func (this *ServiceAccountController) DeleteServiceAccount() {
 
 	err := pk.Controller.DeleteObject(group, workspace, serviceaccount, resource.DeleteOption{})
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, serviceaccount, true)
 		this.errReturn(err, 500)
 		return
 	}
-	this.audit(token, "", false)
+	this.audit(token, serviceaccount, false)
 
 	this.normalReturn("ok")
 }

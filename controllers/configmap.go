@@ -148,7 +148,6 @@ func (this *ConfigMapController) CreateConfigMap() {
 	token := this.Ctx.Request.Header.Get("token")
 	aerr := this.checkRouteControllerAbility()
 	if aerr != nil {
-		this.audit(token, "", true)
 		this.abilityErrorReturn(aerr)
 		return
 	}
@@ -206,7 +205,6 @@ func (this *ConfigMapController) CreateConfigMapCustom() {
 	token := this.Ctx.Request.Header.Get("token")
 	aerr := this.checkRouteControllerAbility()
 	if aerr != nil {
-		this.audit(token, "", true)
 		this.abilityErrorReturn(aerr)
 		return
 	}
@@ -269,7 +267,7 @@ func (this *ConfigMapController) CreateConfigMapCustom() {
 		return
 	}
 
-	this.audit(token, "", false)
+	this.audit(token, cm.Name, false)
 	this.normalReturn("ok")
 }
 
@@ -288,7 +286,6 @@ func (this *ConfigMapController) UpdateConfigMapCustom() {
 	token := this.Ctx.Request.Header.Get("token")
 	aerr := this.checkRouteControllerAbility()
 	if aerr != nil {
-		this.audit(token, "", true)
 		this.abilityErrorReturn(aerr)
 		return
 	}
@@ -299,14 +296,14 @@ func (this *ConfigMapController) UpdateConfigMapCustom() {
 
 	if this.Ctx.Input.RequestBody == nil {
 		err := fmt.Errorf("must commit resource json/yaml data")
-		this.audit(token, "", true)
+		this.audit(token, configmap, true)
 		this.errReturn(err, 500)
 		return
 	}
 	var co ConfigMapCustomOption
 	err := json.Unmarshal(this.Ctx.Input.RequestBody, &co)
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, configmap, true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -314,7 +311,7 @@ func (this *ConfigMapController) UpdateConfigMapCustom() {
 	data := make(map[string]string)
 	err = yaml.Unmarshal([]byte(co.Data), &data)
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, configmap, true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -328,7 +325,7 @@ func (this *ConfigMapController) UpdateConfigMapCustom() {
 
 	bytedata, err := json.Marshal(cm)
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, configmap, true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -338,12 +335,12 @@ func (this *ConfigMapController) UpdateConfigMapCustom() {
 
 	err = pk.Controller.UpdateObject(group, workspace, configmap, bytedata, opt)
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, configmap, true)
 		this.errReturn(err, 500)
 		return
 	}
 
-	this.audit(token, "", false)
+	this.audit(token, configmap, false)
 	this.normalReturn("ok")
 }
 
@@ -361,7 +358,6 @@ func (this *ConfigMapController) DeleteConfigMap() {
 	token := this.Ctx.Request.Header.Get("token")
 	aerr := this.checkRouteControllerAbility()
 	if aerr != nil {
-		this.audit(token, "", true)
 		this.abilityErrorReturn(aerr)
 		return
 	}
@@ -372,7 +368,7 @@ func (this *ConfigMapController) DeleteConfigMap() {
 
 	err := pk.Controller.DeleteObject(group, workspace, configmap, resource.DeleteOption{})
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, configmap, true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -396,7 +392,6 @@ func (this *ConfigMapController) UpdateConfigMap() {
 	token := this.Ctx.Request.Header.Get("token")
 	aerr := this.checkRouteControllerAbility()
 	if aerr != nil {
-		this.audit(token, "", true)
 		this.abilityErrorReturn(aerr)
 		return
 	}
@@ -408,14 +403,14 @@ func (this *ConfigMapController) UpdateConfigMap() {
 
 	if this.Ctx.Input.RequestBody == nil {
 		err := fmt.Errorf("must commit resource json/yaml data")
-		this.audit(token, "", true)
+		this.audit(token, configmap, true)
 		this.errReturn(err, 500)
 		return
 	}
 
 	err := pk.Controller.UpdateObject(group, workspace, configmap, this.Ctx.Input.RequestBody, resource.UpdateOption{})
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, configmap, true)
 		this.errReturn(err, 500)
 		return
 	}

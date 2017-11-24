@@ -132,7 +132,6 @@ func (this *DeploymentController) CreateDeployment() {
 	token := this.Ctx.Request.Header.Get("token")
 	aerr := this.checkRouteControllerAbility()
 	if aerr != nil {
-		this.audit(token, "", true)
 		this.abilityErrorReturn(aerr)
 		return
 	}
@@ -183,7 +182,6 @@ func (this *DeploymentController) UpdateDeployment() {
 	token := this.Ctx.Request.Header.Get("token")
 	aerr := this.checkRouteControllerAbility()
 	if aerr != nil {
-		this.audit(token, "", true)
 		this.abilityErrorReturn(aerr)
 		return
 	}
@@ -194,18 +192,19 @@ func (this *DeploymentController) UpdateDeployment() {
 
 	if this.Ctx.Input.RequestBody == nil {
 		err := fmt.Errorf("must commit resource json/yaml data")
+		this.audit(token, deployment, true)
 		this.errReturn(err, 500)
 		return
 	}
 
 	err := pk.Controller.UpdateObject(group, workspace, deployment, this.Ctx.Input.RequestBody, resource.UpdateOption{})
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, deployment, true)
 		this.errReturn(err, 500)
 		return
 	}
 
-	this.audit(token, "", false)
+	this.audit(token, deployment, false)
 	this.normalReturn("ok")
 }
 
@@ -224,7 +223,6 @@ func (this *DeploymentController) UpdateDeploymentCustom() {
 	token := this.Ctx.Request.Header.Get("token")
 	aerr := this.checkRouteControllerAbility()
 	if aerr != nil {
-		this.audit(token, "", true)
 		this.abilityErrorReturn(aerr)
 		return
 	}
@@ -235,7 +233,7 @@ func (this *DeploymentController) UpdateDeploymentCustom() {
 
 	if this.Ctx.Input.RequestBody == nil {
 		err := fmt.Errorf("must commit container&image info")
-		this.audit(token, "", true)
+		this.audit(token, deployment, true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -244,13 +242,13 @@ func (this *DeploymentController) UpdateDeploymentCustom() {
 	err := json.Unmarshal(this.Ctx.Input.RequestBody, &cis)
 	if err != nil {
 		err = fmt.Errorf("parse container&image fail for  fail for %v", err)
-		this.audit(token, "", true)
+		this.audit(token, deployment, true)
 		this.errReturn(err, 500)
 		return
 	}
 	v, err := pk.Controller.GetObject(group, workspace, deployment)
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, deployment, true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -258,7 +256,7 @@ func (this *DeploymentController) UpdateDeploymentCustom() {
 
 	runtime, err := pi.GetRuntime()
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, deployment, true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -275,7 +273,7 @@ func (this *DeploymentController) UpdateDeploymentCustom() {
 		}
 		if !found {
 			err := fmt.Errorf("container '%v' not found in deployment '%v'", j.Container, deployment)
-			this.audit(token, "", true)
+			this.audit(token, deployment, true)
 			this.errReturn(err, 500)
 			return
 		}
@@ -283,19 +281,19 @@ func (this *DeploymentController) UpdateDeploymentCustom() {
 
 	byteContent, err := json.Marshal(d)
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, deployment, true)
 		this.errReturn(err, 500)
 		return
 	}
 
 	err = pk.Controller.UpdateObject(group, workspace, deployment, byteContent, resource.UpdateOption{})
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, deployment, true)
 		this.errReturn(err, 500)
 		return
 	}
 
-	this.audit(token, "", false)
+	this.audit(token, deployment, false)
 	this.normalReturn("ok")
 }
 
@@ -323,12 +321,12 @@ func (this *DeploymentController) DeleteDeployment() {
 
 	err := pk.Controller.DeleteObject(group, workspace, deployment, resource.DeleteOption{})
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, deployment, true)
 		this.errReturn(err, 500)
 		return
 	}
 
-	this.audit(token, "", false)
+	this.audit(token, deployment, false)
 	this.normalReturn("ok")
 }
 
@@ -395,14 +393,14 @@ func (this *DeploymentController) ScaleDeployment() {
 
 	replicas, err := strconv.ParseInt(replicasStr, 10, 32)
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, deployment, true)
 		this.errReturn(err, 500)
 		return
 	}
 
 	v, err := pk.Controller.GetObject(group, workspace, deployment)
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, deployment, true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -410,12 +408,12 @@ func (this *DeploymentController) ScaleDeployment() {
 
 	err = ri.Scale(int(replicas))
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, deployment, true)
 		this.errReturn(err, 500)
 		return
 	}
 
-	this.audit(token, "", false)
+	this.audit(token, deployment, false)
 	this.normalReturn("ok")
 }
 
@@ -434,7 +432,6 @@ func (this *DeploymentController) ScaleDeploymentIncrement() {
 	token := this.Ctx.Request.Header.Get("token")
 	aerr := this.checkRouteControllerAbility()
 	if aerr != nil {
-		this.audit(token, "", true)
 		this.abilityErrorReturn(aerr)
 		return
 	}
@@ -447,14 +444,14 @@ func (this *DeploymentController) ScaleDeploymentIncrement() {
 
 	increment, err := strconv.ParseInt(incrementStr, 10, 32)
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, deployment, true)
 		this.errReturn(err, 500)
 		return
 	}
 
 	v, err := pk.Controller.GetObject(group, workspace, deployment)
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, deployment, true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -463,7 +460,7 @@ func (this *DeploymentController) ScaleDeploymentIncrement() {
 	js := ri.GetStatus()
 	if js.Reason != "" {
 		err := fmt.Errorf(js.Reason)
-		this.audit(token, "", true)
+		this.audit(token, deployment, true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -472,12 +469,12 @@ func (this *DeploymentController) ScaleDeploymentIncrement() {
 
 	err = ri.Scale(int(newReplicas))
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, deployment, true)
 		this.errReturn(err, 500)
 		return
 	}
 
-	this.audit(token, "", false)
+	this.audit(token, deployment, false)
 	this.normalReturn("ok")
 }
 
@@ -652,7 +649,6 @@ func (this *DeploymentController) RollBackDeployment() {
 	token := this.Ctx.Request.Header.Get("token")
 	aerr := this.checkRouteControllerAbility()
 	if aerr != nil {
-		this.audit(token, "", true)
 		this.abilityErrorReturn(aerr)
 		return
 	}
@@ -664,14 +660,14 @@ func (this *DeploymentController) RollBackDeployment() {
 
 	toRevision, err := strconv.ParseInt(revision, 10, 64)
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, deployment, true)
 		this.errReturn(err, 500)
 		return
 	}
 
 	v, err := pk.Controller.GetObject(group, workspace, deployment)
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, deployment, true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -679,13 +675,13 @@ func (this *DeploymentController) RollBackDeployment() {
 
 	result, err := pi.Rollback(toRevision)
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, deployment, true)
 		this.errReturn(err, 500)
 		return
 
 	}
 
-	this.audit(token, "", false)
+	this.audit(token, deployment, false)
 	this.normalReturn(*result)
 }
 
@@ -751,7 +747,6 @@ func (this *DeploymentController) StartHPA() {
 	token := this.Ctx.Request.Header.Get("token")
 	aerr := this.checkRouteControllerAbility()
 	if aerr != nil {
-		this.audit(token, "", true)
 		this.abilityErrorReturn(aerr)
 		return
 	}
@@ -762,7 +757,7 @@ func (this *DeploymentController) StartHPA() {
 
 	if this.Ctx.Input.RequestBody == nil {
 		err := fmt.Errorf("must commit hpa options")
-		this.audit(token, "", true)
+		this.audit(token, deployment, true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -771,14 +766,14 @@ func (this *DeploymentController) StartHPA() {
 	err := json.Unmarshal(this.Ctx.Input.RequestBody, &hpaopt)
 	if err != nil {
 		err = fmt.Errorf("parse hpa option fail for  fail for ", err)
-		this.audit(token, "", true)
+		this.audit(token, deployment, true)
 		this.errReturn(err, 500)
 		return
 	}
 
 	v, err := pk.Controller.GetObject(group, workspace, deployment)
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, deployment, true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -786,12 +781,12 @@ func (this *DeploymentController) StartHPA() {
 
 	err = pi.StartAutoScale(hpaopt.MinReplicas, hpaopt.MaxReplicas, hpaopt.CpuPercent, hpaopt.MemPercent, hpaopt.DiskPercent, hpaopt.NetPercent)
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, deployment, true)
 		this.errReturn(err, 500)
 		return
 	}
 
-	this.audit(token, "", false)
+	this.audit(token, deployment, false)
 	this.normalReturn("ok")
 }
 
@@ -809,7 +804,6 @@ func (this *DeploymentController) RollBackResumeOrPauseDeployment() {
 	token := this.Ctx.Request.Header.Get("token")
 	aerr := this.checkRouteControllerAbility()
 	if aerr != nil {
-		this.audit(token, "", true)
 		this.abilityErrorReturn(aerr)
 		return
 	}
@@ -820,7 +814,7 @@ func (this *DeploymentController) RollBackResumeOrPauseDeployment() {
 
 	v, err := pk.Controller.GetObject(group, workspace, deployment)
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, deployment, true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -828,12 +822,12 @@ func (this *DeploymentController) RollBackResumeOrPauseDeployment() {
 
 	err = pi.ResumeOrPauseRollOut()
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, deployment, true)
 		this.errReturn(err, 500)
 		return
 	}
 
-	this.audit(token, "", false)
+	this.audit(token, deployment, false)
 	this.normalReturn("ok")
 }
 
@@ -903,13 +897,16 @@ func (this *DeploymentController) AddDeploymentContainerSpecEnv() {
 	err := this.checkRouteControllerAbility()
 	if err != nil {
 		this.abilityErrorReturn(err)
-		this.audit(token, "", true)
 		return
 	}
+	group := this.Ctx.Input.Param(":group")
+	workspace := this.Ctx.Input.Param(":workspace")
+	deployment := this.Ctx.Input.Param(":deployment")
+	container := this.Ctx.Input.Param(":container")
 
 	if this.Ctx.Input.RequestBody == nil {
 		err := fmt.Errorf("must commit groups name")
-		this.audit(token, "", true)
+		this.audit(token, deployment, true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -917,19 +914,14 @@ func (this *DeploymentController) AddDeploymentContainerSpecEnv() {
 	envVar := make([]corev1.EnvVar, 0)
 	err = json.Unmarshal(this.Ctx.Input.RequestBody, &envVar)
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, deployment, true)
 		this.errReturn(err, 500)
 		return
 	}
 
-	group := this.Ctx.Input.Param(":group")
-	workspace := this.Ctx.Input.Param(":workspace")
-	deployment := this.Ctx.Input.Param(":deployment")
-	container := this.Ctx.Input.Param(":container")
-
 	v, err := pk.Controller.GetObject(group, workspace, deployment)
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, deployment, true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -937,7 +929,7 @@ func (this *DeploymentController) AddDeploymentContainerSpecEnv() {
 
 	d, err := pi.GetRuntimeObjectCopy()
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, deployment, true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -946,7 +938,7 @@ func (this *DeploymentController) AddDeploymentContainerSpecEnv() {
 
 	newPodSpec, err := addPodSpecContainerEnv(podSpec, container, envVar)
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, deployment, true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -954,18 +946,18 @@ func (this *DeploymentController) AddDeploymentContainerSpecEnv() {
 
 	byteContent, err := json.Marshal(d)
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, deployment, true)
 		this.errReturn(err, 500)
 		return
 	}
 
 	err = pk.Controller.UpdateObject(group, workspace, deployment, byteContent, resource.UpdateOption{})
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, deployment, true)
 		this.errReturn(err, 500)
 		return
 	}
-	this.audit(token, "", false)
+	this.audit(token, deployment, false)
 	this.normalReturn("ok")
 }
 
@@ -986,7 +978,6 @@ func (this *DeploymentController) DeleteDeploymentContainerSpecEnv() {
 	err := this.checkRouteControllerAbility()
 	if err != nil {
 		this.abilityErrorReturn(err)
-		this.audit(token, "", true)
 		return
 	}
 
@@ -998,7 +989,7 @@ func (this *DeploymentController) DeleteDeploymentContainerSpecEnv() {
 
 	v, err := pk.Controller.GetObject(group, workspace, deployment)
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, deployment, true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -1006,7 +997,7 @@ func (this *DeploymentController) DeleteDeploymentContainerSpecEnv() {
 
 	d, err := pi.GetRuntimeObjectCopy()
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, deployment, true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -1015,7 +1006,7 @@ func (this *DeploymentController) DeleteDeploymentContainerSpecEnv() {
 
 	newPodSpec, err := deletePodSpecContainerEnv(podSpec, container, env)
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, deployment, true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -1023,18 +1014,18 @@ func (this *DeploymentController) DeleteDeploymentContainerSpecEnv() {
 
 	byteContent, err := json.Marshal(d)
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, deployment, true)
 		this.errReturn(err, 500)
 		return
 	}
 
 	err = pk.Controller.UpdateObject(group, workspace, deployment, byteContent, resource.UpdateOption{})
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, deployment, true)
 		this.errReturn(err, 500)
 		return
 	}
-	this.audit(token, "", false)
+	this.audit(token, deployment, false)
 	this.normalReturn("ok")
 
 }
@@ -1056,13 +1047,16 @@ func (this *DeploymentController) UpdateDeploymentContainerSpecEnv() {
 	err := this.checkRouteControllerAbility()
 	if err != nil {
 		this.abilityErrorReturn(err)
-		this.audit(token, "", true)
 		return
 	}
+	group := this.Ctx.Input.Param(":group")
+	workspace := this.Ctx.Input.Param(":workspace")
+	deployment := this.Ctx.Input.Param(":deployment")
+	container := this.Ctx.Input.Param(":container")
 
 	if this.Ctx.Input.RequestBody == nil {
 		err := fmt.Errorf("must commit groups name")
-		this.audit(token, "", true)
+		this.audit(token, deployment, true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -1070,19 +1064,14 @@ func (this *DeploymentController) UpdateDeploymentContainerSpecEnv() {
 	envVar := make([]corev1.EnvVar, 0)
 	err = json.Unmarshal(this.Ctx.Input.RequestBody, &envVar)
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, deployment, true)
 		this.errReturn(err, 500)
 		return
 	}
 
-	group := this.Ctx.Input.Param(":group")
-	workspace := this.Ctx.Input.Param(":workspace")
-	deployment := this.Ctx.Input.Param(":deployment")
-	container := this.Ctx.Input.Param(":container")
-
 	v, err := pk.Controller.GetObject(group, workspace, deployment)
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, deployment, true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -1090,7 +1079,7 @@ func (this *DeploymentController) UpdateDeploymentContainerSpecEnv() {
 
 	d, err := pi.GetRuntimeObjectCopy()
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, deployment, true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -1098,7 +1087,7 @@ func (this *DeploymentController) UpdateDeploymentContainerSpecEnv() {
 	podSpec := d.Spec.Template.Spec
 	newPodSpec, err := updatePodSpecContainerEnv(podSpec, container, envVar)
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, deployment, true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -1106,18 +1095,18 @@ func (this *DeploymentController) UpdateDeploymentContainerSpecEnv() {
 
 	byteContent, err := json.Marshal(d)
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, deployment, true)
 		this.errReturn(err, 500)
 		return
 	}
 
 	err = pk.Controller.UpdateObject(group, workspace, deployment, byteContent, resource.UpdateOption{})
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, deployment, true)
 		this.errReturn(err, 500)
 		return
 	}
-	this.audit(token, "", false)
+	this.audit(token, deployment, false)
 	this.normalReturn("ok")
 
 }
@@ -1178,13 +1167,16 @@ func (this *DeploymentController) AddDeploymentContainerSpecVolume() {
 	err := this.checkRouteControllerAbility()
 	if err != nil {
 		this.abilityErrorReturn(err)
-		this.audit(token, "", true)
 		return
 	}
 
+	group := this.Ctx.Input.Param(":group")
+	workspace := this.Ctx.Input.Param(":workspace")
+	deployment := this.Ctx.Input.Param(":deployment")
+
 	if this.Ctx.Input.RequestBody == nil {
 		err := fmt.Errorf("must commit groups name")
-		this.audit(token, "", true)
+		this.audit(token, deployment, true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -1194,18 +1186,14 @@ func (this *DeploymentController) AddDeploymentContainerSpecVolume() {
 	volumeVar.CMounts = make([]ContainerVolumeMount, 0)
 	err = json.Unmarshal(this.Ctx.Input.RequestBody, &volumeVar)
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, deployment, true)
 		this.errReturn(err, 500)
 		return
 	}
 
-	group := this.Ctx.Input.Param(":group")
-	workspace := this.Ctx.Input.Param(":workspace")
-	deployment := this.Ctx.Input.Param(":deployment")
-
 	v, err := pk.Controller.GetObject(group, workspace, deployment)
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, deployment, true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -1213,7 +1201,7 @@ func (this *DeploymentController) AddDeploymentContainerSpecVolume() {
 
 	d, err := pi.GetRuntimeObjectCopy()
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, deployment, true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -1223,7 +1211,7 @@ func (this *DeploymentController) AddDeploymentContainerSpecVolume() {
 
 	newPodSpec, err := addVolumeAndContaienrVolumeMounts(podSpec, volumeVar)
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, deployment, true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -1233,19 +1221,19 @@ func (this *DeploymentController) AddDeploymentContainerSpecVolume() {
 
 	byteContent, err := json.Marshal(d)
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, deployment, true)
 		this.errReturn(err, 500)
 		return
 	}
 
 	err = pk.Controller.UpdateObject(group, workspace, deployment, byteContent, resource.UpdateOption{})
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, deployment, true)
 		this.errReturn(err, 500)
 		return
 	}
 
-	this.audit(token, "", false)
+	this.audit(token, deployment, false)
 	this.normalReturn("ok")
 
 }
@@ -1266,7 +1254,6 @@ func (this *DeploymentController) DeleteDeploymentContainerSpecVolume() {
 	err := this.checkRouteControllerAbility()
 	if err != nil {
 		this.abilityErrorReturn(err)
-		this.audit(token, "", true)
 		return
 	}
 
@@ -1277,7 +1264,7 @@ func (this *DeploymentController) DeleteDeploymentContainerSpecVolume() {
 
 	v, err := pk.Controller.GetObject(group, workspace, deployment)
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, deployment, true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -1285,7 +1272,7 @@ func (this *DeploymentController) DeleteDeploymentContainerSpecVolume() {
 
 	d, err := pi.GetRuntimeObjectCopy()
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, deployment, true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -1294,7 +1281,7 @@ func (this *DeploymentController) DeleteDeploymentContainerSpecVolume() {
 
 	newPodSpec, err := deleteVolumeAndContaienrVolumeMounts(podSpec, volume)
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, deployment, true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -1303,18 +1290,18 @@ func (this *DeploymentController) DeleteDeploymentContainerSpecVolume() {
 
 	byteContent, err := json.Marshal(d)
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, deployment, true)
 		this.errReturn(err, 500)
 		return
 	}
 
 	err = pk.Controller.UpdateObject(group, workspace, deployment, byteContent, resource.UpdateOption{})
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, deployment, true)
 		this.errReturn(err, 500)
 		return
 	}
-	this.audit(token, "", false)
+	this.audit(token, deployment, false)
 	this.normalReturn("ok")
 
 }

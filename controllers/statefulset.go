@@ -176,7 +176,6 @@ func (this *StatefulSetController) CreateStatefulSet() {
 	token := this.Ctx.Request.Header.Get("token")
 	aerr := this.checkRouteControllerAbility()
 	if aerr != nil {
-		this.audit(token, "", true)
 		this.abilityErrorReturn(aerr)
 		return
 	}
@@ -265,7 +264,6 @@ func (this *StatefulSetController) UpdateStatefulSetCustom() {
 	token := this.Ctx.Request.Header.Get("token")
 	aerr := this.checkRouteControllerAbility()
 	if aerr != nil {
-		this.audit(token, "", true)
 		this.abilityErrorReturn(aerr)
 		return
 	}
@@ -276,7 +274,7 @@ func (this *StatefulSetController) UpdateStatefulSetCustom() {
 
 	if this.Ctx.Input.RequestBody == nil {
 		err := fmt.Errorf("must commit container&image info")
-		this.audit(token, "", true)
+		this.audit(token, statefulset, true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -285,14 +283,14 @@ func (this *StatefulSetController) UpdateStatefulSetCustom() {
 	err := json.Unmarshal(this.Ctx.Input.RequestBody, &cis)
 	if err != nil {
 		err = fmt.Errorf("parse container&image fail for  fail for ", err)
-		this.audit(token, "", true)
+		this.audit(token, statefulset, true)
 		this.errReturn(err, 500)
 		return
 	}
 
 	v, err := pk.Controller.GetObject(group, workspace, statefulset)
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, statefulset, true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -300,7 +298,7 @@ func (this *StatefulSetController) UpdateStatefulSetCustom() {
 
 	runtime, err := pi.GetRuntime()
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, statefulset, true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -317,7 +315,7 @@ func (this *StatefulSetController) UpdateStatefulSetCustom() {
 		}
 		if !found {
 			err := fmt.Errorf("container '%v' not found in statefulset '%v'", j.Container, statefulset)
-			this.audit(token, "", true)
+			this.audit(token, statefulset, true)
 			this.errReturn(err, 500)
 			return
 		}
@@ -325,19 +323,19 @@ func (this *StatefulSetController) UpdateStatefulSetCustom() {
 
 	byteContent, err := json.Marshal(d)
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, statefulset, true)
 		this.errReturn(err, 500)
 		return
 	}
 
 	err = pk.Controller.UpdateObject(group, workspace, statefulset, byteContent, resource.UpdateOption{})
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, statefulset, true)
 		this.errReturn(err, 500)
 		return
 	}
 
-	this.audit(token, "", false)
+	this.audit(token, statefulset, false)
 	this.normalReturn("ok")
 }
 
@@ -352,6 +350,7 @@ func (this *StatefulSetController) UpdateStatefulSetCustom() {
 // @Failure 500
 // @router /:statefulset/group/:group/workspace/:workspace [Delete]
 func (this *StatefulSetController) DeleteStatefulSet() {
+	token := this.Ctx.Request.Header.Get("token")
 	aerr := this.checkRouteControllerAbility()
 	if aerr != nil {
 		this.abilityErrorReturn(aerr)
@@ -364,9 +363,11 @@ func (this *StatefulSetController) DeleteStatefulSet() {
 
 	err := pk.Controller.DeleteObject(group, workspace, statefulset, resource.DeleteOption{})
 	if err != nil {
+		this.audit(token, statefulset, true)
 		this.errReturn(err, 500)
 		return
 	}
+	this.audit(token, statefulset, false)
 
 	this.normalReturn("ok")
 }

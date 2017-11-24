@@ -145,7 +145,6 @@ func (this *SecretController) CreateSecret() {
 	token := this.Ctx.Request.Header.Get("token")
 	aerr := this.checkRouteControllerAbility()
 	if aerr != nil {
-		this.audit(token, "", true)
 		this.abilityErrorReturn(aerr)
 		return
 	}
@@ -397,7 +396,6 @@ func (this *SecretController) UpdateSecret() {
 	token := this.Ctx.Request.Header.Get("token")
 	aerr := this.checkRouteControllerAbility()
 	if aerr != nil {
-		this.audit(token, "", true)
 		this.abilityErrorReturn(aerr)
 		return
 	}
@@ -409,7 +407,7 @@ func (this *SecretController) UpdateSecret() {
 
 	if this.Ctx.Input.RequestBody == nil {
 		err := fmt.Errorf("must commit resource json/yaml data")
-		this.audit(token, "", true)
+		this.audit(token, secret, true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -417,11 +415,11 @@ func (this *SecretController) UpdateSecret() {
 	err := pk.Controller.UpdateObject(group, workspace, secret, this.Ctx.Input.RequestBody, resource.UpdateOption{})
 	if err != nil {
 		this.errReturn(err, 500)
-		this.audit(token, "", true)
+		this.audit(token, secret, true)
 		return
 	}
 
-	this.audit(token, "", false)
+	this.audit(token, secret, false)
 	this.normalReturn("ok")
 }
 
@@ -439,7 +437,6 @@ func (this *SecretController) DeleteSecret() {
 	token := this.Ctx.Request.Header.Get("token")
 	aerr := this.checkRouteControllerAbility()
 	if aerr != nil {
-		this.audit(token, "", true)
 		this.abilityErrorReturn(aerr)
 		return
 	}
@@ -450,11 +447,11 @@ func (this *SecretController) DeleteSecret() {
 
 	err := pk.Controller.DeleteObject(group, workspace, secret, resource.DeleteOption{})
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, secret, true)
 		this.errReturn(err, 500)
 		return
 	}
-	this.audit(token, "", false)
+	this.audit(token, secret, false)
 
 	this.normalReturn("ok")
 }

@@ -178,7 +178,6 @@ func (this *JobController) CreateJob() {
 	token := this.Ctx.Request.Header.Get("token")
 	aerr := this.checkRouteControllerAbility()
 	if aerr != nil {
-		this.audit(token, "", true)
 		this.abilityErrorReturn(aerr)
 		return
 	}
@@ -231,7 +230,6 @@ func (this *JobController) UpdateJob() {
 	token := this.Ctx.Request.Header.Get("token")
 	aerr := this.checkRouteControllerAbility()
 	if aerr != nil {
-		this.audit(token, "", true)
 		this.abilityErrorReturn(aerr)
 		return
 	}
@@ -243,18 +241,18 @@ func (this *JobController) UpdateJob() {
 
 	if this.Ctx.Input.RequestBody == nil {
 		err := fmt.Errorf("must commit resource json/yaml data")
-		this.audit(token, "", true)
+		this.audit(token, job, true)
 		this.errReturn(err, 500)
 		return
 	}
 
 	err := pk.Controller.UpdateObject(group, workspace, job, this.Ctx.Input.RequestBody, resource.UpdateOption{})
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, job, true)
 		this.errReturn(err, 500)
 		return
 	}
-	this.audit(token, "", false)
+	this.audit(token, job, false)
 
 	this.normalReturn("ok")
 }
@@ -273,7 +271,6 @@ func (this *JobController) DeleteJob() {
 	token := this.Ctx.Request.Header.Get("token")
 	aerr := this.checkRouteControllerAbility()
 	if aerr != nil {
-		this.audit(token, "", true)
 		this.abilityErrorReturn(aerr)
 		return
 	}
@@ -284,12 +281,12 @@ func (this *JobController) DeleteJob() {
 
 	err := pk.Controller.DeleteObject(group, workspace, job, resource.DeleteOption{})
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, job, true)
 		this.errReturn(err, 500)
 		return
 	}
 
-	this.audit(token, "", false)
+	this.audit(token, job, false)
 	this.normalReturn("ok")
 }
 

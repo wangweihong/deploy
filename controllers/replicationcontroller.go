@@ -183,7 +183,6 @@ func (this *ReplicationControllerController) CreateReplicationController() {
 	token := this.Ctx.Request.Header.Get("token")
 	aerr := this.checkRouteControllerAbility()
 	if aerr != nil {
-		this.audit(token, "", true)
 		this.abilityErrorReturn(aerr)
 		return
 	}
@@ -236,7 +235,6 @@ func (this *ReplicationControllerController) UpdateReplicationController() {
 	token := this.Ctx.Request.Header.Get("token")
 	aerr := this.checkRouteControllerAbility()
 	if aerr != nil {
-		this.audit(token, "", true)
 		this.abilityErrorReturn(aerr)
 		return
 	}
@@ -248,19 +246,19 @@ func (this *ReplicationControllerController) UpdateReplicationController() {
 
 	if this.Ctx.Input.RequestBody == nil {
 		err := fmt.Errorf("must commit resource json/yaml data")
-		this.audit(token, "", true)
+		this.audit(token, replicationcontroller, true)
 		this.errReturn(err, 500)
 		return
 	}
 
 	err := pk.Controller.UpdateObject(group, workspace, replicationcontroller, this.Ctx.Input.RequestBody, resource.UpdateOption{})
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, replicationcontroller, true)
 		this.errReturn(err, 500)
 		return
 	}
 
-	this.audit(token, "", false)
+	this.audit(token, replicationcontroller, false)
 	this.normalReturn("ok")
 }
 
@@ -279,7 +277,6 @@ func (this *ReplicationControllerController) ScaleReplicationController() {
 	token := this.Ctx.Request.Header.Get("token")
 	aerr := this.checkRouteControllerAbility()
 	if aerr != nil {
-		this.audit(token, "", true)
 		this.abilityErrorReturn(aerr)
 		return
 	}
@@ -292,7 +289,7 @@ func (this *ReplicationControllerController) ScaleReplicationController() {
 
 	v, err := pk.Controller.GetObject(group, workspace, replicationcontroller)
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, replicationcontroller, true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -300,19 +297,19 @@ func (this *ReplicationControllerController) ScaleReplicationController() {
 	ri, _ := pk.GetReplicationControllerInterface(v)
 	replicas, err := strconv.ParseInt(replicasStr, 10, 32)
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, replicationcontroller, true)
 		this.errReturn(err, 500)
 		return
 	}
 
 	err = ri.Scale(int(replicas))
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, replicationcontroller, true)
 		this.errReturn(err, 500)
 		return
 	}
 
-	this.audit(token, "", false)
+	this.audit(token, replicationcontroller, false)
 	this.normalReturn("ok")
 
 }
@@ -331,7 +328,6 @@ func (this *ReplicationControllerController) DeleteReplicationController() {
 	token := this.Ctx.Request.Header.Get("token")
 	aerr := this.checkRouteControllerAbility()
 	if aerr != nil {
-		this.audit(token, "", true)
 		this.abilityErrorReturn(aerr)
 		return
 	}
@@ -342,12 +338,12 @@ func (this *ReplicationControllerController) DeleteReplicationController() {
 
 	err := pk.Controller.DeleteObject(group, workspace, replicationcontroller, resource.DeleteOption{})
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, replicationcontroller, true)
 		this.errReturn(err, 500)
 		return
 	}
 
-	this.audit(token, "", false)
+	this.audit(token, replicationcontroller, false)
 	this.normalReturn("ok")
 }
 
@@ -491,13 +487,16 @@ func (this *ReplicationControllerController) AddReplicationControllerContainerSp
 	err := this.checkRouteControllerAbility()
 	if err != nil {
 		this.abilityErrorReturn(err)
-		this.audit(token, "", true)
 		return
 	}
+	group := this.Ctx.Input.Param(":group")
+	workspace := this.Ctx.Input.Param(":workspace")
+	replicationcontroller := this.Ctx.Input.Param(":replicationcontroller")
+	container := this.Ctx.Input.Param(":container")
 
 	if this.Ctx.Input.RequestBody == nil {
 		err := fmt.Errorf("must commit groups name")
-		this.audit(token, "", true)
+		this.audit(token, replicationcontroller, true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -505,19 +504,14 @@ func (this *ReplicationControllerController) AddReplicationControllerContainerSp
 	envVar := make([]corev1.EnvVar, 0)
 	err = json.Unmarshal(this.Ctx.Input.RequestBody, &envVar)
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, replicationcontroller, true)
 		this.errReturn(err, 500)
 		return
 	}
 
-	group := this.Ctx.Input.Param(":group")
-	workspace := this.Ctx.Input.Param(":workspace")
-	replicationcontroller := this.Ctx.Input.Param(":replicationcontroller")
-	container := this.Ctx.Input.Param(":container")
-
 	v, err := pk.Controller.GetObject(group, workspace, replicationcontroller)
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, replicationcontroller, true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -525,7 +519,7 @@ func (this *ReplicationControllerController) AddReplicationControllerContainerSp
 
 	r, err := pi.GetRuntimeObjectCopy()
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, replicationcontroller, true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -545,7 +539,7 @@ func (this *ReplicationControllerController) AddReplicationControllerContainerSp
 
 	if !containerFound {
 		err = fmt.Errorf("container not found")
-		this.audit(token, "", true)
+		this.audit(token, replicationcontroller, true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -554,18 +548,18 @@ func (this *ReplicationControllerController) AddReplicationControllerContainerSp
 
 	byteContent, err := json.Marshal(r)
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, replicationcontroller, true)
 		this.errReturn(err, 500)
 		return
 	}
 
 	err = pk.Controller.UpdateObject(group, workspace, replicationcontroller, byteContent, resource.UpdateOption{})
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, replicationcontroller, true)
 		this.errReturn(err, 500)
 		return
 	}
-	this.audit(token, "", false)
+	this.audit(token, replicationcontroller, false)
 	this.normalReturn("ok")
 }
 
@@ -586,7 +580,6 @@ func (this *ReplicationControllerController) DeleteReplicationControllerContaine
 	err := this.checkRouteControllerAbility()
 	if err != nil {
 		this.abilityErrorReturn(err)
-		this.audit(token, "", true)
 		return
 	}
 
@@ -598,7 +591,7 @@ func (this *ReplicationControllerController) DeleteReplicationControllerContaine
 
 	v, err := pk.Controller.GetObject(group, workspace, replicationcontroller)
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, replicationcontroller, true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -606,7 +599,7 @@ func (this *ReplicationControllerController) DeleteReplicationControllerContaine
 
 	old, err := pi.GetRuntimeObjectCopy()
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, replicationcontroller, true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -633,30 +626,30 @@ func (this *ReplicationControllerController) DeleteReplicationControllerContaine
 
 	if !containerFound {
 		err = fmt.Errorf("container not found")
-		this.audit(token, "", true)
+		this.audit(token, replicationcontroller, true)
 		this.errReturn(err, 500)
 	}
 	if !envFound {
 		err = fmt.Errorf("env not found")
-		this.audit(token, "", true)
+		this.audit(token, replicationcontroller, true)
 		this.errReturn(err, 500)
 		return
 	}
 
 	byteContent, err := json.Marshal(old)
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, replicationcontroller, true)
 		this.errReturn(err, 500)
 		return
 	}
 
 	err = pk.Controller.UpdateObject(group, workspace, replicationcontroller, byteContent, resource.UpdateOption{})
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, replicationcontroller, true)
 		this.errReturn(err, 500)
 		return
 	}
-	this.audit(token, "", false)
+	this.audit(token, replicationcontroller, false)
 	this.normalReturn("ok")
 
 }
@@ -678,13 +671,16 @@ func (this *ReplicationControllerController) UpdateReplicationControllerContaine
 	err := this.checkRouteControllerAbility()
 	if err != nil {
 		this.abilityErrorReturn(err)
-		this.audit(token, "", true)
 		return
 	}
+	group := this.Ctx.Input.Param(":group")
+	workspace := this.Ctx.Input.Param(":workspace")
+	replicationcontroller := this.Ctx.Input.Param(":replicationcontroller")
+	container := this.Ctx.Input.Param(":container")
 
 	if this.Ctx.Input.RequestBody == nil {
 		err := fmt.Errorf("must commit groups name")
-		this.audit(token, "", true)
+		this.audit(token, replicationcontroller, true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -692,19 +688,14 @@ func (this *ReplicationControllerController) UpdateReplicationControllerContaine
 	envVar := make([]corev1.EnvVar, 0)
 	err = json.Unmarshal(this.Ctx.Input.RequestBody, &envVar)
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, replicationcontroller, true)
 		this.errReturn(err, 500)
 		return
 	}
 
-	group := this.Ctx.Input.Param(":group")
-	workspace := this.Ctx.Input.Param(":workspace")
-	replicationcontroller := this.Ctx.Input.Param(":replicationcontroller")
-	container := this.Ctx.Input.Param(":container")
-
 	v, err := pk.Controller.GetObject(group, workspace, replicationcontroller)
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, replicationcontroller, true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -712,7 +703,7 @@ func (this *ReplicationControllerController) UpdateReplicationControllerContaine
 
 	old, err := pi.GetRuntimeObjectCopy()
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, replicationcontroller, true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -731,25 +722,25 @@ func (this *ReplicationControllerController) UpdateReplicationControllerContaine
 
 	if !containerFound {
 		err = fmt.Errorf("container not found")
-		this.audit(token, "", true)
+		this.audit(token, replicationcontroller, true)
 		this.errReturn(err, 500)
 		return
 	}
 
 	byteContent, err := json.Marshal(old)
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, replicationcontroller, true)
 		this.errReturn(err, 500)
 		return
 	}
 
 	err = pk.Controller.UpdateObject(group, workspace, replicationcontroller, byteContent, resource.UpdateOption{})
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, replicationcontroller, true)
 		this.errReturn(err, 500)
 		return
 	}
-	this.audit(token, "", false)
+	this.audit(token, replicationcontroller, false)
 	this.normalReturn("ok")
 
 }
@@ -809,13 +800,16 @@ func (this *ReplicationControllerController) AddReplicationControllerVolume() {
 	err := this.checkRouteControllerAbility()
 	if err != nil {
 		this.abilityErrorReturn(err)
-		this.audit(token, "", true)
 		return
 	}
 
+	group := this.Ctx.Input.Param(":group")
+	workspace := this.Ctx.Input.Param(":workspace")
+	replicationcontroller := this.Ctx.Input.Param(":replicationcontroller")
+
 	if this.Ctx.Input.RequestBody == nil {
 		err := fmt.Errorf("must commit groups name")
-		this.audit(token, "", true)
+		this.audit(token, replicationcontroller, true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -824,18 +818,14 @@ func (this *ReplicationControllerController) AddReplicationControllerVolume() {
 	volumeVar.CMounts = make([]ContainerVolumeMount, 0)
 	err = json.Unmarshal(this.Ctx.Input.RequestBody, &volumeVar)
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, replicationcontroller, true)
 		this.errReturn(err, 500)
 		return
 	}
 
-	group := this.Ctx.Input.Param(":group")
-	workspace := this.Ctx.Input.Param(":workspace")
-	replicationcontroller := this.Ctx.Input.Param(":replicationcontroller")
-
 	v, err := pk.Controller.GetObject(group, workspace, replicationcontroller)
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, replicationcontroller, true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -843,7 +833,7 @@ func (this *ReplicationControllerController) AddReplicationControllerVolume() {
 
 	old, err := pi.GetRuntimeObjectCopy()
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, replicationcontroller, true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -852,7 +842,7 @@ func (this *ReplicationControllerController) AddReplicationControllerVolume() {
 
 	newPodSpec, err := addVolumeAndContaienrVolumeMounts(podSpec, volumeVar)
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, replicationcontroller, true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -861,18 +851,18 @@ func (this *ReplicationControllerController) AddReplicationControllerVolume() {
 
 	byteContent, err := json.Marshal(old)
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, replicationcontroller, true)
 		this.errReturn(err, 500)
 		return
 	}
 
 	err = pk.Controller.UpdateObject(group, workspace, replicationcontroller, byteContent, resource.UpdateOption{})
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, replicationcontroller, true)
 		this.errReturn(err, 500)
 		return
 	}
-	this.audit(token, "", false)
+	this.audit(token, replicationcontroller, false)
 	this.normalReturn("ok")
 
 }
@@ -893,7 +883,6 @@ func (this *ReplicationControllerController) DeleteReplicationControllerVolume()
 	err := this.checkRouteControllerAbility()
 	if err != nil {
 		this.abilityErrorReturn(err)
-		this.audit(token, "", true)
 		return
 	}
 
@@ -904,7 +893,7 @@ func (this *ReplicationControllerController) DeleteReplicationControllerVolume()
 
 	v, err := pk.Controller.GetObject(group, workspace, replicationcontroller)
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, replicationcontroller, true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -912,7 +901,7 @@ func (this *ReplicationControllerController) DeleteReplicationControllerVolume()
 
 	old, err := pi.GetRuntimeObjectCopy()
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, replicationcontroller, true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -921,7 +910,7 @@ func (this *ReplicationControllerController) DeleteReplicationControllerVolume()
 
 	newPodSpec, err := deleteVolumeAndContaienrVolumeMounts(podSpec, volume)
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, replicationcontroller, true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -929,18 +918,18 @@ func (this *ReplicationControllerController) DeleteReplicationControllerVolume()
 	old.Spec.Template.Spec = newPodSpec
 	byteContent, err := json.Marshal(old)
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, replicationcontroller, true)
 		this.errReturn(err, 500)
 		return
 	}
 
 	err = pk.Controller.UpdateObject(group, workspace, replicationcontroller, byteContent, resource.UpdateOption{})
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, replicationcontroller, true)
 		this.errReturn(err, 500)
 		return
 	}
-	this.audit(token, "", false)
+	this.audit(token, replicationcontroller, false)
 	this.normalReturn("ok")
 
 }

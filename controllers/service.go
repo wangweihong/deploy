@@ -237,7 +237,6 @@ func (this *ServiceController) UpdateService() {
 	aerr := this.checkRouteControllerAbility()
 	if aerr != nil {
 		this.abilityErrorReturn(aerr)
-		this.audit(token, "", true)
 		return
 	}
 
@@ -249,18 +248,18 @@ func (this *ServiceController) UpdateService() {
 	if this.Ctx.Input.RequestBody == nil {
 		err := fmt.Errorf("must commit resource json/yaml data")
 		this.errReturn(err, 500)
-		this.audit(token, "", true)
+		this.audit(token, service, true)
 		return
 	}
 
 	err := pk.Controller.UpdateObject(group, workspace, service, this.Ctx.Input.RequestBody, resource.UpdateOption{})
 	if err != nil {
 		this.errReturn(err, 500)
-		this.audit(token, "", true)
+		this.audit(token, service, true)
 		return
 	}
 
-	this.audit(token, "", false)
+	this.audit(token, service, false)
 	this.normalReturn("ok")
 }
 
@@ -278,7 +277,6 @@ func (this *ServiceController) DeleteService() {
 	token := this.Ctx.Request.Header.Get("token")
 	aerr := this.checkRouteControllerAbility()
 	if aerr != nil {
-		this.audit(token, "", true)
 		this.abilityErrorReturn(aerr)
 		return
 	}
@@ -289,12 +287,12 @@ func (this *ServiceController) DeleteService() {
 
 	err := pk.Controller.DeleteObject(group, workspace, service, resource.DeleteOption{})
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, service, true)
 		this.errReturn(err, 500)
 		return
 	}
 
-	this.audit(token, "", false)
+	this.audit(token, service, false)
 	this.normalReturn("ok")
 }
 

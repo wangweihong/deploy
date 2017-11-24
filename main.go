@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"syscall"
 	_ "ufleet-deploy/init"
+	_ "ufleet-deploy/pkg/audit"
 	_ "ufleet-deploy/routers"
 
 	"ufleet-deploy/mode"

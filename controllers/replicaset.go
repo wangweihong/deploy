@@ -183,7 +183,6 @@ func (this *ReplicaSetController) CreateReplicaSet() {
 	token := this.Ctx.Request.Header.Get("token")
 	aerr := this.checkRouteControllerAbility()
 	if aerr != nil {
-		this.audit(token, "", true)
 		this.abilityErrorReturn(aerr)
 		return
 	}
@@ -236,7 +235,6 @@ func (this *ReplicaSetController) UpdateReplicaSet() {
 	token := this.Ctx.Request.Header.Get("token")
 	aerr := this.checkRouteControllerAbility()
 	if aerr != nil {
-		this.audit(token, "", true)
 		this.abilityErrorReturn(aerr)
 		return
 	}
@@ -246,7 +244,7 @@ func (this *ReplicaSetController) UpdateReplicaSet() {
 	replicaset := this.Ctx.Input.Param(":replicaset")
 
 	if this.Ctx.Input.RequestBody == nil {
-		this.audit(token, "", true)
+		this.audit(token, replicaset, true)
 		err := fmt.Errorf("must commit resource json/yaml data")
 		this.errReturn(err, 500)
 		return
@@ -260,6 +258,7 @@ func (this *ReplicaSetController) UpdateReplicaSet() {
 	pi, _ := pk.GetReplicaSetInterface(v)
 	stat := pi.GetStatus()
 	if stat.Reason != "" {
+		this.audit(token, replicaset, true)
 		err = fmt.Errorf(stat.Reason)
 		this.errReturn(err, 500)
 		return
@@ -267,17 +266,18 @@ func (this *ReplicaSetController) UpdateReplicaSet() {
 
 	if len(stat.OwnerReferences) != 0 {
 		err := fmt.Errorf("replicaset '%v' has owner referene, don't support update", replicaset)
+		this.audit(token, replicaset, true)
 		this.errReturn(err, 500)
 		return
 	}
 
 	err = pk.Controller.UpdateObject(group, workspace, replicaset, this.Ctx.Input.RequestBody, resource.UpdateOption{})
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, replicaset, true)
 		this.errReturn(err, 500)
 		return
 	}
-	this.audit(token, "", false)
+	this.audit(token, replicaset, false)
 
 	this.normalReturn("ok")
 }
@@ -297,7 +297,6 @@ func (this *ReplicaSetController) ScaleReplicaSet() {
 	token := this.Ctx.Request.Header.Get("token")
 	aerr := this.checkRouteControllerAbility()
 	if aerr != nil {
-		this.audit(token, "", true)
 		this.abilityErrorReturn(aerr)
 		return
 	}
@@ -310,13 +309,13 @@ func (this *ReplicaSetController) ScaleReplicaSet() {
 
 	replicas, err := strconv.ParseInt(replicasStr, 10, 32)
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, replicaset, true)
 		this.errReturn(err, 500)
 		return
 	}
 	v, err := pk.Controller.GetObject(group, workspace, replicaset)
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, replicaset, true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -325,12 +324,12 @@ func (this *ReplicaSetController) ScaleReplicaSet() {
 
 	err = ri.Scale(int(replicas))
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, replicaset, true)
 		this.errReturn(err, 500)
 		return
 	}
 
-	this.audit(token, "", false)
+	this.audit(token, replicaset, false)
 	this.normalReturn("ok")
 
 }
@@ -349,7 +348,6 @@ func (this *ReplicaSetController) DeleteReplicaSet() {
 	token := this.Ctx.Request.Header.Get("token")
 	aerr := this.checkRouteControllerAbility()
 	if aerr != nil {
-		this.audit(token, "", true)
 		this.abilityErrorReturn(aerr)
 		return
 	}
@@ -360,11 +358,11 @@ func (this *ReplicaSetController) DeleteReplicaSet() {
 
 	err := pk.Controller.DeleteObject(group, workspace, replicaset, resource.DeleteOption{})
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, replicaset, true)
 		this.errReturn(err, 500)
 		return
 	}
-	this.audit(token, "", false)
+	this.audit(token, replicaset, false)
 
 	this.normalReturn("ok")
 }
@@ -508,13 +506,16 @@ func (this *ReplicaSetController) AddReplicaSetContainerSpecEnv() {
 	err := this.checkRouteControllerAbility()
 	if err != nil {
 		this.abilityErrorReturn(err)
-		this.audit(token, "", true)
 		return
 	}
+	group := this.Ctx.Input.Param(":group")
+	workspace := this.Ctx.Input.Param(":workspace")
+	replicaset := this.Ctx.Input.Param(":replicaset")
+	container := this.Ctx.Input.Param(":container")
 
 	if this.Ctx.Input.RequestBody == nil {
 		err := fmt.Errorf("must commit groups name")
-		this.audit(token, "", true)
+		this.audit(token, replicaset, true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -522,19 +523,14 @@ func (this *ReplicaSetController) AddReplicaSetContainerSpecEnv() {
 	envVar := make([]corev1.EnvVar, 0)
 	err = json.Unmarshal(this.Ctx.Input.RequestBody, &envVar)
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, replicaset, true)
 		this.errReturn(err, 500)
 		return
 	}
 
-	group := this.Ctx.Input.Param(":group")
-	workspace := this.Ctx.Input.Param(":workspace")
-	replicaset := this.Ctx.Input.Param(":replicaset")
-	container := this.Ctx.Input.Param(":container")
-
 	v, err := pk.Controller.GetObject(group, workspace, replicaset)
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, replicaset, true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -555,7 +551,7 @@ func (this *ReplicaSetController) AddReplicaSetContainerSpecEnv() {
 
 	r, err := pi.GetRuntimeObjectCopy()
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, replicaset, true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -575,7 +571,7 @@ func (this *ReplicaSetController) AddReplicaSetContainerSpecEnv() {
 
 	if !containerFound {
 		err = fmt.Errorf("container not found")
-		this.audit(token, "", true)
+		this.audit(token, replicaset, true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -584,18 +580,18 @@ func (this *ReplicaSetController) AddReplicaSetContainerSpecEnv() {
 
 	byteContent, err := json.Marshal(r)
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, replicaset, true)
 		this.errReturn(err, 500)
 		return
 	}
 
 	err = pk.Controller.UpdateObject(group, workspace, replicaset, byteContent, resource.UpdateOption{})
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, replicaset, true)
 		this.errReturn(err, 500)
 		return
 	}
-	this.audit(token, "", false)
+	this.audit(token, replicaset, false)
 	this.normalReturn("ok")
 }
 
@@ -616,7 +612,6 @@ func (this *ReplicaSetController) DeleteReplicaSetContainerSpecEnv() {
 	err := this.checkRouteControllerAbility()
 	if err != nil {
 		this.abilityErrorReturn(err)
-		this.audit(token, "", true)
 		return
 	}
 
@@ -628,7 +623,7 @@ func (this *ReplicaSetController) DeleteReplicaSetContainerSpecEnv() {
 
 	v, err := pk.Controller.GetObject(group, workspace, replicaset)
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, replicaset, true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -649,7 +644,7 @@ func (this *ReplicaSetController) DeleteReplicaSetContainerSpecEnv() {
 
 	r, err := pi.GetRuntimeObjectCopy()
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, replicaset, true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -676,31 +671,31 @@ func (this *ReplicaSetController) DeleteReplicaSetContainerSpecEnv() {
 
 	if !containerFound {
 		err = fmt.Errorf("container not found")
-		this.audit(token, "", true)
+		this.audit(token, replicaset, true)
 		this.errReturn(err, 500)
 		return
 	}
 	if !envFound {
 		err = fmt.Errorf("env not found")
-		this.audit(token, "", true)
+		this.audit(token, replicaset, true)
 		this.errReturn(err, 500)
 		return
 	}
 
 	byteContent, err := json.Marshal(r)
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, replicaset, true)
 		this.errReturn(err, 500)
 		return
 	}
 
 	err = pk.Controller.UpdateObject(group, workspace, replicaset, byteContent, resource.UpdateOption{})
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, replicaset, true)
 		this.errReturn(err, 500)
 		return
 	}
-	this.audit(token, "", false)
+	this.audit(token, replicaset, false)
 	this.normalReturn("ok")
 }
 
@@ -721,22 +716,6 @@ func (this *ReplicaSetController) UpdateReplicaSetContainerSpecEnv() {
 	err := this.checkRouteControllerAbility()
 	if err != nil {
 		this.abilityErrorReturn(err)
-		this.audit(token, "", true)
-		return
-	}
-
-	if this.Ctx.Input.RequestBody == nil {
-		err := fmt.Errorf("must commit groups name")
-		this.audit(token, "", true)
-		this.errReturn(err, 500)
-		return
-	}
-
-	envVar := make([]corev1.EnvVar, 0)
-	err = json.Unmarshal(this.Ctx.Input.RequestBody, &envVar)
-	if err != nil {
-		this.audit(token, "", true)
-		this.errReturn(err, 500)
 		return
 	}
 
@@ -745,9 +724,24 @@ func (this *ReplicaSetController) UpdateReplicaSetContainerSpecEnv() {
 	replicaset := this.Ctx.Input.Param(":replicaset")
 	container := this.Ctx.Input.Param(":container")
 
+	if this.Ctx.Input.RequestBody == nil {
+		err := fmt.Errorf("must commit groups name")
+		this.audit(token, replicaset, true)
+		this.errReturn(err, 500)
+		return
+	}
+
+	envVar := make([]corev1.EnvVar, 0)
+	err = json.Unmarshal(this.Ctx.Input.RequestBody, &envVar)
+	if err != nil {
+		this.audit(token, replicaset, true)
+		this.errReturn(err, 500)
+		return
+	}
+
 	v, err := pk.Controller.GetObject(group, workspace, replicaset)
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, replicaset, true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -768,7 +762,7 @@ func (this *ReplicaSetController) UpdateReplicaSetContainerSpecEnv() {
 
 	runtime, err := pi.GetRuntime()
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, replicaset, true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -788,25 +782,25 @@ func (this *ReplicaSetController) UpdateReplicaSetContainerSpecEnv() {
 
 	if !containerFound {
 		err = fmt.Errorf("container not found")
-		this.audit(token, "", true)
+		this.audit(token, replicaset, true)
 		this.errReturn(err, 500)
 		return
 	}
 
 	byteContent, err := json.Marshal(old)
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, replicaset, true)
 		this.errReturn(err, 500)
 		return
 	}
 
 	err = pk.Controller.UpdateObject(group, workspace, replicaset, byteContent, resource.UpdateOption{})
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, replicaset, true)
 		this.errReturn(err, 500)
 		return
 	}
-	this.audit(token, "", false)
+	this.audit(token, replicaset, false)
 	this.normalReturn("ok")
 }
 
@@ -864,13 +858,16 @@ func (this *ReplicaSetController) AddReplicaSetContainerSpecVolume() {
 	err := this.checkRouteControllerAbility()
 	if err != nil {
 		this.abilityErrorReturn(err)
-		this.audit(token, "", true)
 		return
 	}
 
+	group := this.Ctx.Input.Param(":group")
+	workspace := this.Ctx.Input.Param(":workspace")
+	replicaset := this.Ctx.Input.Param(":replicaset")
+
 	if this.Ctx.Input.RequestBody == nil {
 		err := fmt.Errorf("must commit groups name")
-		this.audit(token, "", true)
+		this.audit(token, replicaset, true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -879,18 +876,14 @@ func (this *ReplicaSetController) AddReplicaSetContainerSpecVolume() {
 	volumeVar.CMounts = make([]ContainerVolumeMount, 0)
 	err = json.Unmarshal(this.Ctx.Input.RequestBody, &volumeVar)
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, replicaset, true)
 		this.errReturn(err, 500)
 		return
 	}
 
-	group := this.Ctx.Input.Param(":group")
-	workspace := this.Ctx.Input.Param(":workspace")
-	replicaset := this.Ctx.Input.Param(":replicaset")
-
 	v, err := pk.Controller.GetObject(group, workspace, replicaset)
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, replicaset, true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -911,7 +904,7 @@ func (this *ReplicaSetController) AddReplicaSetContainerSpecVolume() {
 
 	r, err := pi.GetRuntimeObjectCopy()
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, replicaset, true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -920,7 +913,7 @@ func (this *ReplicaSetController) AddReplicaSetContainerSpecVolume() {
 
 	newPodSpec, err := addVolumeAndContaienrVolumeMounts(podSpec, volumeVar)
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, replicaset, true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -928,18 +921,18 @@ func (this *ReplicaSetController) AddReplicaSetContainerSpecVolume() {
 
 	byteContent, err := json.Marshal(r)
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, replicaset, true)
 		this.errReturn(err, 500)
 		return
 	}
 
 	err = pk.Controller.UpdateObject(group, workspace, replicaset, byteContent, resource.UpdateOption{})
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, replicaset, true)
 		this.errReturn(err, 500)
 		return
 	}
-	this.audit(token, "", false)
+	this.audit(token, replicaset, false)
 	this.normalReturn("ok")
 }
 
@@ -959,7 +952,6 @@ func (this *ReplicaSetController) DeleteReplicaSetContainerSpecVolume() {
 	err := this.checkRouteControllerAbility()
 	if err != nil {
 		this.abilityErrorReturn(err)
-		this.audit(token, "", true)
 		return
 	}
 
@@ -970,7 +962,7 @@ func (this *ReplicaSetController) DeleteReplicaSetContainerSpecVolume() {
 
 	v, err := pk.Controller.GetObject(group, workspace, replicaset)
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, replicaset, true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -990,7 +982,7 @@ func (this *ReplicaSetController) DeleteReplicaSetContainerSpecVolume() {
 	}
 	r, err := pi.GetRuntimeObjectCopy()
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, replicaset, true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -999,7 +991,7 @@ func (this *ReplicaSetController) DeleteReplicaSetContainerSpecVolume() {
 
 	newPodSpec, err := deleteVolumeAndContaienrVolumeMounts(podSpec, volume)
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, replicaset, true)
 		this.errReturn(err, 500)
 		return
 	}
@@ -1008,18 +1000,18 @@ func (this *ReplicaSetController) DeleteReplicaSetContainerSpecVolume() {
 
 	byteContent, err := json.Marshal(r)
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, replicaset, true)
 		this.errReturn(err, 500)
 		return
 	}
 
 	err = pk.Controller.UpdateObject(group, workspace, replicaset, byteContent, resource.UpdateOption{})
 	if err != nil {
-		this.audit(token, "", true)
+		this.audit(token, replicaset, true)
 		this.errReturn(err, 500)
 		return
 	}
-	this.audit(token, "", false)
+	this.audit(token, replicaset, false)
 	this.normalReturn("ok")
 
 }
