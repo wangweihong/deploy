@@ -619,6 +619,7 @@ type Status struct {
 	ContainerSpecs    []ContainerSpec   `json:"containerspec"`
 	Containers        []string          `json:"containers"`
 	CreatorReference  *CreatorReference `json:"creatorreference"`
+	PodStatus         corev1.PodStatus  `json:"podstatus"`
 }
 
 type PodSpec struct {
@@ -778,6 +779,7 @@ func V1PodToPodStatus(pod corev1.Pod) *Status {
 	}
 
 	s.CreateTime = pod.CreationTimestamp.Unix()
+	s.PodStatus = pod.Status
 
 	return &s
 }

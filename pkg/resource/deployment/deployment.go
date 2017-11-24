@@ -650,10 +650,10 @@ type Status struct {
 	ReplicaSet  string             `json:"replicaset"`
 	PodsCount   resource.PodsCount `json:"podscount"`
 	//	Pods       []string `json:"pods"`
-	PodStatus               []pk.Status        `json:"podstatus"`
-	ContainerSpecs          []pk.ContainerSpec `json:"containerspec"`
-	ProgressDeadlineSeconds int                `json:"progressdeadlineseconds"`
-	extensionsv1beta1.DeploymentStatus
+	PodStatus               []pk.Status                        `json:"podstatus"`
+	ContainerSpecs          []pk.ContainerSpec                 `json:"containerspec"`
+	ProgressDeadlineSeconds int                                `json:"progressdeadlineseconds"`
+	DeploymentStatus        extensionsv1beta1.DeploymentStatus `json:"deploymentstatus"`
 }
 
 func (j *Deployment) ObjectStatus() resource.ObjectStatus {
@@ -687,7 +687,8 @@ func (j *Deployment) GetStatus() *Status {
 	}
 
 	deployment = runtime.Deployment
-	js = &Status{ObjectMeta: j.ObjectMeta, DeploymentStatus: deployment.Status}
+	js = &Status{ObjectMeta: j.ObjectMeta}
+	js.DeploymentStatus = deployment.Status
 	//js = &Status{ObjectMeta: j.ObjectMeta} //, DeploymentStatus: deployment.Status}
 	if rev != nil {
 		js.Revision = *rev

@@ -468,7 +468,7 @@ func (this *DeploymentController) ScaleDeploymentIncrement() {
 		return
 	}
 
-	newReplicas := js.Replicas + int32(increment)
+	newReplicas := js.Desire + int(increment)
 
 	err = ri.Scale(int(newReplicas))
 	if err != nil {
