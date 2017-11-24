@@ -35,6 +35,16 @@ func InitEtcdClient(endpoint string) *EtcdClient {
 	return etcdClient
 }
 
+func (e *EtcdClient) TestConnection() error {
+	_, err := e.Get(context.Background(), "/", &eclient.GetOptions{})
+	if err != nil {
+		if _, ok := err.(eclient.Error); !ok {
+			return err
+		}
+	}
+	return nil
+}
+
 func (e *EtcdClient) GetNode(key string) (*eclient.Response, error) {
 	resp, err := e.Get(context.Background(), key, &eclient.GetOptions{Recursive: true})
 	return resp, err

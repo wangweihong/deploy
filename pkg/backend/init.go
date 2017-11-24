@@ -4,25 +4,25 @@ import (
 	"ufleet-deploy/pkg/log"
 )
 
-func Init() {
+func Init() error {
 	be := NewBackendHandler()
 	//创建根key
 	err := initRootKey()
 	if err != nil {
-		panic(err.Error())
+		return err
 	}
 
 	//创建各资源key
 	err = initResourcesKey()
 	if err != nil {
-		panic(err.Error())
+		return err
 	}
 
 	log.DebugPrint("tune resources group according to external group")
 	for _, v := range resources {
 		err := TuneResourceGroupAccordingToExternalGroup(be, v, nil)
 		if err != nil {
-			panic(err.Error())
+			return err
 		}
 
 	}
@@ -32,23 +32,24 @@ func Init() {
 	for _, v := range resources {
 		err := TuneResourcesWorkspaceAccordingToExternalWorkspace(be, v)
 		if err != nil {
-			panic(err.Error())
+			return err
 		}
 	}
 
 	err = watchExternalGroupChange()
 	if err != nil {
-		panic(err.Error())
+		return err
 	}
 
 	err = watchWorkspaceChange()
 	if err != nil {
-		panic(err.Error())
+		return err
 	}
 
 	err = watchBackendEvent()
 	if err != nil {
-		panic(err.Error())
+		return err
 	}
+	return nil
 
 }

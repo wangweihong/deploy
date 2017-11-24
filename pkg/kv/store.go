@@ -28,6 +28,7 @@ type KVStore interface {
 	CreateDirNode(key string) (*Response, error)
 	CreateNode(key string, value interface{}) (*Response, error)
 	UpdateNode(key string, value interface{}) (*Response, error)
+	TestConnection() error
 }
 
 type Response struct {
@@ -178,4 +179,8 @@ func (k *kvStore) UpdateNode(key string, value interface{}) (*Response, error) {
 		return nil, err
 	}
 	return &Response{*resp}, nil
+}
+
+func (k *kvStore) TestConnection() error {
+	return k.client.TestConnection()
 }

@@ -9,14 +9,14 @@ const (
 	kind = "cluster"
 )
 
-func Init(clusterHostStr string, currentHost string) {
+func Init(clusterHostStr string, currentHost string) error {
 
 	clusterHost = clusterHostStr
 	hostDomain = currentHost
 
 	gws, err := backend.GetExternalWorkspaceList()
 	if err != nil {
-		panic(err.Error())
+		return err
 	}
 
 	//不能在创建集群后就立即启动informers,因为一旦启动informers,集群的资源事件就开始触发了.o
@@ -26,7 +26,7 @@ func Init(clusterHostStr string, currentHost string) {
 		for _, ws := range wss {
 			_, err := globalClusterController.CreateOrUpdateCluster(g, ws, false)
 			if err != nil {
-				panic(err.Error())
+				return err
 			}
 		}
 	}
@@ -35,7 +35,7 @@ func Init(clusterHostStr string, currentHost string) {
 		//只有引用计数为1,则说明该cluster是新创建的,而不是更新的.才会启动informer,
 		err := globalClusterController.startClusterInformers(v.Name)
 		if err != nil {
-			panic(err.Error())
+			return err
 		}
 
 	}
@@ -43,9 +43,10 @@ func Init(clusterHostStr string, currentHost string) {
 	log.DebugPrint("start to register workspace noticer ", kind)
 	wechan, err := backend.RegisterWorkspaceNoticer(kind)
 	if err != nil {
-		panic(err.Error())
+		return err
 	}
 	go handleWorkspaceEvent(wechan)
+	return nil
 }
 
 func handleWorkspaceEvent(weChan chan backend.WorkspaceEvent) {
