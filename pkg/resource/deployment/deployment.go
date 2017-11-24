@@ -78,6 +78,7 @@ type HPA struct {
 	NetPercent    int  `json:"netPercent"`
 	MinReplicas   int  `json:"minReplicas"`
 	MaxReplicas   int  `json:"maxReplicas"`
+	Replicas      int  `json:"replicas"`
 }
 
 func GetDeploymentInterface(obj resource.Object) (DeploymentInterface, error) {
@@ -877,6 +878,16 @@ func (j *Deployment) StartAutoScale(min int, max int, cpuPercent int, memPercent
 }
 
 func (j *Deployment) GetAutoScale() (*HPA, error) {
+	r, err := j.GetRuntime()
+	if err != nil {
+		return nil, err
+	}
+	if r.Deployment.Spec.Replicas != nil {
+		j.AutoScaler.Replicas = int(*r.Deployment.Spec.Replicas)
+	} else {
+		j.AutoScaler.Replicas = 1
+	}
+
 	return &j.AutoScaler, nil
 }
 
