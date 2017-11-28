@@ -64,7 +64,7 @@ func GetK8sClientConfig(group string, workspace string, token string) (*ClusterC
 	var wc WorkspaceAndConfig
 	err = json.Unmarshal(resp.Content, &wc)
 	if err != nil {
-		err = log.ErrorPrint(fmt.Errorf("unmarshal [%v]  to client config fail for %v", string(resp.Content), err))
+		err = log.ErrorPrint(fmt.Errorf("unmarshal [%v] (group '%v', workspace '%v') to client config fail for %v", string(resp.Content), group, workspace, err))
 		return nil, err
 	}
 

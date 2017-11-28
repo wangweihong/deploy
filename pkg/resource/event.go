@@ -78,11 +78,15 @@ func HandleEventWatchFromK8sCluster(echan chan cluster.Event, kind string, oc Ob
 				p.Workspace = e.Workspace
 				p.Group = e.Group
 				p.User = clusterObjectCreater
+				p.Kind = kind
 
 				err = oc.NewObject(p)
 				if err != nil {
-					log.ErrorPrint("%v:  event handler create 'group:%v,Workspace:%v,resource:%v':%v ", kind, e.Group, e.Workspace, e.Name, err)
-					return
+					if err != ErrResourceExists {
+						log.ErrorPrint("%v:  event handler create 'group:%v,Workspace:%v,resource:%v':%v ", kind, e.Group, e.Workspace, e.Name, err)
+
+						return
+					}
 				}
 
 				return

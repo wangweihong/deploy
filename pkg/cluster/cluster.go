@@ -17,7 +17,7 @@ var (
 
 	globalClusterController = clusterController{
 		cis:      make(map[string]*Cluster),
-		clusters: make(map[string]Cluster),
+		clusters: make(map[string]*Cluster),
 		locker:   sync.Mutex{},
 	}
 	Controller ClusterController = &globalClusterController
@@ -38,12 +38,31 @@ type Workspace struct {
 
 //李强删除集群的时候,会调用接口删除集群上的应用
 //在调用的时候再关闭informoers
+func (c *Cluster) ill() error {
+	rclient, err := kubernetes.NewForConfig(c.Config)
+	if err != nil {
+		return err
+	}
+	_, err = rclient.ServerVersion()
+	if err != nil {
+		return err
+
+	}
+	return nil
+}
+
 func (c *Cluster) CloseInformers() {
-	c.informerStopChan <- struct{}{}
+	if c.informerStart {
+		//	c.informerStopChan <- struct{}{}
+		close(c.informerStopChan)
+		c.informerStart = false
+	}
 }
 
 func (c *Cluster) StartInformers() error {
-
+	if c.informerStart {
+		return nil
+	}
 	rclient, err := kubernetes.NewForConfig(c.Config)
 	if err != nil {
 		return log.DebugPrint(err)
@@ -53,11 +72,13 @@ func (c *Cluster) StartInformers() error {
 	//每隔60分钟,触发一次Update事件
 	sharedInformerFactory := informers.NewSharedInformerFactory(rclient, 60*time.Hour)
 	controller := NewResourceController(sharedInformerFactory, c.Workspaces)
+	c.informerStopChan = make(chan struct{})
 	err = controller.Run(c.informerStopChan)
 	if err != nil {
 		return log.DebugPrint(err)
 	}
 	c.informerController = controller
+	c.informerStart = true
 
 	return nil
 }
@@ -67,7 +88,7 @@ type clusterController struct {
 	//注意每次更新clusters,都需要更新cis表
 	cis map[string]*Cluster //key:"group_workspace", Cluster
 	//根据集群名记录集群
-	clusters map[string]Cluster //key: clusterName
+	clusters map[string]*Cluster //key: clusterName
 	locker   sync.Mutex
 }
 
@@ -100,9 +121,9 @@ func (c *clusterController) CreateOrUpdateCluster(group, workspace string, start
 		cluster.Workspaces[workspace] = Workspace{Name: workspace, Group: group}
 		//log.DebugPrint("cluster :%v Informer's workspace:%v", cluster.Name, cluster.informerController.Workspaces)
 		//cluster.informerController.Workspaces[workspace] = Workspace{Name: workspace, Group: group}
-		c.cis[gwkey] = &cluster
+		c.cis[gwkey] = cluster
 		c.clusters[cConfig.ClusterName] = cluster
-		return &cluster, nil
+		return cluster, nil
 	} else {
 		log.DebugPrint("start to create cluster :%v", cConfig.ClusterName)
 		var cluster Cluster
@@ -112,21 +133,23 @@ func (c *clusterController) CreateOrUpdateCluster(group, workspace string, start
 		cluster.Reference = 1
 		cluster.Config = rconfig
 		cluster.Workspaces[workspace] = Workspace{Name: workspace, Group: group}
-
-		if startinformer {
+		cluster.healthStopChan = make(chan struct{})
+		cluster.IllCaused = cluster.ill()
+		if startinformer || cluster.IllCaused == nil {
 			err := cluster.StartInformers()
 			if err != nil {
-				return nil, log.DebugPrint(err)
+				return nil, err
 			}
 		}
-		//
+		go cluster.HandleHealthyEvent()
 
-		c.clusters[cConfig.ClusterName] = cluster
+		c.clusters[cConfig.ClusterName] = &cluster
 		c.cis[gwkey] = &cluster
 		return &cluster, nil
 	}
 
 }
+
 func (c *clusterController) closeClusterInformers(clusterName string) error {
 	c.locker.Lock()
 	defer c.locker.Unlock()
@@ -140,10 +163,11 @@ func (c *clusterController) closeClusterInformers(clusterName string) error {
 	c.clusters[clusterName] = cluster
 	for _, v := range cluster.Workspaces {
 		key := v.Group + "_" + v.Name
-		c.cis[key] = &cluster
+		c.cis[key] = cluster
 	}
 	return nil
 }
+
 func (c *clusterController) startClusterInformers(clusterName string) error {
 	c.locker.Lock()
 	defer c.locker.Unlock()
@@ -161,7 +185,7 @@ func (c *clusterController) startClusterInformers(clusterName string) error {
 	c.clusters[clusterName] = cluster
 	for _, v := range cluster.Workspaces {
 		key := v.Group + "_" + v.Name
-		c.cis[key] = &cluster
+		c.cis[key] = cluster
 	}
 	return nil
 }
@@ -175,6 +199,11 @@ func (c *clusterController) GetCluster(group, workspace string) (*Cluster, error
 	if !ok {
 		return nil, ErrClusterNotFound
 	}
+
+	if !ci.informerStart || ci.IllCaused != nil {
+		return nil, fmt.Errorf("cluster %v doesn't sync resource: '%v'", ci.Name, ci.IllCaused)
+	}
+
 	return ci, nil
 }
 
@@ -204,6 +233,8 @@ func (c *clusterController) DeleteCluster(group, workspace string) error {
 	delete(c.cis, key)
 
 	cluster := c.clusters[pcluster.Name]
+	cluster.locker.Lock()
+	defer cluster.locker.Unlock()
 	cluster.Reference -= 1
 	//更新informers的工作区表,忽略指定工作区
 	delete(cluster.Workspaces, workspace)
@@ -214,24 +245,73 @@ func (c *clusterController) DeleteCluster(group, workspace string) error {
 		log.DebugPrint("start to delete cluster :%v", cluster.Name)
 		cluster.CloseInformers()
 		delete(c.clusters, pcluster.Name)
+		go func() {
+			cluster.healthStopChan <- struct{}{}
+		}()
 		//仍有工作区,仅仅清除组/工作区信息
 	} else {
 		log.DebugPrint("start to remove workspace in cluster : cluster '%v', group '%v', workspace,'%v/", pcluster.Name, group, workspace)
 		c.clusters[pcluster.Name] = cluster
-		log.DebugPrint("cluster :%v Informer's workspace:%v", cluster.Name, cluster.informerController.Workspaces)
 	}
 
 	return nil
+}
+
+func (c *Cluster) HandleHealthyEvent() {
+	defer log.DebugPrint("cluster '%v' healthy event checker exit....", c.Name)
+	for {
+		select {
+		case <-c.healthStopChan:
+			log.DebugPrint("recieve stop request...")
+			return
+		default:
+		}
+
+		caused := c.ill()
+		/*
+			if caused != nil {
+				log.DebugPrint("cluster '%v' is ill:%v", c.Name, caused)
+			}
+		*/
+		c.locker.Lock()
+		switch {
+		//之前出了问题,现在又正常了
+		case caused == nil:
+			//	log.DebugPrint("cluster '%v' is healthy again ,start to sync resource", c.Name)
+			err := c.StartInformers()
+			if err != nil {
+				err = fmt.Errorf("cluster %v start informers fail for %v", err)
+				c.IllCaused = err
+			} else {
+
+				c.IllCaused = nil
+				//		log.DebugPrint("cluster '%v' is healthy", c.Name)
+			}
+			//之前健康,现在出了问题
+		case caused != nil:
+			c.CloseInformers()
+			c.IllCaused = caused
+		}
+		c.locker.Unlock()
+
+		//重新获取一次,避免此时cluster已经被删除
+
+		time.Sleep(3 * time.Second)
+
+	}
 }
 
 type Cluster struct {
 	Name             string `json:"name"`
 	Workspaces       map[string]Workspace
 	informerStopChan chan struct{} //集群上各资源的informer stop chan
-	Locker           sync.Mutex
-	Config           *rest.Config //TODO:如何在证书修改时更新证书
-	Reference        int          //根据引用计数是否为1,可以判定CreateOrUpdateCluster是更新集群还是创建集群
+	Config           *rest.Config  //TODO:如何在证书修改时更新证书
+	locker           sync.Mutex
+	Reference        int //根据引用计数是否为1,可以判定CreateOrUpdateCluster是更新集群还是创建集群
 
 	informerController *ResourceController
 	clientset          *kubernetes.Clientset
+	IllCaused          error
+	informerStart      bool
+	healthStopChan     chan struct{}
 }

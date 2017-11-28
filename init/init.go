@@ -64,6 +64,7 @@ func init() {
 	//因为初始化就构建k8s的对象到内存中
 	log.DebugPrint("init cluster controller")
 	initCluster()
+	log.DebugPrint("all handlers init completed")
 
 }
 

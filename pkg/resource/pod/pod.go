@@ -227,6 +227,7 @@ func (p *PodManager) AddWorkspace(groupName string, workspaceName string) error 
 		o.Workspace = workspaceName
 		o.Group = groupName
 		o.User = "kubernetes"
+		o.Kind = resourceKind
 
 		err = p.NewObject(o)
 		if err != nil && err != resource.ErrResourceExists {

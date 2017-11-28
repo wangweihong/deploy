@@ -220,6 +220,7 @@ func (p *SecretManager) AddWorkspace(groupName string, workspaceName string) err
 		o.Workspace = workspaceName
 		o.Group = groupName
 		o.User = "kubernetes"
+		o.Kind = resourceKind
 
 		err = p.NewObject(o)
 		if err != nil && err != resource.ErrResourceExists {

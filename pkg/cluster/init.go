@@ -16,7 +16,7 @@ func Init(clusterHostStr string, currentHost string) error {
 
 	gws, err := backend.GetExternalWorkspaceList()
 	if err != nil {
-		return err
+		return log.DebugPrint(err)
 	}
 
 	//不能在创建集群后就立即启动informers,因为一旦启动informers,集群的资源事件就开始触发了.o
@@ -26,25 +26,29 @@ func Init(clusterHostStr string, currentHost string) error {
 		for _, ws := range wss {
 			_, err := globalClusterController.CreateOrUpdateCluster(g, ws, false)
 			if err != nil {
-				return err
+				return log.DebugPrint(err)
 			}
 		}
 	}
 
 	for _, v := range globalClusterController.clusters {
 		//只有引用计数为1,则说明该cluster是新创建的,而不是更新的.才会启动informer,
-		err := globalClusterController.startClusterInformers(v.Name)
-		if err != nil {
-			return err
+		if v.IllCaused == nil {
+			err := globalClusterController.startClusterInformers(v.Name)
+			if err != nil {
+				return log.DebugPrint(err)
+			}
+		} else {
+			log.ErrorPrint("cluster %v is unhealthy : %v", v.Name, v.IllCaused)
 		}
-
 	}
 
 	log.DebugPrint("start to register workspace noticer ", kind)
 	wechan, err := backend.RegisterWorkspaceNoticer(kind)
 	if err != nil {
-		return err
+		return log.DebugPrint(err)
 	}
+	log.DebugPrint("start to handle Workspace event")
 	go handleWorkspaceEvent(wechan)
 	return nil
 }
@@ -59,12 +63,26 @@ func handleWorkspaceEvent(weChan chan backend.WorkspaceEvent) {
 				err := Controller.DeleteCluster(we.Group, we.Workspace)
 				if err != nil {
 					log.ErrorPrint("delete cluster(group:%v,workspace:%v)  fail for %v", we.Group, we.Workspace, err)
+					return
 				}
+				log.DebugPrint("delete cluster(group:%v,workspace:%v)  success", we.Group, we.Workspace)
 			case "set":
 				_, err := Controller.CreateOrUpdateCluster(we.Group, we.Workspace, true)
 				if err != nil {
 					log.ErrorPrint("create cluster(group:%v,workspace:%v)  fail for %v", we.Group, we.Workspace, err)
+					return
 				}
+				//集群健康
+				/*
+					if c.IllCaused == nil && !c.informerStart {
+						err = c.StartInformers()
+						if err != nil {
+							log.ErrorPrint("create cluster(group:%v,workspace:%v)  fail for %v", we.Group, we.Workspace, err)
+
+						}
+					}
+				*/
+
 			}
 		}(we)
 	}

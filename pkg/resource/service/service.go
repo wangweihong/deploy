@@ -221,6 +221,7 @@ func (p *ServiceManager) AddWorkspace(groupName string, workspaceName string) er
 		o.Workspace = workspaceName
 		o.Group = groupName
 		o.User = "kubernetes"
+		o.Kind = resourceKind
 
 		err = p.NewObject(o)
 		if err != nil && err != resource.ErrResourceExists {

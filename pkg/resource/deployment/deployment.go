@@ -243,6 +243,7 @@ func (p *DeploymentManager) AddWorkspace(groupName string, workspaceName string)
 		o.Workspace = workspaceName
 		o.Group = groupName
 		o.User = "kubernetes"
+		o.Kind = resourceKind
 
 		err = p.NewObject(o)
 		if err != nil && err != resource.ErrResourceExists {
@@ -250,7 +251,6 @@ func (p *DeploymentManager) AddWorkspace(groupName string, workspaceName string)
 		}
 	}
 	return nil
-
 }
 
 func (p *DeploymentManager) DeleteWorkspace(groupName string, workspaceName string) error {
