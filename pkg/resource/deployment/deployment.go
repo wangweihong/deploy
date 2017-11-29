@@ -38,7 +38,7 @@ type DeploymentInterface interface {
 	GetRevisionsAndDescribe() (map[int64]string, error)
 	Rollback(revision int64) (*string, error)
 	GetAutoScale() (*HPA, error)
-	StartAutoScale(min int, max int, cpuPercent int, memPercent int, diskPercent int, NetPercent int) error
+	StartAutoScale(HPA) error
 	ResumeOrPauseRollOut() error
 	GetServices() ([]*corev1.Service, error)
 }
@@ -71,14 +71,18 @@ type Deployment struct {
 }
 
 type HPA struct {
-	Deployed      bool `json:"deployed"`
-	CpuPercernt   int  `json:"cpuPercent"`
-	MemoryPercent int  `json:"memPercent"`
-	DiskPercent   int  `json:"diskPercent"`
-	NetPercent    int  `json:"netPercent"`
-	MinReplicas   int  `json:"minReplicas"`
-	MaxReplicas   int  `json:"maxReplicas"`
-	Replicas      int  `json:"replicas"`
+	Deployed    bool `json:"deployed"`
+	MinCPU      int  `json:"min_cpu"`
+	MaxCPU      int  `json:"max_cpu"`
+	MinMem      int  `json:"min_mem"`
+	MaxMem      int  `json:"max_mem"`
+	MinDisk     int  `json:"min_disk"`
+	MaxDisk     int  `json:"max_disk"`
+	MinNetFlow  int  `json:"min_flow"`
+	MaxNetFlow  int  `json:"max_flow"`
+	MinReplicas int  `json:"minReplicas"`
+	MaxReplicas int  `json:"maxReplicas"`
+	Replicas    int  `json:"replicas"`
 }
 
 func GetDeploymentInterface(obj resource.Object) (DeploymentInterface, error) {
@@ -854,17 +858,11 @@ func (j *Deployment) Rollback(revision int64) (*string, error) {
 }
 
 //需要加锁
-func (j *Deployment) StartAutoScale(min int, max int, cpuPercent int, memPercent int, diskPercent int, NetPercent int) error {
-
-	j.AutoScaler.Deployed = true
-	j.AutoScaler.CpuPercernt = cpuPercent
-	j.AutoScaler.MemoryPercent = memPercent
-	j.AutoScaler.NetPercent = NetPercent
-	j.AutoScaler.DiskPercent = diskPercent
-	j.AutoScaler.MaxReplicas = max
-	j.AutoScaler.MinReplicas = min
+func (j *Deployment) StartAutoScale(hpa HPA) error {
 
 	if j.MemoryOnly != true {
+		j.AutoScaler = hpa
+		j.AutoScaler.Deployed = true
 
 		be := backend.NewBackendHandler()
 		err := be.UpdateResource(backendKind, j.Group, j.Workspace, j.Name, j)

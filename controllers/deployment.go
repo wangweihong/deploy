@@ -723,15 +723,6 @@ func (this *DeploymentController) GetHPA() {
 	this.normalReturn(*result)
 }
 
-type HpaOptions struct {
-	CpuPercent  int `json:"cpupercent"`
-	MemPercent  int `json:"mempercent"`
-	NetPercent  int `json:"netpercent"`
-	DiskPercent int `json:"diskpercent"`
-	MinReplicas int `json:"minreplicas"`
-	MaxReplicas int `json:"Maxreplicas"`
-}
-
 // StartHpa
 // @Title Deployment
 // @Description  启动Deployment hpa
@@ -762,7 +753,7 @@ func (this *DeploymentController) StartHPA() {
 		return
 	}
 
-	var hpaopt HpaOptions
+	var hpaopt pk.HPA
 	err := json.Unmarshal(this.Ctx.Input.RequestBody, &hpaopt)
 	if err != nil {
 		err = fmt.Errorf("parse hpa option fail for  fail for ", err)
@@ -779,7 +770,7 @@ func (this *DeploymentController) StartHPA() {
 	}
 	pi, _ := pk.GetDeploymentInterface(v)
 
-	err = pi.StartAutoScale(hpaopt.MinReplicas, hpaopt.MaxReplicas, hpaopt.CpuPercent, hpaopt.MemPercent, hpaopt.DiskPercent, hpaopt.NetPercent)
+	err = pi.StartAutoScale(hpaopt)
 	if err != nil {
 		this.audit(token, deployment, true)
 		this.errReturn(err, 500)
