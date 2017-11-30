@@ -753,10 +753,36 @@ func (this *DeploymentController) StartHPA() {
 		return
 	}
 
-	var hpaopt pk.HPA
-	err := json.Unmarshal(this.Ctx.Input.RequestBody, &hpaopt)
+	opt := struct {
+		pk.HPA
+		Type string "type"
+	}{}
+
+	err := json.Unmarshal(this.Ctx.Input.RequestBody, &opt)
 	if err != nil {
 		err = fmt.Errorf("parse hpa option fail for  fail for ", err)
+		this.audit(token, deployment, true)
+		this.errReturn(err, 500)
+		return
+	}
+	var hpaopt pk.HPA
+	hpaopt.MinReplicas = opt.MinReplicas
+	hpaopt.MaxReplicas = opt.MaxReplicas
+	switch opt.Type {
+	case "cpu":
+		hpaopt.MaxCPU = opt.MaxCPU
+		hpaopt.MinCPU = opt.MinCPU
+	case "mem":
+		hpaopt.MaxMem = opt.MaxMem
+		hpaopt.MinMem = opt.MinMem
+	case "disk":
+		hpaopt.MaxDisk = opt.MaxDisk
+		hpaopt.MinDisk = opt.MinDisk
+	case "net":
+		hpaopt.MaxNetFlow = opt.MaxNetFlow
+		hpaopt.MinNetFlow = opt.MinNetFlow
+	default:
+		err := fmt.Errorf("invalid autoscale option type")
 		this.audit(token, deployment, true)
 		this.errReturn(err, 500)
 		return
