@@ -753,10 +753,13 @@ func (this *DeploymentController) StartHPA() {
 		return
 	}
 
-	opt := struct {
-		pk.HPA
-		Type string "type"
-	}{}
+	/*
+		opt := struct {
+			pk.HPA
+			Type string "type"
+		}{}
+	*/
+	var opt pk.HPA
 
 	err := json.Unmarshal(this.Ctx.Input.RequestBody, &opt)
 	if err != nil {
@@ -768,19 +771,45 @@ func (this *DeploymentController) StartHPA() {
 	var hpaopt pk.HPA
 	hpaopt.MinReplicas = opt.MinReplicas
 	hpaopt.MaxReplicas = opt.MaxReplicas
+	hpaopt.Type = opt.Type
 	switch opt.Type {
 	case "cpu":
 		hpaopt.MaxCPU = opt.MaxCPU
 		hpaopt.MinCPU = opt.MinCPU
+		if hpaopt.MaxCPU < hpaopt.MinCPU {
+			err := fmt.Errorf("Invalid Setting, 'Min > Max'")
+			this.audit(token, deployment, true)
+			this.errReturn(err, 500)
+			return
+		}
+
 	case "mem":
 		hpaopt.MaxMem = opt.MaxMem
 		hpaopt.MinMem = opt.MinMem
+		if hpaopt.MaxMem < hpaopt.MinMem {
+			err := fmt.Errorf("Invalid Setting, 'Min > Max'")
+			this.audit(token, deployment, true)
+			this.errReturn(err, 500)
+			return
+		}
 	case "disk":
 		hpaopt.MaxDisk = opt.MaxDisk
 		hpaopt.MinDisk = opt.MinDisk
+		if hpaopt.MaxDisk < hpaopt.MinDisk {
+			err := fmt.Errorf("Invalid Setting, 'Min > Max'")
+			this.audit(token, deployment, true)
+			this.errReturn(err, 500)
+			return
+		}
 	case "net":
 		hpaopt.MaxNetFlow = opt.MaxNetFlow
 		hpaopt.MinNetFlow = opt.MinNetFlow
+		if hpaopt.MaxNetFlow < hpaopt.MinNetFlow {
+			err := fmt.Errorf("Invalid Setting, 'Min > Max'")
+			this.audit(token, deployment, true)
+			this.errReturn(err, 500)
+			return
+		}
 	default:
 		err := fmt.Errorf("invalid autoscale option type")
 		this.audit(token, deployment, true)

@@ -71,18 +71,19 @@ type Deployment struct {
 }
 
 type HPA struct {
-	Deployed    bool `json:"deployed"`
-	MinCPU      int  `json:"min_cpu"`
-	MaxCPU      int  `json:"max_cpu"`
-	MinMem      int  `json:"min_mem"`
-	MaxMem      int  `json:"max_mem"`
-	MinDisk     int  `json:"min_disk"`
-	MaxDisk     int  `json:"max_disk"`
-	MinNetFlow  int  `json:"min_flow"`
-	MaxNetFlow  int  `json:"max_flow"`
-	MinReplicas int  `json:"minReplicas"`
-	MaxReplicas int  `json:"maxReplicas"`
-	Replicas    int  `json:"replicas"`
+	Type        string `json:"type"`
+	Deployed    bool   `json:"deployed"`
+	MinCPU      int    `json:"min_cpu"`
+	MaxCPU      int    `json:"max_cpu"`
+	MinMem      int    `json:"min_mem"`
+	MaxMem      int    `json:"max_mem"`
+	MinDisk     int    `json:"min_disk"`
+	MaxDisk     int    `json:"max_disk"`
+	MinNetFlow  int    `json:"min_flow"`
+	MaxNetFlow  int    `json:"max_flow"`
+	MinReplicas int    `json:"minReplicas"`
+	MaxReplicas int    `json:"maxReplicas"`
+	Replicas    int    `json:"replicas"`
 }
 
 func GetDeploymentInterface(obj resource.Object) (DeploymentInterface, error) {
