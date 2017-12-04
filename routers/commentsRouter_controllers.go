@@ -601,6 +601,55 @@ func init() {
 			AllowHTTPMethods: []string{"Get"},
 			Params: nil})
 
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:HpaController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:HpaController"],
+		beego.ControllerComments{
+			Method: "ListHpas",
+			Router: `/group/:group/workspace/:workspace`,
+			AllowHTTPMethods: []string{"Get"},
+			Params: nil})
+
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:HpaController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:HpaController"],
+		beego.ControllerComments{
+			Method: "ListGroupsHpas",
+			Router: `/groups`,
+			AllowHTTPMethods: []string{"Post"},
+			Params: nil})
+
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:HpaController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:HpaController"],
+		beego.ControllerComments{
+			Method: "ListGroupHpas",
+			Router: `/group/:group`,
+			AllowHTTPMethods: []string{"Get"},
+			Params: nil})
+
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:HpaController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:HpaController"],
+		beego.ControllerComments{
+			Method: "CreateHpa",
+			Router: `/group/:group/workspace/:workspace`,
+			AllowHTTPMethods: []string{"Post"},
+			Params: nil})
+
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:HpaController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:HpaController"],
+		beego.ControllerComments{
+			Method: "UpdateHpa",
+			Router: `/:hpa/group/:group/workspace/:workspace`,
+			AllowHTTPMethods: []string{"Put"},
+			Params: nil})
+
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:HpaController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:HpaController"],
+		beego.ControllerComments{
+			Method: "DeleteHpa",
+			Router: `/:hpa/group/:group/workspace/:workspace`,
+			AllowHTTPMethods: []string{"Delete"},
+			Params: nil})
+
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:HpaController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:HpaController"],
+		beego.ControllerComments{
+			Method: "GetHpaTemplate",
+			Router: `/:hpa/group/:group/workspace/:workspace/template`,
+			AllowHTTPMethods: []string{"Get"},
+			Params: nil})
+
 	beego.GlobalControllerRouter["ufleet-deploy/controllers:IngressController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:IngressController"],
 		beego.ControllerComments{
 			Method: "ListIngresss",

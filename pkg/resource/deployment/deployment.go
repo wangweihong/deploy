@@ -685,7 +685,6 @@ func (j *Deployment) GetStatus() *Status {
 		goto faileReturn
 	}
 
-	log.DebugPrint("get current revesion and rs")
 	rev, rs, err = ph.GetCurrentRevisionAndReplicaSet(j.Workspace, j.Name)
 	if err != nil {
 		e = err

@@ -3854,6 +3854,289 @@
                 }
             }
         },
+        "/horizontalpodautoscaler/group/{group}": {
+            "get": {
+                "tags": [
+                    "horizontalpodautoscaler"
+                ],
+                "description": "Hpa",
+                "operationId": "HpaController.Hpa",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Token",
+                        "description": "'Token'",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "group",
+                        "description": "组名",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "{string} create success!"
+                    },
+                    "500": {}
+                }
+            }
+        },
+        "/horizontalpodautoscaler/group/{group}/workspace/{workspace}": {
+            "get": {
+                "tags": [
+                    "horizontalpodautoscaler"
+                ],
+                "description": "Hpa",
+                "operationId": "HpaController.Hpa",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Token",
+                        "description": "'Token'",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "group",
+                        "description": "组名",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "workspace",
+                        "description": "工作区",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "{string} create success!"
+                    },
+                    "500": {}
+                }
+            },
+            "post": {
+                "tags": [
+                    "horizontalpodautoscaler"
+                ],
+                "description": "创建私秘凭据",
+                "operationId": "HpaController.Hpa",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Token",
+                        "description": "'Token'",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "group",
+                        "description": "组名",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "workspace",
+                        "description": "工作区",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "body",
+                        "name": "body",
+                        "description": "资源描述",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "{string} create success!"
+                    },
+                    "500": {}
+                }
+            }
+        },
+        "/horizontalpodautoscaler/groups": {
+            "post": {
+                "tags": [
+                    "horizontalpodautoscaler"
+                ],
+                "description": "Hpa",
+                "operationId": "HpaController.Hpa",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Token",
+                        "description": "'Token'",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "body",
+                        "name": "body",
+                        "description": "组数组",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "{string} create success!"
+                    },
+                    "500": {}
+                }
+            }
+        },
+        "/horizontalpodautoscaler/{hpa}/group/{group}/workspace/{workspace}": {
+            "put": {
+                "tags": [
+                    "horizontalpodautoscaler"
+                ],
+                "description": "更新hpa",
+                "operationId": "HpaController.Hpa",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Token",
+                        "description": "'Token'",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "group",
+                        "description": "组名",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "workspace",
+                        "description": "工作区",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "hpa",
+                        "description": "hpa",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "body",
+                        "name": "body",
+                        "description": "资源描述",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "{string} create success!"
+                    },
+                    "500": {}
+                }
+            },
+            "delete": {
+                "tags": [
+                    "horizontalpodautoscaler"
+                ],
+                "description": "Hpa",
+                "operationId": "HpaController.Hpa",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Token",
+                        "description": "'Token'",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "group",
+                        "description": "组名",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "workspace",
+                        "description": "工作区",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "hpa",
+                        "description": "私秘凭据",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "{string} create success!"
+                    },
+                    "500": {}
+                }
+            }
+        },
+        "/horizontalpodautoscaler/{hpa}/group/{group}/workspace/{workspace}/template": {
+            "get": {
+                "tags": [
+                    "horizontalpodautoscaler"
+                ],
+                "description": "Hpa",
+                "operationId": "HpaController.Hpa",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Token",
+                        "description": "'Token'",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "group",
+                        "description": "组名",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "workspace",
+                        "description": "工作区",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "path",
+                        "name": "hpa",
+                        "description": "私秘凭据",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "{string} create success!"
+                    },
+                    "500": {}
+                }
+            }
+        },
         "/ingress/group/{group}": {
             "get": {
                 "tags": [

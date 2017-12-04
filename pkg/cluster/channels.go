@@ -25,6 +25,7 @@ var (
 	StatefulSetEventChan = make(chan Event, 32)
 	CronJobEventChan     = make(chan Event, 32)
 	JobEventChan         = make(chan Event, 32)
+	HPAEventChan         = make(chan Event, 32)
 )
 
 type ActionType string
@@ -34,5 +35,6 @@ type Event struct {
 	Workspace  string
 	Name       string
 	Action     ActionType
+	Object     interface{}
 	FromUfleet bool //表明该资源由用户直接通过ufleet去创建的
 }

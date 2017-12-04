@@ -19,6 +19,7 @@ const (
 	operateObjectIngress               = "Ingress"
 	operateObjectJob                   = "Job"
 	operateObjectCronJob               = "CronJob"
+	operateObjectHpa                   = "HorizontalPodAutoscaler"
 
 	operateTypeCreate        = "create"
 	operateTypeUpdate        = "update"
@@ -428,6 +429,19 @@ var (
 		},
 		"DeleteStatefulSet": audit{
 			object:  operateObjectStatefulSet,
+			operate: operateTypeDelete,
+		},
+
+		"CreateHpa": audit{
+			object:  operateObjectHpa,
+			operate: operateTypeCreate,
+		},
+		"UpdateHpa": audit{
+			object:  operateObjectHpa,
+			operate: operateTypeUpdate,
+		},
+		"DeleteHpa": audit{
+			object:  operateObjectHpa,
 			operate: operateTypeDelete,
 		},
 	}

@@ -34,6 +34,7 @@ import (
 	watch "k8s.io/apimachinery/pkg/watch"
 	kubernetesapi "k8s.io/kubernetes/pkg/api"
 	//"k8s.io/kubernetes/pkg/controller"
+	autoscalingv1 "k8s.io/client-go/pkg/apis/autoscaling/v1"
 	deploymentutil "k8s.io/kubernetes/pkg/controller/deployment/util"
 )
 
@@ -2160,6 +2161,49 @@ func (h *jobHandler) GetCreator(namespace string, name string) (*corev1.Serializ
 	v1sr := kubernetesapiSerrializedReferenceToClientGo(*sr)
 
 	return &v1sr, nil
+}
+
+type HorizontalPodAutoscalerHandler interface {
+	Get(namespace string, name string) (*autoscalingv1.HorizontalPodAutoscaler, error)
+	Delete(namespace string, name string) error
+	Create(namespace string, hpa *autoscalingv1.HorizontalPodAutoscaler) error
+	Update(namespace string, hpa *autoscalingv1.HorizontalPodAutoscaler) error
+	List(namespace string) ([]*autoscalingv1.HorizontalPodAutoscaler, error)
+}
+
+func NewHorizontalPodAutoscalerHandler(group, workspace string) (HorizontalPodAutoscalerHandler, error) {
+	Cluster, err := Controller.GetCluster(group, workspace)
+	if err != nil {
+		return nil, log.DebugPrint(err)
+	}
+
+	return &hpaHandler{Cluster: Cluster}, nil
+}
+
+type hpaHandler struct {
+	*Cluster
+}
+
+func (h *hpaHandler) Get(namespace, name string) (*autoscalingv1.HorizontalPodAutoscaler, error) {
+	return h.informerController.hpaInformer.Lister().HorizontalPodAutoscalers(namespace).Get(name)
+}
+
+func (h *hpaHandler) Create(namespace string, hpa *autoscalingv1.HorizontalPodAutoscaler) error {
+	_, err := h.clientset.AutoscalingV1().HorizontalPodAutoscalers(namespace).Create(hpa)
+	return err
+}
+
+func (h *hpaHandler) Update(namespace string, hpa *autoscalingv1.HorizontalPodAutoscaler) error {
+	_, err := h.clientset.AutoscalingV1().HorizontalPodAutoscalers(namespace).Update(hpa)
+	return err
+}
+
+func (h *hpaHandler) Delete(namespace, hpaName string) error {
+	return h.clientset.AutoscalingV1().HorizontalPodAutoscalers(namespace).Delete(hpaName, nil)
+}
+
+func (h *hpaHandler) List(namespace string) ([]*autoscalingv1.HorizontalPodAutoscaler, error) {
+	return h.informerController.hpaInformer.Lister().HorizontalPodAutoscalers(namespace).List(labels.Everything())
 }
 
 /*  helpers */
