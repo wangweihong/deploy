@@ -859,11 +859,55 @@ func (j *Deployment) Rollback(revision int64) (*string, error) {
 }
 
 //需要加锁
-func (j *Deployment) StartAutoScale(hpa HPA) error {
+func (j *Deployment) StartAutoScale(opt HPA) error {
 
 	if j.MemoryOnly != true {
-		j.AutoScaler = hpa
-		j.AutoScaler.Deployed = true
+		var hpaopt HPA
+		hpaopt.MinReplicas = opt.MinReplicas
+		hpaopt.MaxReplicas = opt.MaxReplicas
+		hpaopt.Deployed = true
+		hpaopt.Type = opt.Type
+		switch opt.Type {
+		case "cpu":
+			hpaopt.MaxCPU = opt.MaxCPU
+			hpaopt.MinCPU = opt.MinCPU
+			if hpaopt.MaxCPU < hpaopt.MinCPU {
+				err := fmt.Errorf("Invalid Setting, 'Min > Max'")
+				return err
+			}
+
+		case "mem":
+			hpaopt.MaxMem = opt.MaxMem
+			hpaopt.MinMem = opt.MinMem
+			if hpaopt.MaxMem < hpaopt.MinMem {
+				err := fmt.Errorf("Invalid Setting, 'Min > Max'")
+				return err
+			}
+		case "disk":
+			hpaopt.MaxDisk = opt.MaxDisk
+			hpaopt.MinDisk = opt.MinDisk
+			if hpaopt.MaxDisk < hpaopt.MinDisk {
+				err := fmt.Errorf("Invalid Setting, 'Min > Max'")
+				return err
+			}
+		case "net":
+			hpaopt.MaxNetFlow = opt.MaxNetFlow
+			hpaopt.MinNetFlow = opt.MinNetFlow
+			if hpaopt.MaxNetFlow < hpaopt.MinNetFlow {
+				err := fmt.Errorf("Invalid Setting, 'Min > Max'")
+				return err
+			}
+		case "none":
+			hpaopt.Deployed = false
+			hpaopt.MinReplicas = 0
+			hpaopt.MaxReplicas = 0
+		default:
+			err := fmt.Errorf("invalid autoscale option type")
+			return err
+		}
+
+		j.AutoScaler = hpaopt
+		log.DebugPrint(hpaopt.Deployed)
 
 		be := backend.NewBackendHandler()
 		err := be.UpdateResource(backendKind, j.Group, j.Workspace, j.Name, j)
