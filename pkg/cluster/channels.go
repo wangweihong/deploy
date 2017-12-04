@@ -35,5 +35,6 @@ type Event struct {
 	Workspace  string
 	Name       string
 	Action     ActionType
+	Object     interface{}
 	FromUfleet bool //表明该资源由用户直接通过ufleet去创建的
 }

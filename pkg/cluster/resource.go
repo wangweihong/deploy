@@ -2168,6 +2168,7 @@ type HorizontalPodAutoscalerHandler interface {
 	Delete(namespace string, name string) error
 	Create(namespace string, hpa *autoscalingv1.HorizontalPodAutoscaler) error
 	Update(namespace string, hpa *autoscalingv1.HorizontalPodAutoscaler) error
+	List(namespace string) ([]*autoscalingv1.HorizontalPodAutoscaler, error)
 }
 
 func NewHorizontalPodAutoscalerHandler(group, workspace string) (HorizontalPodAutoscalerHandler, error) {
@@ -2199,6 +2200,10 @@ func (h *hpaHandler) Update(namespace string, hpa *autoscalingv1.HorizontalPodAu
 
 func (h *hpaHandler) Delete(namespace, hpaName string) error {
 	return h.clientset.AutoscalingV1().HorizontalPodAutoscalers(namespace).Delete(hpaName, nil)
+}
+
+func (h *hpaHandler) List(namespace string) ([]*autoscalingv1.HorizontalPodAutoscaler, error) {
+	return h.informerController.hpaInformer.Lister().HorizontalPodAutoscalers(namespace).List(labels.Everything())
 }
 
 /*  helpers */

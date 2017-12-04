@@ -105,6 +105,7 @@ func (c *ResourceController) generateEventFromObj(obj interface{}, action Action
 	e.Action = action
 	e.Group = wg.Group
 	e.Workspace = wg.Name
+	e.Object = obj
 	e.Name = name
 
 	_, ok := annotations[sign.SignFromUfleetKey]
@@ -220,6 +221,8 @@ func (c *ResourceController) resourceUpdate(obj, new interface{}) {
 		JobEventChan <- e
 	case *batchv2alpha1.CronJob:
 		CronJobEventChan <- e
+	case *autoscalingv1.HorizontalPodAutoscaler:
+		HPAEventChan <- e
 	}
 
 }
@@ -265,6 +268,8 @@ func (c *ResourceController) resourceDelete(obj interface{}) {
 		JobEventChan <- e
 	case *batchv2alpha1.CronJob:
 		CronJobEventChan <- e
+	case *autoscalingv1.HorizontalPodAutoscaler:
+		HPAEventChan <- e
 	}
 
 }

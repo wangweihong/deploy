@@ -14,6 +14,7 @@ import (
 	"ufleet-deploy/pkg/resource/daemonset"
 	"ufleet-deploy/pkg/resource/deployment"
 	"ufleet-deploy/pkg/resource/endpoint"
+	"ufleet-deploy/pkg/resource/hpa"
 	"ufleet-deploy/pkg/resource/ingress"
 	"ufleet-deploy/pkg/resource/job"
 	"ufleet-deploy/pkg/resource/pod"
@@ -57,7 +58,7 @@ func init() {
 	cronjob.Init()
 	replicationcontroller.Init()
 	replicaset.Init()
-	//	hpa.Init()
+	hpa.Init()
 
 	user.Init()
 

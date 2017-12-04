@@ -15,7 +15,7 @@ func Init() {
 	be := backend.NewBackendHandler()
 
 	var err error
-	Controller, err = InitConfigMapController(be)
+	Controller, err = InitHorizontalPodAutoscalerController(be)
 	if err != nil {
 		panic(err.Error())
 	}

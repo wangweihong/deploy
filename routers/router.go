@@ -98,6 +98,11 @@ func init() {
 				&controllers.CronJobController{},
 			),
 		),
+		beego.NSNamespace("/horizontalpodautoscaler",
+			beego.NSInclude(
+				&controllers.HpaController{},
+			),
+		),
 	)
 	beego.AddNamespace(ns)
 }

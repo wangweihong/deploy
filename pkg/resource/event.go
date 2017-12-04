@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	clusterObjectCreater = "kubernetes"
+	ClusterObjectCreater = "kubernetes"
 	eGroup               = "group"
 	eWorkspace           = "workspace"
 	eResource            = "resource"
@@ -77,7 +77,7 @@ func HandleEventWatchFromK8sCluster(echan chan cluster.Event, kind string, oc Ob
 				p.MemoryOnly = true
 				p.Workspace = e.Workspace
 				p.Group = e.Group
-				p.User = clusterObjectCreater
+				p.User = ClusterObjectCreater
 				p.Kind = kind
 
 				err = oc.NewObject(p)

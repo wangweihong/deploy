@@ -13,8 +13,6 @@ import (
 	"ufleet-deploy/pkg/resource/util"
 	"ufleet-deploy/pkg/sign"
 
-	"github.com/ghodss/yaml"
-
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	autoscalingv1 "k8s.io/client-go/pkg/apis/autoscaling/v1"
 )
@@ -361,7 +359,7 @@ func (p *HorizontalPodAutoscalerManager) CreateObject(groupName, workspaceName s
 		return log.DebugPrint("must  offer  one  resource json/yaml data")
 	}
 
-	var obj corev1.HorizontalPodAutoscaler
+	var obj autoscalingv1.HorizontalPodAutoscaler
 	err = json.Unmarshal(exts[0].Raw, &obj)
 	if err != nil {
 		return log.DebugPrint(err)
@@ -420,7 +418,7 @@ func (p *HorizontalPodAutoscalerManager) UpdateObject(groupName, workspaceName s
 		return log.DebugPrint(err)
 	}
 
-	var newr corev1.HorizontalPodAutoscaler
+	var newr autoscalingv1.HorizontalPodAutoscaler
 	err = util.GetObjectFromYamlTemplate(data, &newr)
 	if err != nil {
 		return log.DebugPrint(err)
@@ -600,9 +598,7 @@ func (s *HorizontalPodAutoscaler) GetTemplate() (string, error) {
 
 type Status struct {
 	resource.ObjectMeta
-	Reason     string            `json:"reason"`
-	Data       map[string]string `json:"data"`
-	DataString string            `json:"datastring"`
+	Reason string `json:"reason"`
 }
 
 func (s *HorizontalPodAutoscaler) ObjectStatus() resource.ObjectStatus {
@@ -612,7 +608,6 @@ func (s *HorizontalPodAutoscaler) ObjectStatus() resource.ObjectStatus {
 func (s *HorizontalPodAutoscaler) GetStatus() *Status {
 
 	js := Status{ObjectMeta: s.ObjectMeta}
-	js.Data = make(map[string]string)
 	js.Comment = s.Comment
 
 	runtime, err := s.GetRuntime()
@@ -623,14 +618,6 @@ func (s *HorizontalPodAutoscaler) GetStatus() *Status {
 	if js.CreateTime == 0 {
 		js.CreateTime = runtime.CreationTimestamp.Unix()
 	}
-
-	bc, err := yaml.Marshal(runtime.Data)
-	if err != nil {
-		js.Reason = err.Error()
-		return &js
-	}
-	js.DataString = string(bc)
-	js.Data = runtime.Data
 
 	return &js
 }
