@@ -15,41 +15,43 @@ const (
 
 	//	etcdGroupKey          = etcdUfleetKey + "/" + ResourceGroups
 	//	etcdWorkspaceKey      = etcdUfleetKey + "/" + ResourceWorkspaces
-	etcdAppKey                   = etcdUfleetKey + "/" + ResourceApps
-	etcdPodKey                   = etcdUfleetKey + "/" + ResourcePods
-	etcdServiceKey               = etcdUfleetKey + "/" + ResourceServices
-	etcdSecretKey                = etcdUfleetKey + "/" + ResourceSecrets
-	etcdConfigMapKey             = etcdUfleetKey + "/" + ResourceConfigMaps
-	etcdEndpointKey              = etcdUfleetKey + "/" + ResourceEndpoints
-	etcdServiceAccountKey        = etcdUfleetKey + "/" + ResourceServiceAccounts
-	etcdDeploymentKey            = etcdUfleetKey + "/" + ResourceDeployments
-	etcdDaemonSetKey             = etcdUfleetKey + "/" + ResourceDaemonSets
-	etcdIngressKey               = etcdUfleetKey + "/" + ResourceIngresss
-	etcdStatefulSetKey           = etcdUfleetKey + "/" + ResourceStatefulSets
-	etcdCronJobKey               = etcdUfleetKey + "/" + ResourceCronJobs
-	etcdJobKey                   = etcdUfleetKey + "/" + ResourceJobs
-	etcdVolumeKey                = etcdUfleetKey + "/" + ResourceVolumes
-	etcdReplicationControllerKey = etcdUfleetKey + "/" + ResourceReplicationControllers
-	etcdReplicaSetKey            = etcdUfleetKey + "/" + ResourceReplicaSets
+	etcdAppKey                     = etcdUfleetKey + "/" + ResourceApps
+	etcdPodKey                     = etcdUfleetKey + "/" + ResourcePods
+	etcdServiceKey                 = etcdUfleetKey + "/" + ResourceServices
+	etcdSecretKey                  = etcdUfleetKey + "/" + ResourceSecrets
+	etcdConfigMapKey               = etcdUfleetKey + "/" + ResourceConfigMaps
+	etcdEndpointKey                = etcdUfleetKey + "/" + ResourceEndpoints
+	etcdServiceAccountKey          = etcdUfleetKey + "/" + ResourceServiceAccounts
+	etcdDeploymentKey              = etcdUfleetKey + "/" + ResourceDeployments
+	etcdDaemonSetKey               = etcdUfleetKey + "/" + ResourceDaemonSets
+	etcdIngressKey                 = etcdUfleetKey + "/" + ResourceIngresss
+	etcdStatefulSetKey             = etcdUfleetKey + "/" + ResourceStatefulSets
+	etcdCronJobKey                 = etcdUfleetKey + "/" + ResourceCronJobs
+	etcdJobKey                     = etcdUfleetKey + "/" + ResourceJobs
+	etcdVolumeKey                  = etcdUfleetKey + "/" + ResourceVolumes
+	etcdReplicationControllerKey   = etcdUfleetKey + "/" + ResourceReplicationControllers
+	etcdReplicaSetKey              = etcdUfleetKey + "/" + ResourceReplicaSets
+	etcdHorizontalPodAutoscalerKey = etcdUfleetKey + "/" + ResourceHorizontalPodAutoscalers
 
 	//	ResourceGroups          = "groups"
 	//	ResourceWorkspaces      = "workspaces"
-	ResourceApps                   = "apps"
-	ResourcePods                   = "pods"
-	ResourceServices               = "services"
-	ResourceSecrets                = "secrets"
-	ResourceConfigMaps             = "configMaps"
-	ResourceEndpoints              = "endpoints"
-	ResourceServiceAccounts        = "serviceaccounts"
-	ResourceDeployments            = "deployments"
-	ResourceDaemonSets             = "daemonsets"
-	ResourceIngresss               = "ingresss"
-	ResourceStatefulSets           = "statefulset"
-	ResourceJobs                   = "jobs"
-	ResourceCronJobs               = "cronjobs"
-	ResourceVolumes                = "volumes"
-	ResourceReplicationControllers = "replicationcontrollers"
-	ResourceReplicaSets            = "replicasets"
+	ResourceApps                     = "apps"
+	ResourcePods                     = "pods"
+	ResourceServices                 = "services"
+	ResourceSecrets                  = "secrets"
+	ResourceConfigMaps               = "configMaps"
+	ResourceEndpoints                = "endpoints"
+	ResourceServiceAccounts          = "serviceaccounts"
+	ResourceDeployments              = "deployments"
+	ResourceDaemonSets               = "daemonsets"
+	ResourceIngresss                 = "ingresss"
+	ResourceStatefulSets             = "statefulset"
+	ResourceJobs                     = "jobs"
+	ResourceCronJobs                 = "cronjobs"
+	ResourceVolumes                  = "volumes"
+	ResourceReplicationControllers   = "replicationcontrollers"
+	ResourceReplicaSets              = "replicasets"
+	ResourceHorizontalPodAutoscalers = "horizontalPodAutoscalers"
 
 	ActionDelete = "delete"
 	ActionAdd    = "set"
@@ -74,6 +76,7 @@ var (
 		ResourceCronJobs,
 		ResourceReplicationControllers,
 		ResourceReplicaSets,
+		ResourceHorizontalPodAutoscalers,
 		//		ResourceGroups,
 		//		ResourceWorkspaces,
 		//	ResourceVolumes,
@@ -84,22 +87,23 @@ var (
 	resourceToBackendkey = map[string]string{
 		//		ResourceGroups:          etcdGroupKey,
 		//		ResourceWorkspaces:      etcdWorkspaceKey,
-		ResourceApps:                   etcdAppKey,
-		ResourcePods:                   etcdPodKey,
-		ResourceServices:               etcdServiceKey,
-		ResourceSecrets:                etcdSecretKey,
-		ResourceConfigMaps:             etcdConfigMapKey,
-		ResourceEndpoints:              etcdEndpointKey,
-		ResourceServiceAccounts:        etcdServiceAccountKey,
-		ResourceDeployments:            etcdDeploymentKey,
-		ResourceDaemonSets:             etcdDaemonSetKey,
-		ResourceIngresss:               etcdIngressKey,
-		ResourceStatefulSets:           etcdStatefulSetKey,
-		ResourceCronJobs:               etcdCronJobKey,
-		ResourceJobs:                   etcdJobKey,
-		ResourceVolumes:                etcdVolumeKey,
-		ResourceReplicationControllers: etcdReplicationControllerKey,
-		ResourceReplicaSets:            etcdReplicaSetKey,
+		ResourceApps:                     etcdAppKey,
+		ResourcePods:                     etcdPodKey,
+		ResourceServices:                 etcdServiceKey,
+		ResourceSecrets:                  etcdSecretKey,
+		ResourceConfigMaps:               etcdConfigMapKey,
+		ResourceEndpoints:                etcdEndpointKey,
+		ResourceServiceAccounts:          etcdServiceAccountKey,
+		ResourceDeployments:              etcdDeploymentKey,
+		ResourceDaemonSets:               etcdDaemonSetKey,
+		ResourceIngresss:                 etcdIngressKey,
+		ResourceStatefulSets:             etcdStatefulSetKey,
+		ResourceCronJobs:                 etcdCronJobKey,
+		ResourceJobs:                     etcdJobKey,
+		ResourceVolumes:                  etcdVolumeKey,
+		ResourceReplicationControllers:   etcdReplicationControllerKey,
+		ResourceReplicaSets:              etcdReplicaSetKey,
+		ResourceHorizontalPodAutoscalers: etcdHorizontalPodAutoscalerKey,
 	}
 )
 var (

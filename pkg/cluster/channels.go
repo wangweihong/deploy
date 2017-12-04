@@ -25,6 +25,7 @@ var (
 	StatefulSetEventChan = make(chan Event, 32)
 	CronJobEventChan     = make(chan Event, 32)
 	JobEventChan         = make(chan Event, 32)
+	HPAEventChan         = make(chan Event, 32)
 )
 
 type ActionType string

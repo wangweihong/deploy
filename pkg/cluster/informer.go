@@ -8,12 +8,14 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/client-go/informers"
 	appinformers "k8s.io/client-go/informers/apps/v1beta1"
+	autoscalinginformers "k8s.io/client-go/informers/autoscaling/v1"
 	batchinformers "k8s.io/client-go/informers/batch/v1"
 	batchv2alpa1informers "k8s.io/client-go/informers/batch/v2alpha1"
 	coreinformers "k8s.io/client-go/informers/core/v1"
 	extensioninformers "k8s.io/client-go/informers/extensions/v1beta1"
 	corev1 "k8s.io/client-go/pkg/api/v1"
 	appv1beta1 "k8s.io/client-go/pkg/apis/apps/v1beta1"
+	autoscalingv1 "k8s.io/client-go/pkg/apis/autoscaling/v1"
 	batchv1 "k8s.io/client-go/pkg/apis/batch/v1"
 	batchv2alpha1 "k8s.io/client-go/pkg/apis/batch/v2alpha1"
 	extensionsv1beta1 "k8s.io/client-go/pkg/apis/extensions/v1beta1"
@@ -44,6 +46,7 @@ type ResourceController struct {
 	//batch
 	cronjobInformer batchv2alpa1informers.CronJobInformer
 	jobInformer     batchinformers.JobInformer
+	hpaInformer     autoscalinginformers.HorizontalPodAutoscalerInformer
 }
 
 func (c *ResourceController) Run(stopCh chan struct{}) error {
@@ -63,7 +66,9 @@ func (c *ResourceController) Run(stopCh chan struct{}) error {
 		c.ingressInformer.Informer().HasSynced,
 		c.daemonsetInformer.Informer().HasSynced,
 		c.cronjobInformer.Informer().HasSynced,
-		c.jobInformer.Informer().HasSynced) {
+		c.jobInformer.Informer().HasSynced,
+		c.hpaInformer.Informer().HasSynced,
+	) {
 		return fmt.Errorf("Failed to sync")
 	}
 
@@ -168,6 +173,8 @@ func (c *ResourceController) resourceAdd(obj interface{}) {
 		JobEventChan <- e
 	case *batchv2alpha1.CronJob:
 		CronJobEventChan <- e
+	case *autoscalingv1.HorizontalPodAutoscaler:
+		HPAEventChan <- e
 	}
 
 }
@@ -277,6 +284,7 @@ func NewResourceController(informerFactory informers.SharedInformerFactory, ws m
 	statefulsetInformer := informerFactory.Apps().V1beta1().StatefulSets()
 	jobInformer := informerFactory.Batch().V1().Jobs()
 	cronjobInformer := informerFactory.Batch().V2alpha1().CronJobs()
+	hpaInformer := informerFactory.Autoscaling().V1().HorizontalPodAutoscalers()
 
 	c := ResourceController{
 		informerFactory:               informerFactory,
@@ -294,6 +302,7 @@ func NewResourceController(informerFactory informers.SharedInformerFactory, ws m
 		statefulsetInformer:           statefulsetInformer,
 		jobInformer:                   jobInformer,
 		cronjobInformer:               cronjobInformer,
+		hpaInformer:                   hpaInformer,
 
 		Workspaces: ws,
 	}
@@ -446,6 +455,18 @@ func NewResourceController(informerFactory informers.SharedInformerFactory, ws m
 		},
 	)
 	jobInformer.Informer().AddEventHandler(
+		// Your custom resource event handlers.
+		cache.ResourceEventHandlerFuncs{
+			// Called on creation
+			AddFunc: c.resourceAdd,
+			// Called on resource update and every resyncPeriod on existing resources.
+			UpdateFunc: c.resourceUpdate,
+			// Called on resource deletion.
+			DeleteFunc: c.resourceDelete,
+		},
+	)
+
+	hpaInformer.Informer().AddEventHandler(
 		// Your custom resource event handlers.
 		cache.ResourceEventHandlerFuncs{
 			// Called on creation

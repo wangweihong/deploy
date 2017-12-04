@@ -57,6 +57,7 @@ func init() {
 	cronjob.Init()
 	replicationcontroller.Init()
 	replicaset.Init()
+	//	hpa.Init()
 
 	user.Init()
 
