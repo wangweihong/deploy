@@ -2,6 +2,7 @@ package cluster
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 	"ufleet-deploy/pkg/log"
@@ -29,6 +30,7 @@ type ClusterController interface {
 	DeleteCluster(group, workspace string) error
 	GetCluster(group, workspace string) (*Cluster, error)
 	GetClusterIP(group, workspace string) (*string, error)
+	GetClusterVIP(group, workspace string) (*string, error)
 }
 
 type Workspace struct {
@@ -215,6 +217,25 @@ func (c *clusterController) GetClusterIP(group, workspace string) (*string, erro
 
 	if cluster.Config != nil {
 		return &cluster.Config.Host, nil
+	}
+
+	return nil, fmt.Errorf("cannot find cluster ip")
+}
+
+func (c *clusterController) GetClusterVIP(group, workspace string) (*string, error) {
+	cluster, err := c.GetCluster(group, workspace)
+	if err != nil {
+		return nil, err
+	}
+
+	if cluster.Config != nil {
+		u := cluster.Config.Host
+		u = strings.TrimPrefix(u, "http://")
+		u = strings.TrimPrefix(u, "https://")
+
+		s := strings.Split(u, ":")
+		host := s[0]
+		return &host, nil
 	}
 
 	return nil, fmt.Errorf("cannot find cluster ip")

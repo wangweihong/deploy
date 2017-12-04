@@ -371,7 +371,14 @@ func (p *IngressManager) CreateObject(groupName, workspaceName string, data []by
 	if obj.Annotations == nil {
 		obj.Annotations = make(map[string]string)
 	}
+
+	vip, err := cluster.Controller.GetClusterVIP(groupName, workspaceName)
+	if err != nil {
+		return log.DebugPrint(err)
+	}
+
 	obj.Annotations[sign.SignFromUfleetKey] = sign.SignFromUfleetValue
+	obj.Annotations["external-dns.alpha.kubernetes.io/target"] = *vip
 	if opt.App != nil {
 		obj.Annotations[sign.SignUfleetAppKey] = *opt.App
 	}
@@ -500,6 +507,11 @@ func (p *IngressManager) UpdateObject(groupName, workspaceName string, resourceN
 		return log.DebugPrint(err)
 	}
 	//
+	vip, err := cluster.Controller.GetClusterVIP(groupName, workspaceName)
+	if err != nil {
+		return log.DebugPrint(err)
+	}
+
 	newr.ResourceVersion = ""
 	if !res.MemoryOnly {
 		if newr.Annotations == nil {
@@ -510,6 +522,7 @@ func (p *IngressManager) UpdateObject(groupName, workspaceName string, resourceN
 	if res.App != "" {
 		newr.Annotations[sign.SignUfleetAppKey] = res.App
 	}
+	newr.Annotations["external-dns.alpha.kubernetes.io/target"] = *vip
 
 	if newr.Name != resourceName {
 		return fmt.Errorf("invalid update data, name not match")
@@ -604,13 +617,14 @@ func (s *Ingress) GetServices() ([]service.Status, error) {
 
 type Status struct {
 	resource.ObjectMeta
-	Hosts         []string `json:"hosts"`
-	Ports         []int    `json:"ports"`
+	Hosts []string `json:"hosts"`
+	Ports []int    `json:"ports"`
+	Dns   string   `json:"dns"`
+
+	Reason        string            `json:"reason"`
+	Labels        map[string]string `json:"labels"`
 	IngressSpec   `json:"ingressspec"`
 	IngressStatus `json:"ingressstatus"`
-
-	Reason string            `json:"reason"`
-	Labels map[string]string `json:"labels"`
 }
 
 type IngressSpec struct {
@@ -668,6 +682,12 @@ func (s *Ingress) GetStatus() *Status {
 		js.Reason = err.Error()
 		return &js
 	}
+	vip, err := cluster.Controller.GetClusterVIP(s.Group, s.Workspace)
+	if err != nil {
+		js.Reason = err.Error()
+		return &js
+	}
+	js.Dns = *vip
 
 	if js.CreateTime == 0 {
 		js.CreateTime = runtime.Ingress.CreationTimestamp.Unix()
