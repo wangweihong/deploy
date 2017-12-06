@@ -772,10 +772,14 @@ func V1PodToPodStatus(pod corev1.Pod) *Status {
 		}
 	}
 
-	s.Phase = string(ps.Phase)
-	for _, v := range pod.Status.Conditions {
-		if v.Type == corev1.PodReady && v.Status == corev1.ConditionTrue {
-			s.Phase = resource.PodReady
+	if pod.DeletionTimestamp != nil {
+		s.Phase = resource.PodTerminating
+	} else {
+		s.Phase = string(ps.Phase)
+		for _, v := range pod.Status.Conditions {
+			if v.Type == corev1.PodReady && v.Status == corev1.ConditionTrue {
+				s.Phase = resource.PodReady
+			}
 		}
 	}
 

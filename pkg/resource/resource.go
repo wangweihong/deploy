@@ -11,7 +11,8 @@ import (
 const (
 	DefaultAppBelong = "" //"standalone"
 
-	PodReady = "ready"
+	PodReady       = "ready"
+	PodTerminating = "terminating"
 )
 
 var (
