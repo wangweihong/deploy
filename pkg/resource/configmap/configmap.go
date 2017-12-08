@@ -167,7 +167,7 @@ func (p *ConfigMapManager) ListGroups() []string {
 	for k, _ := range p.Groups {
 		gs = append(gs, k)
 	}
-	return nil
+	return gs
 }
 
 func (p *ConfigMapManager) AddObjectFromBytes(data []byte, force bool) error {

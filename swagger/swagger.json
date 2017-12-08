@@ -2438,6 +2438,32 @@
                 }
             }
         },
+        "/deployment/allgroup/hpas": {
+            "get": {
+                "tags": [
+                    "deployment"
+                ],
+                "description": "获取 all deployed Deployment hpa",
+                "operationId": "DeploymentController.Deployment",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Token",
+                        "description": "'Token'",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "{string} create success!"
+                    },
+                    "500": {
+                        "description": ""
+                    }
+                }
+            }
+        },
         "/deployment/group/{group}": {
             "get": {
                 "tags": [

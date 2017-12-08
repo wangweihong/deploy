@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 	"ufleet-deploy/models"
+	"ufleet-deploy/pkg/log"
 	"ufleet-deploy/pkg/resource"
 	pk "ufleet-deploy/pkg/resource/deployment"
 	"ufleet-deploy/pkg/user"
@@ -721,6 +722,67 @@ func (this *DeploymentController) GetHPA() {
 	}
 
 	this.normalReturn(*result)
+}
+
+// GetAllHpa
+// @Title Deployment
+// @Description  获取 all deployed Deployment hpa
+// @Param Token header string true 'Token'
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /allgroup/hpas [Get]
+func (this *DeploymentController) GetAllHPA() {
+	aerr := this.checkRouteControllerAbility()
+	if aerr != nil {
+		this.abilityErrorReturn(aerr)
+		return
+	}
+	wdhpa := make([]struct {
+		Workspace string `json:"workspace"`
+		Name      string `json:"name"`
+		HPA       pk.HPA `json:"hpa"`
+	}, 0)
+
+	for _, group := range pk.Controller.ListGroups() {
+		wd := struct {
+			Workspace string `json:"workspace"`
+			Name      string `json:"name"`
+			HPA       pk.HPA `json:"hpa"`
+		}{}
+
+		rs, err := pk.Controller.ListGroupObject(group)
+		if err != nil {
+			this.errReturn(err, 500)
+			return
+		}
+
+		for _, v := range rs {
+			pi, _ := pk.GetDeploymentInterface(v)
+			s := pi.GetStatus()
+			if s.Reason != "" {
+				err := fmt.Errorf(s.Reason, 500)
+				this.errReturn(err, 500)
+				return
+			}
+
+			log.DebugPrint("object: ", s.Workspace, s.Name)
+			result, err := pi.GetAutoScale()
+			if err != nil {
+				this.errReturn(err, 500)
+				return
+			}
+
+			if result.Deployed {
+				wd.Workspace = s.Workspace
+				wd.Name = s.Name
+				wd.HPA = *result
+
+				wdhpa = append(wdhpa, wd)
+			}
+		}
+	}
+
+	this.normalReturn(wdhpa)
 }
 
 // StartHpa

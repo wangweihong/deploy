@@ -151,7 +151,7 @@ func (p *CronJobManager) ListGroups() []string {
 	for k, _ := range p.Groups {
 		gs = append(gs, k)
 	}
-	return nil
+	return gs
 }
 
 func (p *CronJobManager) AddObjectFromBytes(data []byte, force bool) error {

@@ -477,6 +477,13 @@ func init() {
 
 	beego.GlobalControllerRouter["ufleet-deploy/controllers:DeploymentController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:DeploymentController"],
 		beego.ControllerComments{
+			Method: "GetAllHPA",
+			Router: `/allgroup/hpas`,
+			AllowHTTPMethods: []string{"Get"},
+			Params: nil})
+
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:DeploymentController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:DeploymentController"],
+		beego.ControllerComments{
 			Method: "StartHPA",
 			Router: `/:deployment/group/:group/workspace/:workspace/hpa`,
 			AllowHTTPMethods: []string{"Post"},

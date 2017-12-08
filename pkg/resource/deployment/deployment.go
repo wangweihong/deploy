@@ -192,7 +192,7 @@ func (p *DeploymentManager) ListGroups() []string {
 	for k, _ := range p.Groups {
 		gs = append(gs, k)
 	}
-	return nil
+	return gs
 }
 
 func (p *DeploymentManager) AddObjectFromBytes(data []byte, force bool) error {

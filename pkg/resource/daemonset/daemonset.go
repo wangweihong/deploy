@@ -171,7 +171,7 @@ func (p *DaemonSetManager) ListGroups() []string {
 	for k, _ := range p.Groups {
 		gs = append(gs, k)
 	}
-	return nil
+	return gs
 }
 
 func (p *DaemonSetManager) AddObjectFromBytes(data []byte, force bool) error {

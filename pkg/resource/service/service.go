@@ -165,7 +165,7 @@ func (p *ServiceManager) ListGroups() []string {
 	for k, _ := range p.Groups {
 		gs = append(gs, k)
 	}
-	return nil
+	return gs
 }
 
 func (p *ServiceManager) AddObjectFromBytes(data []byte, force bool) error {
