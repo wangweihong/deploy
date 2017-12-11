@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strconv"
 	"ufleet-deploy/models"
-	"ufleet-deploy/pkg/log"
 	"ufleet-deploy/pkg/resource"
 	pk "ufleet-deploy/pkg/resource/deployment"
 	"ufleet-deploy/pkg/user"
@@ -738,6 +737,7 @@ func (this *DeploymentController) GetAllHPA() {
 		return
 	}
 	wdhpa := make([]struct {
+		Group     string `json:"group"`
 		Workspace string `json:"workspace"`
 		Name      string `json:"name"`
 		HPA       pk.HPA `json:"hpa"`
@@ -745,6 +745,7 @@ func (this *DeploymentController) GetAllHPA() {
 
 	for _, group := range pk.Controller.ListGroups() {
 		wd := struct {
+			Group     string `json:"group"`
 			Workspace string `json:"workspace"`
 			Name      string `json:"name"`
 			HPA       pk.HPA `json:"hpa"`
@@ -765,7 +766,6 @@ func (this *DeploymentController) GetAllHPA() {
 				return
 			}
 
-			log.DebugPrint("object: ", s.Workspace, s.Name)
 			result, err := pi.GetAutoScale()
 			if err != nil {
 				this.errReturn(err, 500)
@@ -773,6 +773,7 @@ func (this *DeploymentController) GetAllHPA() {
 			}
 
 			if result.Deployed {
+				wd.Group = group
 				wd.Workspace = s.Workspace
 				wd.Name = s.Name
 				wd.HPA = *result
