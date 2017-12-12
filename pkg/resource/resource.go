@@ -164,13 +164,15 @@ func GetPodsCount(pis interface{}) *PodsCount {
 				c.Failed += 1
 			case corev1.PodSucceeded:
 				c.Succeeded += 1
+				for _, s := range v.Status.Conditions {
+					if s.Type == corev1.PodReady && s.Status == corev1.ConditionTrue {
+						c.Ready += 1
+					}
+				}
 			case corev1.PodRunning:
 				c.Running += 1
 			case corev1.PodUnknown:
 				c.Unknown += 1
-			case PodReady:
-				c.Ready += 1
-				c.Running += 1
 			default:
 				c.Unknown += 1
 			}
