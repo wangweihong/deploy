@@ -89,8 +89,8 @@ func ClusterConfigToK8sClientConfig(c ClusterConfig) (*rest.Config, error) {
 		var tlsConfig rest.TLSClientConfig
 		tlsConfig.Insecure = true
 		//		tlsConfig.CAData = []byte(c.TLSCAData)
-		//		tlsConfig.KeyData = []byte(c.TLSKeyData)
-		//		tlsConfig.CertData = []byte(c.TLSCertData)
+		tlsConfig.KeyData = []byte(c.TLSKeyData)
+		tlsConfig.CertData = []byte(c.TLSCertData)
 		rconfig.TLSClientConfig = tlsConfig
 	case "basic":
 		rconfig.Host = c.ApiServer
