@@ -92,7 +92,6 @@ func ClusterConfigToK8sClientConfig(c ClusterConfig) (*rest.Config, error) {
 		tlsConfig.KeyData = []byte(c.TLSKeyData)
 		tlsConfig.CertData = []byte(c.TLSCertData)
 		rconfig.TLSClientConfig = tlsConfig
-		rconfig.Transport = tr
 	case "basic":
 		rconfig.Host = c.ApiServer
 		rconfig.Username = c.User
