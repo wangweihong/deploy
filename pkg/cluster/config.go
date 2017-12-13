@@ -1,8 +1,10 @@
 package cluster
 
 import (
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"ufleet-deploy/pkg/log"
 	"ufleet-deploy/util/request"
 
@@ -84,11 +86,18 @@ func ClusterConfigToK8sClientConfig(c ClusterConfig) (*rest.Config, error) {
 
 	switch c.Auth_way {
 	case "ca_auth":
+		//不检测服务端的证书
+		tr := &http.Transport{
+			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: true,
+			},
+		}
 		var tlsConfig rest.TLSClientConfig
 		tlsConfig.CAData = []byte(c.TLSCAData)
 		tlsConfig.KeyData = []byte(c.TLSKeyData)
 		tlsConfig.CertData = []byte(c.TLSCertData)
 		rconfig.TLSClientConfig = tlsConfig
+		rconfig.Transport = tr
 	case "basic":
 		rconfig.Host = c.ApiServer
 		rconfig.Username = c.User
