@@ -14,33 +14,6 @@ type PodController struct {
 	baseController
 }
 
-func getPodsCount(pis []resource.Object) *resource.PodsCount {
-	c := &resource.PodsCount{}
-	for _, v := range pis {
-		c.Total += 1
-		pi, _ := v.(pk.PodInterface)
-		s := pi.GetStatus()
-		switch corev1.PodPhase(s.Phase) {
-		case corev1.PodPending:
-			c.Pending += 1
-		case corev1.PodFailed:
-			c.Failed += 1
-		case corev1.PodSucceeded:
-			c.Succeeded += 1
-		case corev1.PodRunning:
-			c.Running += 1
-		case corev1.PodUnknown:
-			c.Unknown += 1
-		case resource.PodReady:
-			c.Running += 1
-			c.Ready += 1
-		default:
-			c.Unknown += 1
-		}
-	}
-	return c
-}
-
 // ListPods
 // @Title Pod
 // @Description   Pod
@@ -98,7 +71,19 @@ func (this *PodController) GetGroupPodCount() {
 		return
 	}
 
-	c := getPodsCount(pis)
+	pods := make([]*corev1.Pod, 0)
+	for _, v := range pis {
+		pi, _ := pk.GetPodInterface(v)
+		r, err := pi.GetRuntime()
+		if err != nil {
+			this.errReturn(err, 500)
+			return
+		}
+
+		pods = append(pods, r.Pod)
+	}
+	c := resource.GetPodsCount(pods)
+
 	this.normalReturn(c)
 }
 
@@ -231,26 +216,30 @@ func (this *PodController) GetAllGroupPodsCount() {
 		return
 	}
 
-	cs := &resource.PodsCount{}
 	groups := pk.Controller.ListGroups()
+
+	pods := make([]*corev1.Pod, 0)
 	for _, v := range groups {
-		v, err := pk.Controller.ListGroupObject(v)
+		pis, err := pk.Controller.ListGroupObject(v)
 		if err != nil {
 			this.errReturn(err, 500)
 			return
 		}
 
-		c := getPodsCount(v)
-		cs.Total += c.Total
-		cs.Failed += c.Failed
-		cs.Pending += c.Pending
-		cs.Running += c.Running
-		cs.Succeeded += c.Succeeded
-		cs.Unknown += c.Unknown
+		for _, j := range pis {
+			v, _ := pk.GetPodInterface(j)
+			r, err := v.GetRuntime()
+			if err != nil {
+				this.errReturn(err, 500)
+				return
+			}
+			pods = append(pods, r.Pod)
+		}
 
 	}
 
-	this.normalReturn(cs)
+	c := resource.GetPodsCount(pods)
+	this.normalReturn(c)
 }
 
 // CreatePod
