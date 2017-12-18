@@ -142,13 +142,14 @@ type OwnerReference struct {
 }
 
 type PodsCount struct {
-	Total     int `json:"total"`
-	Pending   int `json:"pending"`
-	Running   int `json:"running"`
-	Succeeded int `json:"successed"`
-	Failed    int `json:"failed"`
-	Ready     int `json:"ready"`
-	Unknown   int `json:"unknown"`
+	Total       int `json:"total"`
+	Pending     int `json:"pending"`
+	Running     int `json:"running"`
+	Succeeded   int `json:"successed"`
+	Failed      int `json:"failed"`
+	Ready       int `json:"ready"`
+	Unknown     int `json:"unknown"`
+	Terminating int `json:"terminating"`
 }
 
 func GetPodsCount(pis interface{}) *PodsCount {
@@ -165,6 +166,13 @@ func GetPodsCount(pis interface{}) *PodsCount {
 			case corev1.PodSucceeded:
 				c.Succeeded += 1
 			case corev1.PodRunning:
+				//Terminating检测
+				if v.DeletionTimestamp != nil {
+					c.Terminating += 1
+					break
+				}
+
+				// Ready检测
 				var isReady bool
 				for _, s := range v.Status.Conditions {
 					if s.Type == corev1.PodReady && s.Status == corev1.ConditionTrue {
