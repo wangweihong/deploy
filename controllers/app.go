@@ -473,9 +473,10 @@ type ServiceDescribe struct {
 }
 
 type ResourceContainerPort struct {
-	OwnerKind      string          `json:"ownerKind"`
-	Owner          string          `json:"owner"`
-	ContainerPorts []ContainerPort `json:"containerPorts"`
+	OwnerKind      string            `json:"ownerKind"`
+	Owner          string            `json:"owner"`
+	Selectors      map[string]string `json:"selectors"`
+	ContainerPorts []ContainerPort   `json:"containerPorts"`
 }
 
 type ContainerPort struct {
@@ -526,6 +527,7 @@ func (this *AppController) GetAppServiceAndContainerPort() {
 			rcp.ContainerPorts = make([]ContainerPort, 0)
 			rcp.OwnerKind = s.Kind
 			rcp.Owner = s.Name
+			rcp.Selectors = s.Seletors
 			for _, v := range s.ContainerSpecs {
 				var cp ContainerPort
 				cp.Container = v.Name
@@ -539,6 +541,7 @@ func (this *AppController) GetAppServiceAndContainerPort() {
 			rcp.ContainerPorts = make([]ContainerPort, 0)
 			rcp.OwnerKind = s.Kind
 			rcp.Owner = s.Name
+			rcp.Selectors = s.Selectors
 			for _, v := range s.ContainerSpecs {
 				var cp ContainerPort
 				cp.Container = v.Name
@@ -552,6 +555,7 @@ func (this *AppController) GetAppServiceAndContainerPort() {
 			rcp.ContainerPorts = make([]ContainerPort, 0)
 			rcp.OwnerKind = s.Kind
 			rcp.Owner = s.Name
+			rcp.Selectors = s.Selectors
 			for _, v := range s.ContainerSpecs {
 				var cp ContainerPort
 				cp.Container = v.Name
@@ -565,6 +569,7 @@ func (this *AppController) GetAppServiceAndContainerPort() {
 			rcp.ContainerPorts = make([]ContainerPort, 0)
 			rcp.OwnerKind = s.Kind
 			rcp.Owner = s.Name
+			rcp.Selectors = s.Selector
 			for _, v := range s.ContainerSpecs {
 				var cp ContainerPort
 				cp.Container = v.Name
@@ -578,6 +583,7 @@ func (this *AppController) GetAppServiceAndContainerPort() {
 			rcp.ContainerPorts = make([]ContainerPort, 0)
 			rcp.OwnerKind = s.Kind
 			rcp.Owner = s.Name
+			rcp.Selectors = s.Labels
 			for _, v := range s.ContainerSpecs {
 				var cp ContainerPort
 				cp.Container = v.Name
@@ -591,6 +597,7 @@ func (this *AppController) GetAppServiceAndContainerPort() {
 			rcp.ContainerPorts = make([]ContainerPort, 0)
 			rcp.OwnerKind = s.Kind
 			rcp.Owner = s.Name
+			rcp.Selectors = s.Selectors
 			for _, v := range s.ContainerSpecs {
 				var cp ContainerPort
 				cp.Container = v.Name
@@ -604,6 +611,7 @@ func (this *AppController) GetAppServiceAndContainerPort() {
 			rcp.ContainerPorts = make([]ContainerPort, 0)
 			rcp.OwnerKind = s.Kind
 			rcp.Owner = s.Name
+			rcp.Selectors = s.Selectors
 			for _, v := range s.ContainerSpecs {
 				var cp ContainerPort
 				cp.Container = v.Name
@@ -617,6 +625,7 @@ func (this *AppController) GetAppServiceAndContainerPort() {
 			rcp.ContainerPorts = make([]ContainerPort, 0)
 			rcp.OwnerKind = s.Kind
 			rcp.Owner = s.Name
+			rcp.Selectors = s.Selectors
 			for _, v := range s.ContainerSpecs {
 				var cp ContainerPort
 				cp.Container = v.Name
