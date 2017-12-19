@@ -90,6 +90,13 @@ func init() {
 			AllowHTTPMethods: []string{"Delete"},
 			Params: nil})
 
+	beego.GlobalControllerRouter["ufleet-deploy/controllers:AppController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:AppController"],
+		beego.ControllerComments{
+			Method: "GetAppServiceAndContainerPort",
+			Router: `/:app/group/:group/workspace/:workspace/serviceAndContainerPort`,
+			AllowHTTPMethods: []string{"Get"},
+			Params: nil})
+
 	beego.GlobalControllerRouter["ufleet-deploy/controllers:ConfigMapController"] = append(beego.GlobalControllerRouter["ufleet-deploy/controllers:ConfigMapController"],
 		beego.ControllerComments{
 			Method: "ListGroupWorkspaceConfigMaps",

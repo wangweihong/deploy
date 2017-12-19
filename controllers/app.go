@@ -5,7 +5,18 @@ import (
 	"fmt"
 	"ufleet-deploy/pkg/app"
 	"ufleet-deploy/pkg/log"
+	"ufleet-deploy/pkg/resource/cronjob"
+	"ufleet-deploy/pkg/resource/daemonset"
+	"ufleet-deploy/pkg/resource/deployment"
+	"ufleet-deploy/pkg/resource/job"
+	"ufleet-deploy/pkg/resource/pod"
+	"ufleet-deploy/pkg/resource/replicaset"
+	"ufleet-deploy/pkg/resource/replicationcontroller"
+	"ufleet-deploy/pkg/resource/service"
+	"ufleet-deploy/pkg/resource/statefulset"
 	"ufleet-deploy/pkg/user"
+
+	corev1 "k8s.io/client-go/pkg/api/v1"
 )
 
 type AppController struct {
@@ -449,4 +460,181 @@ func (this *AppController) AppRemoveResource() {
 	this.audit(token, appName, false)
 	this.normalReturn("ok")
 
+}
+
+type ServiceAndContainerPort struct {
+	Services      []ServiceDescribe       `json:"services"`
+	ResourcePorts []ResourceContainerPort `json:"resourcePorts"`
+}
+
+type ServiceDescribe struct {
+	Name  string               `json:"name"`
+	Ports []corev1.ServicePort `json:"ports"`
+}
+
+type ResourceContainerPort struct {
+	OwnerKind      string          `json:"ownerKind"`
+	Owner          string          `json:"owner"`
+	ContainerPorts []ContainerPort `json:"containerPorts"`
+}
+
+type ContainerPort struct {
+	Container string                 `json:"container"`
+	Ports     []corev1.ContainerPort `json:"ports"`
+}
+
+// GetAppServices
+// @Title 应用
+// @Description   添加指定应用
+// @Param Token header string true 'Token'
+// @Param group path string true "组名"
+// @Param workspace path string true "工作区"
+// @Param app path string true "栈名"
+// @Success 201 {string} create success!
+// @Failure 500
+// @router /:app/group/:group/workspace/:workspace/serviceAndContainerPort [Get]
+func (this *AppController) GetAppServiceAndContainerPort() {
+	err := this.checkRouteControllerAbility()
+	if err != nil {
+		this.abilityErrorReturn(err)
+		return
+	}
+
+	group := this.Ctx.Input.Param(":group")
+	workspace := this.Ctx.Input.Param(":workspace")
+	stack := this.Ctx.Input.Param(":app")
+
+	ai, err := app.Controller.Get(group, workspace, stack)
+	if err != nil {
+		this.errReturn(err, 500)
+		return
+	}
+	as := ai.GetStatus()
+	if as.Reason != "" {
+		this.errReturn(err, 500)
+		return
+	}
+	var sc ServiceAndContainerPort
+	sc.Services = make([]ServiceDescribe, 0)
+	sc.ResourcePorts = make([]ResourceContainerPort, 0)
+
+	for _, os := range as.Statues {
+
+		switch s := os.(type) {
+		case *cronjob.Status:
+			var rcp ResourceContainerPort
+			rcp.ContainerPorts = make([]ContainerPort, 0)
+			rcp.OwnerKind = s.Kind
+			rcp.Owner = s.Name
+			for _, v := range s.ContainerSpecs {
+				var cp ContainerPort
+				cp.Container = v.Name
+				cp.Ports = make([]corev1.ContainerPort, 0)
+				cp.Ports = append(cp.Ports, v.Ports...)
+				rcp.ContainerPorts = append(rcp.ContainerPorts, cp)
+			}
+			sc.ResourcePorts = append(sc.ResourcePorts, rcp)
+		case *daemonset.Status:
+			var rcp ResourceContainerPort
+			rcp.ContainerPorts = make([]ContainerPort, 0)
+			rcp.OwnerKind = s.Kind
+			rcp.Owner = s.Name
+			for _, v := range s.ContainerSpecs {
+				var cp ContainerPort
+				cp.Container = v.Name
+				cp.Ports = make([]corev1.ContainerPort, 0)
+				cp.Ports = append(cp.Ports, v.Ports...)
+				rcp.ContainerPorts = append(rcp.ContainerPorts, cp)
+			}
+			sc.ResourcePorts = append(sc.ResourcePorts, rcp)
+		case *deployment.Status:
+			var rcp ResourceContainerPort
+			rcp.ContainerPorts = make([]ContainerPort, 0)
+			rcp.OwnerKind = s.Kind
+			rcp.Owner = s.Name
+			for _, v := range s.ContainerSpecs {
+				var cp ContainerPort
+				cp.Container = v.Name
+				cp.Ports = make([]corev1.ContainerPort, 0)
+				cp.Ports = append(cp.Ports, v.Ports...)
+				rcp.ContainerPorts = append(rcp.ContainerPorts, cp)
+			}
+			sc.ResourcePorts = append(sc.ResourcePorts, rcp)
+		case *job.Status:
+			var rcp ResourceContainerPort
+			rcp.ContainerPorts = make([]ContainerPort, 0)
+			rcp.OwnerKind = s.Kind
+			rcp.Owner = s.Name
+			for _, v := range s.ContainerSpecs {
+				var cp ContainerPort
+				cp.Container = v.Name
+				cp.Ports = make([]corev1.ContainerPort, 0)
+				cp.Ports = append(cp.Ports, v.Ports...)
+				rcp.ContainerPorts = append(rcp.ContainerPorts, cp)
+			}
+			sc.ResourcePorts = append(sc.ResourcePorts, rcp)
+		case *pod.Status:
+			var rcp ResourceContainerPort
+			rcp.ContainerPorts = make([]ContainerPort, 0)
+			rcp.OwnerKind = s.Kind
+			rcp.Owner = s.Name
+			for _, v := range s.ContainerSpecs {
+				var cp ContainerPort
+				cp.Container = v.Name
+				cp.Ports = make([]corev1.ContainerPort, 0)
+				cp.Ports = append(cp.Ports, v.Ports...)
+				rcp.ContainerPorts = append(rcp.ContainerPorts, cp)
+			}
+			sc.ResourcePorts = append(sc.ResourcePorts, rcp)
+		case *replicaset.Status:
+			var rcp ResourceContainerPort
+			rcp.ContainerPorts = make([]ContainerPort, 0)
+			rcp.OwnerKind = s.Kind
+			rcp.Owner = s.Name
+			for _, v := range s.ContainerSpecs {
+				var cp ContainerPort
+				cp.Container = v.Name
+				cp.Ports = make([]corev1.ContainerPort, 0)
+				cp.Ports = append(cp.Ports, v.Ports...)
+				rcp.ContainerPorts = append(rcp.ContainerPorts, cp)
+			}
+			sc.ResourcePorts = append(sc.ResourcePorts, rcp)
+		case *replicationcontroller.Status:
+			var rcp ResourceContainerPort
+			rcp.ContainerPorts = make([]ContainerPort, 0)
+			rcp.OwnerKind = s.Kind
+			rcp.Owner = s.Name
+			for _, v := range s.ContainerSpecs {
+				var cp ContainerPort
+				cp.Container = v.Name
+				cp.Ports = make([]corev1.ContainerPort, 0)
+				cp.Ports = append(cp.Ports, v.Ports...)
+				rcp.ContainerPorts = append(rcp.ContainerPorts, cp)
+			}
+			sc.ResourcePorts = append(sc.ResourcePorts, rcp)
+		case *statefulset.Status:
+			var rcp ResourceContainerPort
+			rcp.ContainerPorts = make([]ContainerPort, 0)
+			rcp.OwnerKind = s.Kind
+			rcp.Owner = s.Name
+			for _, v := range s.ContainerSpecs {
+				var cp ContainerPort
+				cp.Container = v.Name
+				cp.Ports = make([]corev1.ContainerPort, 0)
+				cp.Ports = append(cp.Ports, v.Ports...)
+				rcp.ContainerPorts = append(rcp.ContainerPorts, cp)
+			}
+			sc.ResourcePorts = append(sc.ResourcePorts, rcp)
+		case *service.Status:
+			var sd ServiceDescribe
+			sd.Name = s.Name
+			sd.Ports = make([]corev1.ServicePort, 0)
+			sd.Ports = append(sd.Ports, s.Ports...)
+			sc.Services = append(sc.Services, sd)
+
+		default:
+			continue
+		}
+	}
+	this.normalReturn(sc)
 }
