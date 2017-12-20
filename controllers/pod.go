@@ -71,18 +71,21 @@ func (this *PodController) GetGroupPodCount() {
 		return
 	}
 
+	var failedCount int
 	pods := make([]*corev1.Pod, 0)
 	for _, v := range pis {
 		pi, _ := pk.GetPodInterface(v)
 		r, err := pi.GetRuntime()
 		if err != nil {
-			this.errReturn(err, 500)
-			return
+			failedCount += 1
+			//			this.errReturn(err, 500)
+			//			return
+			continue
 		}
 
 		pods = append(pods, r.Pod)
 	}
-	c := resource.GetPodsCount(pods)
+	c := resource.GetPodsCount(pods, failedCount)
 
 	this.normalReturn(c)
 }
@@ -219,6 +222,7 @@ func (this *PodController) GetAllGroupPodsCount() {
 	groups := pk.Controller.ListGroups()
 
 	pods := make([]*corev1.Pod, 0)
+	var failedCount int
 	for _, v := range groups {
 		pis, err := pk.Controller.ListGroupObject(v)
 		if err != nil {
@@ -230,15 +234,17 @@ func (this *PodController) GetAllGroupPodsCount() {
 			v, _ := pk.GetPodInterface(j)
 			r, err := v.GetRuntime()
 			if err != nil {
-				this.errReturn(err, 500)
-				return
+				failedCount += 1
+				//				this.errReturn(err, 500)
+				//				return
+				continue //不返回错误
 			}
 			pods = append(pods, r.Pod)
 		}
 
 	}
 
-	c := resource.GetPodsCount(pods)
+	c := resource.GetPodsCount(pods, failedCount)
 	this.normalReturn(c)
 }
 

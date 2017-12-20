@@ -152,7 +152,8 @@ type PodsCount struct {
 	Terminating int `json:"terminating"`
 }
 
-func GetPodsCount(pis interface{}) *PodsCount {
+//FailedCount,指获取corev1.Pod时失败的Pod的数量
+func GetPodsCount(pis interface{}, FailedCountArgs ...int) *PodsCount {
 
 	c := &PodsCount{}
 	if pods, ok := pis.([]*corev1.Pod); ok {
@@ -191,5 +192,10 @@ func GetPodsCount(pis interface{}) *PodsCount {
 			}
 		}
 	}
+
+	if len(FailedCountArgs) != 0 {
+		c.Unknown += FailedCountArgs[0]
+	}
+
 	return c
 }
