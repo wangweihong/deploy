@@ -84,6 +84,7 @@ func (c *ResourceController) locateResourceGW(ns string) *Workspace {
 }
 
 func (c *ResourceController) generateEventFromObj(obj interface{}, action ActionType) (*Event, error) {
+
 	//参考自:k8s.io/client-go/tools/cache/index.go的MetaNamespaceIndexFunc()
 	accessor, err := meta.Accessor(obj)
 	if err != nil {

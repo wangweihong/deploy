@@ -25,7 +25,7 @@ var (
 )
 
 type ClusterController interface {
-	CreateOrUpdateCluster(group, workspace string, startinformer bool) (*Cluster, error)
+	CreateOrUpdateCluster(group, workspace string, startinformer bool) (*Cluster, bool, error)
 	//只有在集群全部相关的workspace都被移除时,cluster才会真正被移除
 	DeleteCluster(group, workspace string) error
 	GetCluster(group, workspace string) (*Cluster, error)
@@ -94,7 +94,7 @@ type clusterController struct {
 	locker   sync.Mutex
 }
 
-func (c *clusterController) CreateOrUpdateCluster(group, workspace string, startinformer bool) (*Cluster, error) {
+func (c *clusterController) CreateOrUpdateCluster(group, workspace string, startinformer bool) (*Cluster, bool, error) {
 
 	c.locker.Lock()
 	defer c.locker.Unlock()
@@ -102,18 +102,18 @@ func (c *clusterController) CreateOrUpdateCluster(group, workspace string, start
 	gwkey := group + "_" + workspace
 	_, ok := c.cis[gwkey]
 	if ok {
-		return nil, ErrClusterExists
+		return nil, false, ErrClusterExists
 	}
 
 	token := "1234567890987654321"
 	cConfig, err := GetK8sClientConfig(group, workspace, token)
 	if err != nil {
-		return nil, log.DebugPrint(err)
+		return nil, false, log.DebugPrint(err)
 	}
 
 	rconfig, err := ClusterConfigToK8sClientConfig(*cConfig)
 	if err != nil {
-		return nil, log.DebugPrint(err)
+		return nil, false, log.DebugPrint(err)
 	}
 
 	cluster, ok := c.clusters[cConfig.ClusterName]
@@ -125,7 +125,7 @@ func (c *clusterController) CreateOrUpdateCluster(group, workspace string, start
 		//cluster.informerController.Workspaces[workspace] = Workspace{Name: workspace, Group: group}
 		c.cis[gwkey] = cluster
 		c.clusters[cConfig.ClusterName] = cluster
-		return cluster, nil
+		return cluster, true, nil
 	} else {
 		log.DebugPrint("start to create cluster :%v", cConfig.ClusterName)
 		var cluster Cluster
@@ -137,17 +137,20 @@ func (c *clusterController) CreateOrUpdateCluster(group, workspace string, start
 		cluster.Workspaces[workspace] = Workspace{Name: workspace, Group: group}
 		cluster.healthStopChan = make(chan struct{})
 		cluster.IllCaused = cluster.ill()
-		if startinformer || cluster.IllCaused == nil {
-			err := cluster.StartInformers()
-			if err != nil {
-				return nil, err
+		/*
+			if startinformer && cluster.IllCaused == nil {
+				log.DebugPrint("start inform er ....")
+				err := cluster.StartInformers()
+				if err != nil {
+					return nil, false,err
+				}
 			}
-		}
-		go cluster.HandleHealthyEvent()
+		*/
+		//		go cluster.HandleHealthyEvent()
 
 		c.clusters[cConfig.ClusterName] = &cluster
 		c.cis[gwkey] = &cluster
-		return &cluster, nil
+		return &cluster, false, nil
 	}
 
 }
@@ -183,6 +186,8 @@ func (c *clusterController) startClusterInformers(clusterName string) error {
 	if err != nil {
 		return err
 	}
+
+	go cluster.HandleHealthyEvent()
 
 	c.clusters[clusterName] = cluster
 	for _, v := range cluster.Workspaces {
