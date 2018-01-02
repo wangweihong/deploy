@@ -67,7 +67,7 @@ func watchRegistyEvent() error {
 				continue
 			}
 
-			res := we.Resp
+			res := we
 			if res.Node.Key == etcdRegistryKey {
 				continue
 			}

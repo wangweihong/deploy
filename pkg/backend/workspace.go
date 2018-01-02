@@ -95,7 +95,7 @@ func TuneResourcesWorkspaceAccordingToExternalWorkspace(be BackendHandler, kind 
 func GetExternalWorkspaceList() (map[string][]string, error) {
 	gws := make(map[string][]string)
 
-	resp, err := kv.Store.GetNode(externalWorkspaceKey)
+	resp, err := kv.Store.GetChildNode(externalWorkspaceKey)
 	if err != nil && err != kv.ErrKeyNotFound {
 		return nil, log.DebugPrint(err)
 	}
@@ -104,7 +104,7 @@ func GetExternalWorkspaceList() (map[string][]string, error) {
 		return gws, nil
 	}
 
-	for _, v := range resp.Node.Nodes {
+	for _, v := range resp {
 		var w Workspace
 		err := json.Unmarshal([]byte(v.Value), &w)
 		if err != nil {
@@ -134,12 +134,12 @@ func GetGroupWorkspace(groupName string) ([]string, error) {
 
 	ws := make([]string, 0)
 
-	resp, err := kv.Store.GetNode(externalWorkspaceKey)
+	resp, err := kv.Store.GetChildNode(externalWorkspaceKey)
 	if err != nil {
 		return nil, err
 	}
 
-	for _, v := range resp.Node.Nodes {
+	for _, v := range resp {
 		var w Workspace
 		err := json.Unmarshal([]byte(v.Value), &w)
 		if err != nil {
@@ -171,7 +171,7 @@ func watchWorkspaceChange() error {
 				continue
 			}
 
-			res := we.Resp
+			res := we
 			if res.Node.Key == externalWorkspaceKey {
 				continue
 			}
@@ -179,14 +179,14 @@ func watchWorkspaceChange() error {
 			var action string
 			var value string
 			switch res.Action {
-			case "set":
+			case kv.ActionCreate:
 
 				action = res.Action
 				value = res.Node.Value
 
-			case "delete":
+			case kv.ActionDelete:
 				action = res.Action
-				value = res.PrevNode.Value
+				//				value = res.PrevNode.Value
 			}
 
 			var w Workspace

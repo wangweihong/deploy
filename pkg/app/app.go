@@ -131,6 +131,7 @@ func (sm *AppMananger) NewApp(groupName, workspaceName, appName string, desc []b
 	}
 	//等待刷入到内存中,不然会出现etcd创建事件的监听晚于删除事件
 	sm.Locker.Unlock()
+	log.DebugPrint("check app flush to memory")
 	for {
 		_, err := sm.Get(groupName, workspaceName, appName)
 		if err == nil {
@@ -138,6 +139,7 @@ func (sm *AppMananger) NewApp(groupName, workspaceName, appName string, desc []b
 		}
 		time.Sleep(500 * time.Millisecond)
 	}
+	log.DebugPrint("flush success")
 
 	if len(desc) == 0 {
 		return nil
@@ -827,16 +829,19 @@ func InitAppController(be backend.BackendHandler) (AppController, error) {
 
 	rs, err := be.GetResourceAllGroup(backendKind)
 	if err != nil {
-		return nil, err
+		return nil, log.DebugPrint(err)
 	}
 
 	for k, v := range rs {
+		log.DebugPrint("group:", k)
 		var group AppGroup
 		group.Workspaces = make(map[string]AppWorkspace)
 		for i, j := range v.Workspaces {
+			log.DebugPrint("workspace:", i)
 			var workspace AppWorkspace
 			workspace.Apps = make(map[string]App)
 			for m, n := range j.Resources {
+				log.DebugPrint("app:", m, n)
 				var app App
 				err := json.Unmarshal([]byte(n), &app)
 				if err != nil {

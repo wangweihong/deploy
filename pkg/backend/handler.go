@@ -5,7 +5,6 @@ import (
 	"path/filepath"
 
 	"ufleet-deploy/pkg/kv"
-	"ufleet-deploy/pkg/log"
 )
 
 var (
@@ -67,7 +66,7 @@ func (e *eb) GetResource(kind, groupName, workspaceName, resouceName string) ([]
 			return nil, BackendResourceNotFound
 		}
 	}
-	return []byte(resp.Node.Value), nil
+	return []byte(resp.Value), nil
 
 }
 
@@ -76,9 +75,8 @@ func (e *eb) CreateResource(kind, groupName, workspaceName, resouceName string, 
 	if err != nil {
 		return BackendResourceInvalid
 	}
-	log.DebugPrint(key)
 
-	_, err = kv.Store.CreateNode(key, data)
+	err = kv.Store.CreateNode(key, data)
 	if err != nil {
 		if err == kv.ErrKeyAlreadyExists {
 			return BackendResourceAlreadyExists
@@ -96,7 +94,7 @@ func (e *eb) UpdateResource(kind, groupName, workspaceName, resouceName string, 
 		return BackendResourceInvalid
 	}
 
-	_, err = kv.Store.UpdateNode(key, data)
+	err = kv.Store.UpdateNode(key, data)
 	if err != nil {
 		if err == kv.ErrKeyNotFound {
 			return BackendResourceNotFound
@@ -114,7 +112,7 @@ func (e *eb) DeleteResource(kind, groupName, workspaceName, resouceName string) 
 		return BackendResourceInvalid
 	}
 
-	_, err = kv.Store.DeleteNode(key)
+	err = kv.Store.DeleteNode(key)
 	if err != nil {
 		if err == kv.ErrKeyNotFound {
 			return BackendResourceNotFound
@@ -132,7 +130,7 @@ func (e *eb) CreateResourceGroup(kind, groupName string) error {
 		return BackendResourceInvalid
 	}
 
-	_, err = kv.Store.CreateDirNode(key)
+	err = kv.Store.CreateDirNode(key)
 	if err != nil {
 		if err == kv.ErrKeyAlreadyExists {
 			return BackendResourceAlreadyExists
@@ -150,7 +148,7 @@ func (e *eb) DeleteResourceGroup(kind, groupName string) error {
 		return BackendResourceInvalid
 	}
 
-	_, err = kv.Store.DeleteDirNode(key)
+	err = kv.Store.DeleteDirNode(key)
 	if err != nil {
 		if err == kv.ErrKeyNotFound {
 			return BackendResourceNotFound
@@ -168,8 +166,7 @@ func (e *eb) CreateResourceWorkspace(kind, groupName, workspace string) error {
 		return BackendResourceInvalid
 	}
 
-	//log.DebugPrint(key)
-	_, err = kv.Store.CreateDirNode(key)
+	err = kv.Store.CreateDirNode(key)
 	if err != nil {
 		if err == kv.ErrKeyAlreadyExists {
 			return BackendResourceAlreadyExists
@@ -187,8 +184,7 @@ func (e *eb) DeleteResourceWorkspace(kind, groupName, workspace string) error {
 		return BackendResourceInvalid
 	}
 
-	//log.DebugPrint(key)
-	_, err = kv.Store.DeleteDirNode(key)
+	err = kv.Store.DeleteDirNode(key)
 	if err != nil {
 		if err == kv.ErrKeyNotFound {
 			return BackendResourceNotFound
@@ -206,7 +202,7 @@ func (e *eb) GetResourceAllGroup(kind string) (map[string]ResourceGroup, error) 
 		return nil, BackendResourceInvalid
 	}
 
-	resp, err := kv.Store.GetNode(key)
+	resp, err := kv.Store.GetChildNode(key)
 	if err != nil {
 		if err == kv.ErrKeyNotFound {
 			return nil, BackendResourceNotFound
@@ -215,16 +211,28 @@ func (e *eb) GetResourceAllGroup(kind string) (map[string]ResourceGroup, error) 
 	}
 
 	groups := make(map[string]ResourceGroup)
-	for _, v := range resp.Node.Nodes {
+	for _, v := range resp {
 		groupName := filepath.Base(v.Key)
 
 		var group ResourceGroup
 		group.Workspaces = make(map[string]ResourceWorkspace)
-		for _, j := range v.Nodes {
+
+		grespChild, err := kv.Store.GetChildNode(v.Key)
+		if err != nil {
+			return nil, err
+		}
+
+		for _, j := range grespChild {
 			workspaceName := filepath.Base(j.Key)
 			var workspace ResourceWorkspace
 			workspace.Resources = make(map[string]Resource)
-			for _, n := range j.Nodes {
+
+			wrespChild, err := kv.Store.GetChildNode(j.Key)
+			if err != nil {
+				return nil, err
+			}
+			for _, n := range wrespChild {
+
 				resouceName := filepath.Base(n.Key)
 				resource := []byte(n.Value)
 

@@ -140,7 +140,7 @@ func EtcdEventHandler(e backend.ResourceEvent, cm ObjectController) {
 			}
 			return
 		}
-	case backend.ActionAdd, backend.ActionCreate, backend.ActionUpdate:
+	case backend.ActionAdd:
 		switch etype {
 		case eGroup:
 			cm.AddGroup(e.Group)

@@ -71,7 +71,7 @@ func GetExternalGroupList() (map[string]string, error) {
 
 	groups := make(map[string]string, 0)
 
-	resp, err := kv.Store.GetNode(etcdGroupExternalKey)
+	resp, err := kv.Store.GetChildNode(etcdGroupExternalKey)
 	if err != nil {
 		if err == kv.ErrKeyNotFound {
 			return groups, nil
@@ -79,7 +79,7 @@ func GetExternalGroupList() (map[string]string, error) {
 		return nil, err
 	}
 
-	for _, v := range resp.Node.Nodes {
+	for _, v := range resp {
 		group := filepath.Base(v.Key)
 		groups[group] = group
 
@@ -109,14 +109,14 @@ func watchExternalGroupChange() error {
 	if err != nil {
 		return err
 	}
-	go func(wechan chan kv.WatcheEvent) {
+	go func(wechan chan kv.WatchEvent) {
 		for {
 			we := <-wechan
 			if we.Err != nil {
 				log.ErrorPrint("externalgroupWatcher watch error: %v", we.Err)
 				continue
 			}
-			res := we.Resp
+			res := we
 			if res.Node.Key == etcdGroupExternalKey {
 				continue
 			}
@@ -127,7 +127,7 @@ func watchExternalGroupChange() error {
 				continue
 			}
 
-			log.DebugPrint("externalgroupWatcher recieve group event:", *we.Resp)
+			log.DebugPrint("externalgroupWatcher recieve group event:", we)
 			group = s[0]
 
 			var ge ExternalGroupEvent

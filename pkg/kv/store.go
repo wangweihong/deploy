@@ -11,39 +11,58 @@ import (
 	eclient "github.com/coreos/etcd/client"
 )
 
+const (
+	ActionDelete = "delete"
+	ActionCreate = "set"
+)
+
 var (
 	Store    KVStore
 	etcdHost string
-)
-var (
+
 	ErrKeyNotFound      = fmt.Errorf("key not found")
 	ErrKeyAlreadyExists = fmt.Errorf("key already exists")
 )
 
 type KVStore interface {
-	GetNode(key string) (*Response, error)
-	WatchNode(key string) (chan WatcheEvent, error)
-	DeleteDirNode(key string) (*Response, error)
-	DeleteNode(key string) (*Response, error)
-	CreateDirNode(key string) (*Response, error)
-	CreateNode(key string, value interface{}) (*Response, error)
-	UpdateNode(key string, value interface{}) (*Response, error)
+	GetNode(key string) (*Node, error)
+	GetChildNode(key string) ([]Node, error)
+	WatchNode(key string) (chan WatchEvent, error)
+	DeleteDirNode(key string) error
+	DeleteNode(key string) error
+	CreateDirNode(key string) error
+	CreateNode(key string, value interface{}) error
+	UpdateNode(key string, value interface{}) error
 	TestConnection() error
 }
 
+type Node struct {
+	//	Action string `json:"action"`
+	Key   string `json:"key"`
+	Value string `json:"value"`
+	TTL   int64  `json:"ttl"`
+}
+
 type Response struct {
-	eclient.Response
+	//eclient.Response
+	Action string `json:"action"`
+	Node   *Node
 }
 type kvStore struct {
 	client *etcd.EtcdClient
 }
 
-func NewKewStore(etcdHost string) KVStore {
-	ec := etcd.InitEtcdClient(etcdHost)
-	if ec == nil {
-		return nil
+func NewKewStore(etcdHost string) (KVStore, error) {
+	//	return NewEtcdStore(etcdHost)
+	return NewEtcdV3Store(etcdHost)
+}
+
+func NewEtcdStore(etcdHost string) (KVStore, error) {
+	ec, err := etcd.InitEtcdClient(etcdHost)
+	if err != nil {
+		return nil, err
 	}
-	return &kvStore{client: ec}
+	return &kvStore{client: ec}, nil
 
 }
 
@@ -61,9 +80,10 @@ func Init(etcdHostEnvKey string) {
 		}
 	*/
 
-	Store = NewKewStore(etcdHost)
-	if Store == nil {
-		panic(fmt.Sprintf("init kvstore client for host \"%v\" fail", etcdHost))
+	var err error
+	Store, err = NewKewStore(etcdHost)
+	if err != nil {
+		panic(fmt.Sprintf("init kvstore client for host \"%v\" fail for '%v'", etcdHost, err))
 	}
 
 }
@@ -80,33 +100,60 @@ func checkEtcdError(err error) error {
 	return err
 }
 
-func (k *kvStore) GetNode(key string) (*Response, error) {
-	resp, err := k.client.GetNode(key)
+func (k *kvStore) GetNode(key string) (*Node, error) {
+	eresp, err := k.client.GetNode(key)
 	if err != nil {
 		err = checkEtcdError(err)
 		return nil, err
 	}
 
-	return &Response{*resp}, nil
+	//	resp := etcdRespondeToKvResponse(*eresp)
+	var node Node
+	node.Key = eresp.Node.Key
+	node.Value = eresp.Node.Value
+	node.TTL = eresp.Node.TTL
+
+	return &node, nil
 }
 
-type WatcheEvent struct {
-	Resp *Response
-	Err  error
+func (k *kvStore) GetChildNode(key string) ([]Node, error) {
+	eresp, err := k.client.GetNode(key)
+	if err != nil {
+		err = checkEtcdError(err)
+		return nil, err
+	}
+
+	nodes := make([]Node, 0)
+	for _, v := range eresp.Node.Nodes {
+		var node Node
+		node.Key = v.Key
+		node.Value = v.Value
+		node.TTL = v.TTL
+		nodes = append(nodes, node)
+	}
+
+	return nodes, nil
 }
 
-func (k *kvStore) WatchNode(key string) (chan WatcheEvent, error) {
-	wechan := make(chan WatcheEvent)
+type WatchEvent struct {
+	//	Resp *Response
+	Node   *Node
+	Action string
+	Err    error
+}
+
+func (k *kvStore) WatchNode(key string) (chan WatchEvent, error) {
+	wechan := make(chan WatchEvent)
 	watcher, err := k.client.GenerateWatcher(key)
 	if err != nil {
 		return nil, fmt.Errorf("generate etcd watcher fail for %v", err)
 	}
 
-	go func(wechan chan WatcheEvent) {
+	go func(wechan chan WatchEvent) {
 		count := 0
 		for {
 
-			resp, err := watcher.Next(context.Background())
+			eresp, err := watcher.Next(context.Background())
 
 			if err != nil {
 				if count/20 == 0 {
@@ -118,67 +165,78 @@ func (k *kvStore) WatchNode(key string) (chan WatcheEvent, error) {
 				time.Sleep(1 * time.Second)
 				continue
 			}
-			wechan <- WatcheEvent{Err: err, Resp: &Response{*resp}}
+
+			//			resp := etcdRespondeToKvResponse(*eresp)
+			var node Node
+			node.Key = eresp.Node.Key
+			node.Value = string(eresp.Node.Value)
+
+			wechan <- WatchEvent{Err: err, Node: &node, Action: eresp.Action}
 		}
 	}(wechan)
 	return wechan, nil
 }
 
-func (k *kvStore) DeleteDirNode(key string) (*Response, error) {
-	resp, err := k.client.DeleteDirNode(key)
+//func (k *kvStore) DeleteDirNode(key string) (*Response, error) {
+func (k *kvStore) DeleteDirNode(key string) error {
+	_, err := k.client.DeleteDirNode(key)
 	if err != nil {
 		err = checkEtcdError(err)
-		return nil, err
+		return err
 	}
-	return &Response{*resp}, nil
+	return nil
 }
 
-func (k *kvStore) DeleteNode(key string) (*Response, error) {
-	resp, err := k.client.DeleteNode(key)
+//func (k *kvStore) DeleteNode(key string) (*Response, error) {
+func (k *kvStore) DeleteNode(key string) error {
+	_, err := k.client.DeleteNode(key)
 	if err != nil {
 		err = checkEtcdError(err)
-		return nil, err
+		return err
 	}
 
-	return &Response{*resp}, nil
+	return nil
 }
 
-func (k *kvStore) CreateDirNode(key string) (*Response, error) {
-	resp, err := k.client.CreateDirNode(key, "")
+//func (k *kvStore) CreateDirNode(key string) (*Response, error) {
+func (k *kvStore) CreateDirNode(key string) error {
+	_, err := k.client.CreateDirNode(key, "")
 	if err != nil {
 		err = checkEtcdError(err)
-		return nil, err
+		return err
 	}
-	return &Response{*resp}, nil
+	return nil
 }
 
-func (k *kvStore) CreateNode(key string, value interface{}) (*Response, error) {
+//func (k *kvStore) CreateNode(key string, value interface{}) (*Response, error) {
+func (k *kvStore) CreateNode(key string, value interface{}) error {
 	byteContent, err := json.Marshal(value)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	resp, err := k.client.CreateNode(key, string(byteContent))
+	_, err = k.client.CreateNode(key, string(byteContent))
 	if err != nil {
 		err = checkEtcdError(err)
-		return nil, err
+		return err
 	}
 
-	return &Response{*resp}, nil
+	return nil
 }
 
-func (k *kvStore) UpdateNode(key string, value interface{}) (*Response, error) {
+//func (k *kvStore) UpdateNode(key string, value interface{}) (*Response, error) {
+func (k *kvStore) UpdateNode(key string, value interface{}) error {
 	byteContent, err := json.Marshal(value)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	resp, err := k.client.UpdateNode(key, string(byteContent))
+	_, err = k.client.UpdateNode(key, string(byteContent))
 	if err != nil {
 		err = checkEtcdError(err)
-		return nil, err
+		return err
 	}
-	return &Response{*resp}, nil
+	return nil
 }
 
 func (k *kvStore) TestConnection() error {

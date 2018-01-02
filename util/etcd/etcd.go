@@ -1,7 +1,6 @@
 package etcd
 
 import (
-	"strings"
 	"time"
 
 	eclient "github.com/coreos/etcd/client"
@@ -12,10 +11,12 @@ type EtcdClient struct {
 	eclient.KeysAPI
 }
 
-func InitEtcdClient(endpoint string) *EtcdClient {
-	if !strings.HasPrefix(endpoint, "http://") {
-		endpoint = "http://" + endpoint
-	}
+func InitEtcdClient(endpoint string) (*EtcdClient, error) {
+	/*
+		if !strings.HasPrefix(endpoint, "http://") && !strings.HasPrefix(endpoint, "https://") {
+			endpoint = "http://" + endpoint
+		}
+	*/
 
 	cfg := eclient.Config{
 		Endpoints:               []string{endpoint},
@@ -25,14 +26,14 @@ func InitEtcdClient(endpoint string) *EtcdClient {
 
 	c, err := eclient.New(cfg)
 	if err != nil {
-		return nil
+		return nil, err
 	}
 
 	kapi := eclient.NewKeysAPI(c)
 	etcdClient := &EtcdClient{
 		kapi,
 	}
-	return etcdClient
+	return etcdClient, nil
 }
 
 func (e *EtcdClient) TestConnection() error {

@@ -53,10 +53,8 @@ const (
 	ResourceReplicaSets              = "replicasets"
 	ResourceHorizontalPodAutoscalers = "horizontalPodAutoscalers"
 
-	ActionDelete = "delete"
-	ActionAdd    = "set"
-	ActionCreate = "create"
-	ActionUpdate = "update"
+	ActionDelete = kv.ActionDelete
+	ActionAdd    = kv.ActionCreate
 )
 
 var (
@@ -153,45 +151,47 @@ func watchBackendEvent() error {
 	}
 
 	go func() {
-		defer log.ErrorPrint("Backend Event Watcher has EXIST !")
+		defer log.ErrorPrint("Backend Event Watcher has EXIT !")
 		for {
 			we := <-wechan
-			if we.Err != nil {
-				log.ErrorPrint(we.Err)
-				time.Sleep(1 * time.Second)
-				continue
-			}
-
-			res := we.Resp
-
-			//可能是新建etcd
-			if res.Node.Key == etcdUfleetKey {
-				if res.Action == "delete" {
-					panic("All Deploy data removed!")
-				} else {
-					continue
+			go func(we kv.WatchEvent) {
+				if we.Err != nil {
+					log.ErrorPrint(we.Err)
+					time.Sleep(1 * time.Second)
+					return
 				}
-			}
 
-			kind, remain, err := fetchEvent(res.Node.Key)
-			if err != nil {
-				log.DebugPrint(err)
-				continue
-			}
+				res := we
 
-			action := res.Action
-			value := res.Node.Value
+				//可能是新建etcd
+				if res.Node.Key == etcdUfleetKey {
+					if res.Action == "delete" {
+						panic("All Deploy data removed!")
+					} else {
+						return
+					}
+				}
 
-			noticer, ok := noticers[kind]
-			if !ok {
-				log.DebugPrint(fmt.Errorf("noticer %v doesn't register", kind))
-				continue
-			}
+				kind, remain, err := fetchEvent(res.Node.Key)
+				if err != nil {
+					log.DebugPrint(err)
+					return
+				}
 
-			re := getEventFromEtcdKey(remain, value, action)
+				action := res.Action
+				value := res.Node.Value
 
-			go noticer.HandleEvent(re)
+				noticer, ok := noticers[kind]
+				if !ok {
+					log.DebugPrint(fmt.Errorf("noticer %v doesn't register", kind))
+					return
+				}
 
+				re := getEventFromEtcdKey(remain, value, action)
+
+				noticer.HandleEvent(re)
+
+			}(we)
 		}
 	}()
 
@@ -221,7 +221,7 @@ func getEventFromEtcdKey(remain string, value string, action string) ResourceEve
 }
 
 func initRootKey() error {
-	_, err := kv.Store.CreateDirNode(etcdUfleetKey)
+	err := kv.Store.CreateDirNode(etcdUfleetKey)
 	if err != nil && err != kv.ErrKeyAlreadyExists {
 		return err
 	}
@@ -231,7 +231,7 @@ func initRootKey() error {
 func initResourcesKey() error {
 	for _, v := range resources {
 		key := etcdUfleetKey + "/" + v
-		_, err := kv.Store.CreateDirNode(key)
+		err := kv.Store.CreateDirNode(key)
 		if err != nil && err != kv.ErrKeyAlreadyExists {
 			return err
 		}

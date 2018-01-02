@@ -18,6 +18,7 @@ const (
 //如果组被删除,说明组其中的工作区/资源,以及相应k8s资源都已经被删除,直接删除组即可
 //如果工作区删除,说明其中的资源对应的k8s资源已经被清除.直接删除即可
 func (a *AppMananger) HandleEvent(e backend.ResourceEvent) {
+	log.DebugPrint("receive be:", e)
 	sm.Locker.Lock()
 	defer sm.Locker.Unlock()
 	var etype string
@@ -67,7 +68,7 @@ func (a *AppMananger) HandleEvent(e backend.ResourceEvent) {
 				return
 			}
 		}
-	case backend.ActionAdd, backend.ActionCreate, backend.ActionUpdate:
+	case backend.ActionAdd:
 		switch etype {
 		case eGroup:
 
