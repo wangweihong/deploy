@@ -14,12 +14,10 @@ import (
 	"ufleet-deploy/pkg/resource/util"
 	"ufleet-deploy/pkg/sign"
 
-	"k8s.io/client-go/pkg/api"
-
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 
-	corev1 "k8s.io/client-go/pkg/api/v1"
-	extensionsv1beta1 "k8s.io/client-go/pkg/apis/extensions/v1beta1"
+	corev1 "k8s.io/api/core/v1"
+	extensionsv1beta1 "k8s.io/api/extensions/v1beta1"
 )
 
 var (
@@ -748,18 +746,9 @@ func (s *ReplicaSet) GetRuntimeObjectCopy() (*extensionsv1beta1.ReplicaSet, erro
 		return nil, err
 	}
 
-	newobj, err := api.Scheme.Copy(r.ReplicaSet)
-	if err != nil {
-		return nil, err
-	}
+	newobj := r.ReplicaSet.DeepCopy()
 
-	newd, ok := newobj.(*extensionsv1beta1.ReplicaSet)
-	if !ok {
-		err := fmt.Errorf("deep copy object fail, object type doesn't match")
-		return nil, err
-	}
-
-	return newd, nil
+	return newobj, nil
 }
 
 func InitReplicaSetController(be backend.BackendHandler) (resource.ObjectController, error) {

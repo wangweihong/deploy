@@ -8,7 +8,7 @@ import (
 	pk "ufleet-deploy/pkg/resource/serviceaccount"
 	"ufleet-deploy/pkg/user"
 
-	corev1 "k8s.io/client-go/pkg/api/v1"
+	corev1 "k8s.io/api/core/v1"
 )
 
 type ServiceAccountController struct {

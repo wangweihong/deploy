@@ -14,11 +14,10 @@ import (
 	"ufleet-deploy/pkg/resource/util"
 	"ufleet-deploy/pkg/sign"
 
-	"k8s.io/client-go/pkg/api"
-	corev1 "k8s.io/client-go/pkg/api/v1"
+	corev1 "k8s.io/api/core/v1"
 
+	extensionsv1beta1 "k8s.io/api/extensions/v1beta1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	extensionsv1beta1 "k8s.io/client-go/pkg/apis/extensions/v1beta1"
 )
 
 var (
@@ -744,18 +743,9 @@ func (p *DaemonSet) GetRuntimeObjectCopy() (*extensionsv1beta1.DaemonSet, error)
 		return nil, err
 	}
 
-	newobj, err := api.Scheme.Copy(r.DaemonSet)
-	if err != nil {
-		return nil, err
-	}
+	newobj := r.DaemonSet.DeepCopy()
 
-	newd, ok := newobj.(*extensionsv1beta1.DaemonSet)
-	if !ok {
-		err := fmt.Errorf("deep copy object fail, object type doesn't match")
-		return nil, err
-	}
-
-	return newd, nil
+	return newobj, nil
 }
 
 func InitDaemonSetController(be backend.BackendHandler) (resource.ObjectController, error) {

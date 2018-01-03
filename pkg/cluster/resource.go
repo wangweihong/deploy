@@ -15,26 +15,27 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/kubernetes/pkg/controller"
 
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/selection"
-	"k8s.io/client-go/pkg/api"
-	corev1 "k8s.io/client-go/pkg/api/v1"
-	appv1beta1 "k8s.io/client-go/pkg/apis/apps/v1beta1"
-	batchv1 "k8s.io/client-go/pkg/apis/batch/v1"
-	batchv2alpha1 "k8s.io/client-go/pkg/apis/batch/v2alpha1"
-	"k8s.io/client-go/pkg/apis/extensions"
-	extensionsv1beta1 "k8s.io/client-go/pkg/apis/extensions/v1beta1"
+	//	"k8s.io/client-go/pkg/api"
+	//	corev1 "k8s.io/client-go/pkg/api/v1"
+	corev1 "k8s.io/api/core/v1"
+	//	appv1beta1 "k8s.io/client-go/pkg/apis/apps/v1beta1"
+	appv1beta1 "k8s.io/api/apps/v1beta1"
+	appv1beta2 "k8s.io/api/apps/v1beta2"
+	batchv1 "k8s.io/api/batch/v1"
+	batchv2alpha1 "k8s.io/api/batch/v2alpha1"
+	extensionsv1beta1 "k8s.io/api/extensions/v1beta1"
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	watch "k8s.io/apimachinery/pkg/watch"
 	kubernetesapi "k8s.io/kubernetes/pkg/api"
 	//"k8s.io/kubernetes/pkg/controller"
-	autoscalingv1 "k8s.io/client-go/pkg/apis/autoscaling/v1"
+	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	deploymentutil "k8s.io/kubernetes/pkg/controller/deployment/util"
 )
 
@@ -348,7 +349,7 @@ func (h *serviceHandler) GetReferenceResources(namespace, name string) ([]corev1
 
 	//需要将检测service labels是否是statefulset的pod template的子集
 
-	sfs := make([]*appv1beta1.StatefulSet, 0)
+	sfs := make([]*appv1beta2.StatefulSet, 0)
 	for _, v := range allsfs {
 		if inSelector.Matches(labels.Set(v.Spec.Template.Labels)) {
 			log.DebugPrint("statefulset: %v: matchlabels:%v", v.Name, v.Spec.Template.Labels)
@@ -543,7 +544,7 @@ func (h *replicationcontrollerHandler) GetPods(namespace, name string) ([]*corev
 	}
 	pos := make([]*corev1.Pod, 0)
 	for k := range allpos {
-		controllerRef := controller.GetControllerOf(allpos[k])
+		controllerRef := metav1.GetControllerOf(allpos[k])
 		if controllerRef == nil {
 			continue
 		}
@@ -966,7 +967,7 @@ func (h *deploymentHandler) GetPods(namespace, name string) ([]*corev1.Pod, erro
 
 	pos := make([]*corev1.Pod, 0)
 	for k := range allpos {
-		controllerRef := controller.GetControllerOf(allpos[k])
+		controllerRef := metav1.GetControllerOf(allpos[k])
 		if controllerRef == nil {
 			continue
 		}
@@ -1011,7 +1012,7 @@ func (h *deploymentHandler) Rollback(namespace, name string, revision int64) (*s
 		},
 	}
 
-	event, err := h.clientset.Events(namespace).List(metav1.ListOptions{})
+	event, err := h.clientset.CoreV1().Events(namespace).List(metav1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -1093,16 +1094,10 @@ func (h *deploymentHandler) Revision(namespace, name string) (*int64, error) {
 }
 
 func EqualIgnoreHash(template1, template2 *corev1.PodTemplateSpec) (bool, error) {
-	cp, err := api.Scheme.DeepCopy(template1)
-	if err != nil {
-		return false, err
-	}
-	t1Copy := cp.(*corev1.PodTemplateSpec)
-	cp, err = api.Scheme.DeepCopy(template2)
-	if err != nil {
-		return false, err
-	}
-	t2Copy := cp.(*corev1.PodTemplateSpec)
+	t1Copy := template1.DeepCopy() //api.Scheme.DeepCopy(template1)
+	//t1Copy := cp.(*corev1.PodTemplateSpec)
+	t2Copy := template2.DeepCopy()
+	//	t2Copy := cp.(*corev1.PodTemplateSpec)
 	// First, compare template.Labels (ignoring hash)
 	labels1, labels2 := t1Copy.Labels, t2Copy.Labels
 	if len(labels1) > len(labels2) {
@@ -1110,7 +1105,7 @@ func EqualIgnoreHash(template1, template2 *corev1.PodTemplateSpec) (bool, error)
 	}
 	// We make sure len(labels2) >= len(labels1)
 	for k, v := range labels2 {
-		if labels1[k] != v && k != extensions.DefaultDeploymentUniqueLabelKey {
+		if labels1[k] != v && k != extensionsv1beta1.DefaultDeploymentUniqueLabelKey {
 			return false, nil
 		}
 	}
@@ -1137,7 +1132,7 @@ func (h *deploymentHandler) GetAllReplicaSets(namespace string, name string) ([]
 	owned := make([]*extensionsv1beta1.ReplicaSet, 0)
 
 	for _, v := range rsList {
-		controllerRef := controller.GetControllerOf(v)
+		controllerRef := metav1.GetControllerOf(v)
 		if controllerRef != nil && controllerRef.UID == d.UID {
 			owned = append(owned, v)
 		}
@@ -1379,7 +1374,7 @@ func (h *replicasetHandler) GetPods(namespace, name string) ([]*corev1.Pod, erro
 	}
 	pos := make([]*corev1.Pod, 0)
 	for k := range allpos {
-		controllerRef := controller.GetControllerOf(allpos[k])
+		controllerRef := metav1.GetControllerOf(allpos[k])
 		if controllerRef == nil {
 			continue
 		}
@@ -1530,7 +1525,7 @@ func (h *daemonsetHandler) GetPods(namespace, name string) ([]*corev1.Pod, error
 	}
 	pos := make([]*corev1.Pod, 0)
 	for k := range allpos {
-		controllerRef := controller.GetControllerOf(allpos[k])
+		controllerRef := metav1.GetControllerOf(allpos[k])
 		if controllerRef == nil {
 			continue
 		}
@@ -1578,7 +1573,7 @@ func (h *daemonsetHandler) GetControllerRevisions(namespace, name string) (*exte
 	for i := range historyList.Items {
 		history := historyList.Items[i]
 		// Skip history that doesn't belong to the DaemonSet
-		if controllerRef := controller.GetControllerOf(&history); controllerRef == nil || controllerRef.UID != d.UID {
+		if controllerRef := metav1.GetControllerOf(&history); controllerRef == nil || controllerRef.UID != d.UID {
 			continue
 		}
 
@@ -1823,11 +1818,11 @@ func (h *ingressHandler) GetServices(namespace string, name string) ([]*corev1.S
 /* --------------- StatefulSet --------------*/
 
 type StatefulSetHandler interface {
-	Get(namespace, name string) (*appv1beta1.StatefulSet, error)
-	List(namespace string) ([]*appv1beta1.StatefulSet, error)
-	Create(namespace string, ss *appv1beta1.StatefulSet) error
+	Get(namespace, name string) (*appv1beta2.StatefulSet, error)
+	List(namespace string) ([]*appv1beta2.StatefulSet, error)
+	Create(namespace string, ss *appv1beta2.StatefulSet) error
 	Delete(namespace string, name string) error
-	Update(namespace string, resource *appv1beta1.StatefulSet) error
+	Update(namespace string, resource *appv1beta2.StatefulSet) error
 	GetPods(namespace, name string) ([]*corev1.Pod, error)
 	GetServices(namespace string, name string) ([]*corev1.Service, error)
 }
@@ -1845,14 +1840,14 @@ type statefulsetHandler struct {
 	*Cluster
 }
 
-func (h *statefulsetHandler) Get(namespace, name string) (*appv1beta1.StatefulSet, error) {
+func (h *statefulsetHandler) Get(namespace, name string) (*appv1beta2.StatefulSet, error) {
 	return h.informerController.statefulsetInformer.Lister().StatefulSets(namespace).Get(name)
 }
-func (h *statefulsetHandler) List(namespace string) ([]*appv1beta1.StatefulSet, error) {
+func (h *statefulsetHandler) List(namespace string) ([]*appv1beta2.StatefulSet, error) {
 	return h.informerController.statefulsetInformer.Lister().StatefulSets(namespace).List(labels.Everything())
 }
 
-func (h *statefulsetHandler) Create(namespace string, statefulset *appv1beta1.StatefulSet) error {
+func (h *statefulsetHandler) Create(namespace string, statefulset *appv1beta2.StatefulSet) error {
 	_, err := h.clientset.Apps().StatefulSets(namespace).Create(statefulset)
 	return err
 }
@@ -1861,8 +1856,8 @@ func (h *statefulsetHandler) Delete(namespace, statefulsetName string) error {
 	return h.clientset.Apps().StatefulSets(namespace).Delete(statefulsetName, nil)
 }
 
-func (h *statefulsetHandler) Update(namespace string, resource *appv1beta1.StatefulSet) error {
-	_, err := h.clientset.AppsV1beta1().StatefulSets(namespace).Update(resource)
+func (h *statefulsetHandler) Update(namespace string, resource *appv1beta2.StatefulSet) error {
+	_, err := h.clientset.Apps().StatefulSets(namespace).Update(resource)
 	return err
 }
 func (h *statefulsetHandler) GetPods(namespace, name string) ([]*corev1.Pod, error) {
@@ -1881,7 +1876,7 @@ func (h *statefulsetHandler) GetPods(namespace, name string) ([]*corev1.Pod, err
 	}
 	pos := make([]*corev1.Pod, 0)
 	for k := range allpos {
-		controllerRef := controller.GetControllerOf(allpos[k])
+		controllerRef := metav1.GetControllerOf(allpos[k])
 		if controllerRef == nil {
 			continue
 		}
@@ -2005,7 +2000,7 @@ func (h *cronjobHandler) GetJobs(namespace, cronjobName string) ([]*batchv1.Job,
 		}
 
 		for k := range alljobs {
-			controllerRef := controller.GetControllerOf(alljobs[k])
+			controllerRef := metav1.GetControllerOf(alljobs[k])
 			if controllerRef == nil {
 				continue
 			}
@@ -2087,7 +2082,7 @@ func (h *jobHandler) Delete(namespace, jobName string) error {
 		return err2
 	}
 	opt := metav1.ListOptions{LabelSelector: selector.String()}
-	err = h.clientset.Pods(namespace).DeleteCollection(nil, opt)
+	err = h.clientset.CoreV1().Pods(namespace).DeleteCollection(nil, opt)
 	if err != nil {
 		err2 := fmt.Errorf("clean job pod %v fail for %v,please clean them by using kubectl command", jobName, err)
 		return err2
@@ -2118,7 +2113,7 @@ func (h *jobHandler) GetPods(namespace, jobName string) ([]*corev1.Pod, error) {
 	}
 	pos := make([]*corev1.Pod, 0)
 	for k := range allpos {
-		controllerRef := controller.GetControllerOf(allpos[k])
+		controllerRef := metav1.GetControllerOf(allpos[k])
 		if controllerRef == nil {
 			continue
 		}
@@ -2476,7 +2471,7 @@ func getGeneralResourceReference(informerController *ResourceController, namespa
 		return nil, err
 	}
 
-	sfs := make([]*appv1beta1.StatefulSet, 0)
+	sfs := make([]*appv1beta2.StatefulSet, 0)
 	for _, v := range allsfs {
 		found := fn(name, v.Spec.Template.Spec)
 		if found {

@@ -7,7 +7,7 @@ import (
 	pk "ufleet-deploy/pkg/resource/pod"
 	"ufleet-deploy/pkg/user"
 	//	"ufleet-deploy/util/user"
-	corev1 "k8s.io/client-go/pkg/api/v1"
+	corev1 "k8s.io/api/core/v1"
 )
 
 type PodController struct {

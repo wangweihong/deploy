@@ -15,9 +15,9 @@ import (
 
 	pk "ufleet-deploy/pkg/resource/pod"
 
+	appv1beta2 "k8s.io/api/apps/v1beta2"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	corev1 "k8s.io/client-go/pkg/api/v1"
-	appv1beta1 "k8s.io/client-go/pkg/apis/apps/v1beta1"
 )
 
 var (
@@ -48,7 +48,7 @@ type StatefulSetWorkspace struct {
 }
 
 type Runtime struct {
-	StatefulSet *appv1beta1.StatefulSet
+	StatefulSet *appv1beta2.StatefulSet
 	Pods        []*corev1.Pod
 }
 
@@ -358,7 +358,7 @@ func (p *StatefulSetManager) CreateObject(groupName, workspaceName string, data 
 		return log.DebugPrint("must  offer  one  resource json/yaml data")
 	}
 
-	var obj appv1beta1.StatefulSet
+	var obj appv1beta2.StatefulSet
 	err = json.Unmarshal(exts[0].Raw, &obj)
 	if err != nil {
 		return log.DebugPrint(err)
@@ -497,7 +497,7 @@ func (p *StatefulSetManager) UpdateObject(groupName, workspaceName string, resou
 	}
 
 	//说明是主动创建的..
-	var newr appv1beta1.StatefulSet
+	var newr appv1beta2.StatefulSet
 	err = util.GetObjectFromYamlTemplate(data, &newr)
 	if err != nil {
 		return log.DebugPrint(err)
@@ -614,7 +614,7 @@ type Status struct {
 	Annotations    map[string]string  `json:"annotations"`
 	Selectors      map[string]string  `json:"selectors"`
 	Reason         string             `json:"reason"`
-	//	appv1beta1.StatefulSetStatus
+	//	appv1beta2.StatefulSetStatus
 }
 
 func (s *StatefulSet) ObjectStatus() resource.ObjectStatus {
@@ -624,7 +624,7 @@ func (s *StatefulSet) GetStatus() *Status {
 	var e error
 
 	var js *Status
-	var statefulset *appv1beta1.StatefulSet
+	var statefulset *appv1beta2.StatefulSet
 
 	runtime, err := s.GetRuntime()
 	if err != nil {

@@ -5,20 +5,21 @@ import (
 	"ufleet-deploy/pkg/log"
 	"ufleet-deploy/pkg/sign"
 
+	appv1beta1 "k8s.io/api/apps/v1beta1"
+	autoscalingv1 "k8s.io/api/autoscaling/v1"
+	batchv1 "k8s.io/api/batch/v1"
+	batchv2alpha1 "k8s.io/api/batch/v2alpha1"
+	corev1 "k8s.io/api/core/v1"
+	extensionsv1beta1 "k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/client-go/informers"
-	appinformers "k8s.io/client-go/informers/apps/v1beta1"
+	//appinformers "k8s.io/client-go/informers/apps/v1beta1"
+	appinformers "k8s.io/client-go/informers/apps/v1beta2"
 	autoscalinginformers "k8s.io/client-go/informers/autoscaling/v1"
 	batchinformers "k8s.io/client-go/informers/batch/v1"
 	batchv2alpa1informers "k8s.io/client-go/informers/batch/v2alpha1"
 	coreinformers "k8s.io/client-go/informers/core/v1"
 	extensioninformers "k8s.io/client-go/informers/extensions/v1beta1"
-	corev1 "k8s.io/client-go/pkg/api/v1"
-	appv1beta1 "k8s.io/client-go/pkg/apis/apps/v1beta1"
-	autoscalingv1 "k8s.io/client-go/pkg/apis/autoscaling/v1"
-	batchv1 "k8s.io/client-go/pkg/apis/batch/v1"
-	batchv2alpha1 "k8s.io/client-go/pkg/apis/batch/v2alpha1"
-	extensionsv1beta1 "k8s.io/client-go/pkg/apis/extensions/v1beta1"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -287,7 +288,7 @@ func NewResourceController(informerFactory informers.SharedInformerFactory, ws m
 	replicasetInformer := informerFactory.Extensions().V1beta1().ReplicaSets()
 	daemonsetInformer := informerFactory.Extensions().V1beta1().DaemonSets()
 	ingressInformer := informerFactory.Extensions().V1beta1().Ingresses()
-	statefulsetInformer := informerFactory.Apps().V1beta1().StatefulSets()
+	statefulsetInformer := informerFactory.Apps().V1beta2().StatefulSets()
 	jobInformer := informerFactory.Batch().V1().Jobs()
 	cronjobInformer := informerFactory.Batch().V2alpha1().CronJobs()
 	hpaInformer := informerFactory.Autoscaling().V1().HorizontalPodAutoscalers()

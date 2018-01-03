@@ -9,7 +9,7 @@ import (
 	"ufleet-deploy/pkg/resource"
 	pk "ufleet-deploy/pkg/resource/deployment"
 
-	autoscalingv1 "k8s.io/client-go/pkg/apis/autoscaling/v1"
+	autoscalingv1 "k8s.io/api/autoscaling/v1"
 )
 
 func HandleEventWatchFromK8sCluster(echan chan cluster.Event, kind string, oc *HorizontalPodAutoscalerManager) {

@@ -15,10 +15,9 @@ import (
 
 	pk "ufleet-deploy/pkg/resource/pod"
 
+	corev1 "k8s.io/api/core/v1"
+	extensionsv1beta1 "k8s.io/api/extensions/v1beta1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/client-go/pkg/api"
-	corev1 "k8s.io/client-go/pkg/api/v1"
-	extensionsv1beta1 "k8s.io/client-go/pkg/apis/extensions/v1beta1"
 )
 
 var (
@@ -970,18 +969,9 @@ func (p *Deployment) GetRuntimeObjectCopy() (*extensionsv1beta1.Deployment, erro
 		return nil, err
 	}
 
-	newobj, err := api.Scheme.Copy(r.Deployment)
-	if err != nil {
-		return nil, err
-	}
+	obj := r.Deployment.DeepCopy()
 
-	newd, ok := newobj.(*extensionsv1beta1.Deployment)
-	if !ok {
-		err := fmt.Errorf("deep copy object fail, object type doesn't match")
-		return nil, err
-	}
-
-	return newd, nil
+	return obj, nil
 }
 
 func InitDeploymentController(be backend.BackendHandler) (resource.ObjectController, error) {

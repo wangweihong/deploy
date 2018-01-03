@@ -13,8 +13,8 @@ import (
 	"ufleet-deploy/pkg/resource/util"
 	"ufleet-deploy/pkg/sign"
 
+	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	autoscalingv1 "k8s.io/client-go/pkg/apis/autoscaling/v1"
 )
 
 var (

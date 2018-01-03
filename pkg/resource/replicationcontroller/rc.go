@@ -16,8 +16,7 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 
-	"k8s.io/client-go/pkg/api"
-	corev1 "k8s.io/client-go/pkg/api/v1"
+	corev1 "k8s.io/api/core/v1"
 )
 
 var (
@@ -783,18 +782,9 @@ func (s *ReplicationController) GetRuntimeObjectCopy() (*corev1.ReplicationContr
 		return nil, err
 	}
 
-	newobj, err := api.Scheme.Copy(r.ReplicationController)
-	if err != nil {
-		return nil, err
-	}
+	newobj := r.ReplicationController.DeepCopy()
 
-	newd, ok := newobj.(*corev1.ReplicationController)
-	if !ok {
-		err := fmt.Errorf("deep copy object fail, object type doesn't match")
-		return nil, err
-	}
-
-	return newd, nil
+	return newobj, nil
 }
 
 func InitReplicationControllerController(be backend.BackendHandler) (resource.ObjectController, error) {
