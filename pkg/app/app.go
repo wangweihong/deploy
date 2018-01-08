@@ -109,9 +109,13 @@ func (sm *AppMananger) NewApp(groupName, workspaceName, appName string, desc []b
 
 	sm.Locker.Lock()
 	_, err := sm.get(groupName, workspaceName, appName)
-	if err == nil {
+	switch {
+	case err == nil:
 		sm.Locker.Unlock()
 		return ErrResourceExists
+	case err != ErrResourceNotFound:
+		sm.Locker.Unlock()
+		return err
 	}
 	//加锁
 	//
