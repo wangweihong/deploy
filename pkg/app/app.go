@@ -837,15 +837,12 @@ func InitAppController(be backend.BackendHandler) (AppController, error) {
 	}
 
 	for k, v := range rs {
-		log.DebugPrint("group:", k)
 		var group AppGroup
 		group.Workspaces = make(map[string]AppWorkspace)
 		for i, j := range v.Workspaces {
-			log.DebugPrint("workspace:", i)
 			var workspace AppWorkspace
 			workspace.Apps = make(map[string]App)
 			for m, n := range j.Resources {
-				log.DebugPrint("app:", m, n)
 				var app App
 				err := json.Unmarshal([]byte(n), &app)
 				if err != nil {
